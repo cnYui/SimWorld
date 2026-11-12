@@ -23,7 +23,22 @@ def _print(obj):
     print(json.dumps(obj, indent=2, ensure_ascii=False, default=str))
 
 
+def _utf8_stdio():
+    # Output is JSON with Chinese text. A redirected stdout on Windows uses the
+    # ANSI code page (cp1252 on CI, cp936 on Chinese Windows), and the frozen
+    # app ignores PYTHONUTF8, so write UTF-8 whenever we are not on a console.
+    for s in (sys.stdout, sys.stderr):
+        try:
+            if s.isatty():
+                s.reconfigure(errors='replace')
+            else:
+                s.reconfigure(encoding='utf-8', errors='replace')
+        except (AttributeError, ValueError, OSError):
+            pass
+
+
 def main(argv=None):
+    _utf8_stdio()
     ap = argparse.ArgumentParser(prog='emcosim', description='ESP32 + power + MuJoCo co-simulation')
     ap.add_argument('--version', action='version', version=__version__)
     ap.add_argument('--project', '-p', default='.', help='project directory (default: .)')
