@@ -16,44 +16,62 @@ export function createPanel(ctx) {
   let main3d = null, angleChart = null, forceChart = null;
   let pendingJob = null, selected = null;
 
+  // layout: left nav (collapsible) | centre (3D view or PCB page) | right sidebar (tests, tools, live state)
+  //         with the play bar and the two charts fixed under the centre.
+  let navCollapsed = false;
+  try { navCollapsed = localStorage.getItem('emcosim.panel.nav') === 'collapsed'; } catch { /* storage off */ }
+  const navItem = (id, ic, label) => h('button', { class: 'pn-nav-item', 'data-tab': id, title: label, onclick: () => setTab(id) },
+    icon(ic), h('span', { class: 'pn-nav-label' }, label));
   el.append(
-    h('header', { class: 'pn-head' },
-      h('div', { class: 'pn-title' }, h('strong', {}, '开关机器人仿真'), D.sub = h('span', { class: 'muted' }, '')),
-      h('div', { class: 'pn-tabs', role: 'tablist' },
-        D.tabSim = h('button', { role: 'tab', class: 'active', onclick: () => setTab('sim') }, '仿真'),
-        D.tabPcb = h('button', { role: 'tab', onclick: () => setTab('pcb') }, 'PCB 元件')),
-      D.tests = h('div', { class: 'pn-tests', role: 'group', 'aria-label': '选择测试' }),
-      h('div', { class: 'pn-tools' },
-        h('button', { class: 'btn ghost', onclick: () => showAiSetup(), title: '让你的 Claude Code 或 Codex 来改模型、改板子、跑测试' }, '连接 AI'),
-        h('button', { class: 'btn ghost', onclick: () => ctx.setAdvanced(true), title: '参数表、扫参、打印、设置' }, '高级功能'))),
-    D.banner = h('div', { class: 'pn-banner', hidden: true }),
-    D.pcb = h('div', { class: 'pn-pcb', hidden: true },
-      h('div', { class: 'pn-circuit-wrap' },
-        h('div', { class: 'pn-legend' }, h('strong', {}, '电路原理（跟着仿真动）'),
-          h('span', { class: 'muted' }, '线越粗电流越大，变红表示电压掉得太低')),
-        D.circuit = h('div', { class: 'pn-circuit' })),
-      D.pcbPlaySlot = h('div'),
-      D.check = h('div', { class: 'pn-check' }),
-      D.parts = h('div', { class: 'pn-parts-wrap' })),
-    D.sim = h('div', { class: 'pn-sim' },
-    h('div', { class: 'pn-body' },
-      D.view = h('div', { class: 'pn-view' }, h('span', { class: 'pn-tag' }, '打印件、PCB 与外壳同一场景')),
-      D.readout = h('div', { class: 'pn-readout' })),
-    D.simPlaySlot = h('div'),
-    h('div', { class: 'pn-charts' },
-      h('div', { class: 'pn-chart' }, h('div', { class: 'pn-legend' },
-        h('span', { style: { color: 'var(--s2)' } }, '按压臂角度'), h('span', { style: { color: 'var(--s1)' } }, '翘板角度'),
-        h('span', { class: 'muted' }, '角度 / °')), D.angleCv = h('canvas')),
-      h('div', { class: 'pn-chart' }, h('div', { class: 'pn-legend' },
-        h('span', { style: { color: 'var(--s3)' } }, '按压接触力'), D.limitLab = h('span', { style: { color: 'var(--bad)' } }, ''),
-        h('span', { class: 'muted' }, '力 / N')), D.forceCv = h('canvas')))),
-    h('footer', { class: 'pn-foot muted' }, '电机、电源、开关参数是估计值，没有用实物测过；结果用来比较方案，不当作精确数值。'),
+    D.nav = h('nav', { class: 'pn-nav', 'aria-label': '页面' },
+      D.navToggle = h('button', { class: 'pn-nav-toggle', onclick: () => setNav(!navCollapsed) }, icon('chevron')),
+      h('div', { class: 'pn-nav-brand' }, h('strong', {}, '开关机器人'), h('span', { class: 'muted small' }, '电子 + 物理仿真')),
+      D.tabSim = navItem('sim', 'cube', '仿真'),
+      D.tabPcb = navItem('pcb', 'board', 'PCB 元件')),
+    h('div', { class: 'pn-main' },
+      D.banner = h('div', { class: 'pn-banner', hidden: true }),
+      D.sim = h('div', { class: 'pn-sim' },
+        D.view = h('div', { class: 'pn-view' }, h('span', { class: 'pn-tag' }, '打印件、PCB 与外壳同一场景'))),
+      D.pcb = h('div', { class: 'pn-pcb', hidden: true },
+        h('div', { class: 'pn-circuit-wrap' },
+          h('div', { class: 'pn-legend' }, h('strong', {}, '电路原理（跟着仿真动）'),
+            h('span', { class: 'muted' }, '线越粗电流越大，变红表示电压掉得太低')),
+          D.circuit = h('div', { class: 'pn-circuit' })),
+        D.check = h('div', { class: 'pn-check' }),
+        D.parts = h('div', { class: 'pn-parts-wrap' }))),
+    h('div', { class: 'pn-bottom' },
+      D.play = h('div', { class: 'pn-play' },
+        D.playBtn = h('button', { class: 'btn icon', 'aria-label': '播放', onclick: () => togglePlay() }, '▶'),
+        D.slider = h('input', { type: 'range', min: 0, max: 1000, value: 0, 'aria-label': '时间' }),
+        D.time = h('span', { class: 'mono pn-time' }, '0.00 s')),
+      h('div', { class: 'pn-charts' },
+        h('div', { class: 'pn-chart' }, h('div', { class: 'pn-legend' },
+          h('span', { style: { color: 'var(--s2)' } }, '按压臂角度'), h('span', { style: { color: 'var(--s1)' } }, '翘板角度'),
+          h('span', { class: 'muted' }, '角度 / °')), D.angleCv = h('canvas')),
+        h('div', { class: 'pn-chart' }, h('div', { class: 'pn-legend' },
+          h('span', { style: { color: 'var(--s3)' } }, '按压接触力'), D.limitLab = h('span', { style: { color: 'var(--bad)' } }, ''),
+          h('span', { class: 'muted' }, '力 / N')), D.forceCv = h('canvas')))),
+    h('aside', { class: 'pn-side', 'aria-label': '测试和状态' },
+      h('div', { class: 'pn-side-sec' },
+        h('div', { class: 'pn-side-title' }, '测试'),
+        D.tests = h('div', { class: 'pn-tests', role: 'group', 'aria-label': '选择测试' })),
+      h('div', { class: 'pn-side-sec' },
+        h('div', { class: 'pn-side-title' }, '状态'),
+        D.readout = h('div', { class: 'pn-readout' })),
+      h('div', { class: 'pn-side-sec pn-tools' },
+        h('button', { class: 'btn', onclick: () => showAiSetup(), title: '让你的 Claude Code 或 Codex 来改模型、改板子、跑测试' }, icon('link'), '连接 AI'),
+        h('button', { class: 'btn', onclick: () => ctx.setAdvanced(true), title: '参数表、扫参、打印、设置' }, icon('sliders'), '高级功能')),
+      h('div', { class: 'pn-foot muted' }, '电机、电源、开关参数是估计值，没有用实物测过；结果用来比较方案，不当作精确数值。')),
   );
-  D.play = h('div', { class: 'pn-play' },
-    D.playBtn = h('button', { class: 'btn icon', 'aria-label': '播放', onclick: () => togglePlay() }, '▶'),
-    D.slider = h('input', { type: 'range', min: 0, max: 1000, value: 0, 'aria-label': '时间' }),
-    D.time = h('span', { class: 'mono pn-time' }, '0.00 s'));
-  D.simPlaySlot.replaceWith(D.play);
+  function setNav(collapsed) {
+    navCollapsed = collapsed;
+    el.classList.toggle('nav-collapsed', collapsed);
+    D.navToggle.title = collapsed ? '展开菜单' : '收起菜单';
+    D.navToggle.setAttribute('aria-label', D.navToggle.title);
+    try { localStorage.setItem('emcosim.panel.nav', collapsed ? 'collapsed' : 'open'); } catch { /* storage off */ }
+  }
+  setNav(navCollapsed);
+  D.tabSim.classList.add('active');
   D.slider.addEventListener('input', () => { stop(); setTime(D.slider.value / 1000 * dur); });
 
   // ------------------------------------------------------------ tests row
@@ -81,7 +99,7 @@ export function createPanel(ctx) {
     }
     if (selected) {
       const r = latestRun(selected);
-      D.tests.append(h('button', { class: 'btn ghost sm', disabled: !!pendingJob, onclick: () => run(selected), title: '用当前参数重新跑一次' },
+      D.tests.append(h('button', { class: 'btn', disabled: !!pendingJob, onclick: () => run(selected), title: '用当前参数重新跑一次' },
         r ? '重新运行' : '运行'));
     }
   }
@@ -218,9 +236,6 @@ export function createPanel(ctx) {
   function summarize() {
     const checks = meta.checks || [];
     const failed = checks.filter((c) => !c.pass);
-    const name = typeof meta.scenario === 'string' ? meta.scenario : (selected || '');
-    const title = store.project?.scenario_info?.[name]?.title || meta.scenario?.title || name;
-    D.sub.textContent = title;
     if (!checks.length) setBanner('', '');
     else if (!failed.length) setBanner('ok', `测试通过：${checks.map((c) => c.note).filter(Boolean).join('，') || '全部检查都满足'}`);
     else setBanner('bad', `没通过：${failed.map(explain).join('；')}`);
@@ -293,7 +308,7 @@ export function createPanel(ctx) {
   // ------------------------------------------------------------ live circuit
   function renderCircuit() {
     if (!D.circuit) return;
-    if (!runId) { D.circuit.innerHTML = '<div class="muted">先在上面选一个测试。</div>'; return; }
+    if (!runId) { D.circuit.innerHTML = '<div class="muted">先在右边选一个测试。</div>'; return; }
     const bench = !!sig['node.usb5v.v'];
     const v = (n) => at(n, tNow);
     const vin = bench ? v('node.usb5v.v') : v('node.vin5.v'), vs = bench ? vin : v('node.v5_servo.v');
@@ -340,7 +355,7 @@ export function createPanel(ctx) {
   }
 
   function renderReadout() {
-    if (!runId) { clear(D.readout).append(h('div', { class: 'muted' }, '在上面选一个测试，会自动开始仿真并回放。')); return; }
+    if (!runId) { clear(D.readout).append(h('div', { class: 'muted' }, '在右边选一个测试，会自动开始仿真并回放。')); return; }
     const rocker = at('joint.rocker_axis.deg', tNow), arm = at('joint.servo_axis.deg', tNow);
     const f = at('probe.press.force_n', tNow), tq = at('act.servo1.torque', tNow), tgt = at('act.servo1.target_deg', tNow);
     const v5 = sig['node.usb5v.v'] ? at('node.usb5v.v', tNow) : at('node.vin5.v', tNow);
@@ -386,8 +401,8 @@ export function createPanel(ctx) {
     tab = t;
     D.tabSim.classList.toggle('active', t === 'sim'); D.tabPcb.classList.toggle('active', t === 'pcb');
     D.sim.hidden = t !== 'sim'; D.pcb.hidden = t !== 'pcb';
-    if (t === 'pcb') { D.pcbPlaySlot.after(D.play); renderPcb(); renderCircuit(); renderCheck(); }
-    else { D.view.parentElement.after(D.play); main3d?.resize(); }
+    if (t === 'pcb') { renderPcb(); renderCircuit(); renderCheck(); }
+    else main3d?.resize();
   }
 
   function openShop(url) {
