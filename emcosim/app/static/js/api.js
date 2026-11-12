@@ -56,3 +56,8 @@ export function connectEvents(onEvent, onState) {
   es.onerror = () => onState(es.readyState === EventSource.CLOSED ? 'closed' : 'reconnecting');
   return es;
 }
+
+/** URL for <img> and links: those can't send the token header, so it goes in the query. */
+export function authUrl(path) {
+  return '/api/' + path + (path.includes('?') ? '&' : '?') + 'token=' + encodeURIComponent(token || '');
+}

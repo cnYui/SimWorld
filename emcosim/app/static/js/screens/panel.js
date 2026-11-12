@@ -1,6 +1,6 @@
 // The simple panel: pick a test, it runs, and you watch it. One screen, no setup.
 // 3D view + live readout + two charts (angles, contact force).
-import { get, post } from '../api.js';
+import { get, post, authUrl } from '../api.js';
 import { store } from '../store.js';
 import { h, icon, clear, toast, toastError, fmtNum, cssVar } from '../ui.js';
 import { TimeChart } from '../chart.js';
@@ -18,9 +18,14 @@ export function createPanel(ctx) {
   el.append(
     h('header', { class: 'pn-head' },
       h('div', { class: 'pn-title' }, h('strong', {}, '开关机器人仿真'), D.sub = h('span', { class: 'muted' }, '')),
+      h('div', { class: 'pn-tabs', role: 'tablist' },
+        D.tabSim = h('button', { role: 'tab', class: 'active', onclick: () => setTab('sim') }, '仿真'),
+        D.tabPcb = h('button', { role: 'tab', onclick: () => setTab('pcb') }, 'PCB 元件')),
       D.tests = h('div', { class: 'pn-tests', role: 'group', 'aria-label': '选择测试' }),
       h('div', { class: 'pn-tools' },
         h('button', { class: 'btn ghost', onclick: () => ctx.setAdvanced(true), title: '参数表、扫参、打印、设置' }, '高级功能'))),
+    D.pcb = h('div', { class: 'pn-pcb', hidden: true }),
+    D.sim = h('div', { class: 'pn-sim' },
     D.banner = h('div', { class: 'pn-banner', hidden: true }),
     h('div', { class: 'pn-body' },
       D.view = h('div', { class: 'pn-view' }, h('span', { class: 'pn-tag' }, '打印件、PCB 与外壳同一场景')),
@@ -35,7 +40,7 @@ export function createPanel(ctx) {
         h('span', { class: 'muted' }, '角度 / °')), D.angleCv = h('canvas')),
       h('div', { class: 'pn-chart' }, h('div', { class: 'pn-legend' },
         h('span', { style: { color: 'var(--s3)' } }, '按压接触力'), D.limitLab = h('span', { style: { color: 'var(--bad)' } }, ''),
-        h('span', { class: 'muted' }, '力 / N')), D.forceCv = h('canvas'))),
+        h('span', { class: 'muted' }, '力 / N')), D.forceCv = h('canvas')))),
     h('footer', { class: 'pn-foot muted' }, '电机、电源、开关参数是估计值，没有用实物测过；结果用来比较方案，不当作精确数值。'),
   );
   D.slider.addEventListener('input', () => { stop(); setTime(D.slider.value / 1000 * dur); });
@@ -231,6 +236,55 @@ export function createPanel(ctx) {
   }
   function stop() { playing = false; D.playBtn.textContent = '▶'; D.playBtn.setAttribute('aria-label', '播放'); }
   function togglePlay() { playing ? stop() : play(); }
+
+  // ------------------------------------------------------------ PCB parts page
+  let tab = 'sim', boards = null, boardImg = 'board';
+  function setTab(t) {
+    tab = t;
+    D.tabSim.classList.toggle('active', t === 'sim'); D.tabPcb.classList.toggle('active', t === 'pcb');
+    D.sim.hidden = t !== 'sim'; D.tests.hidden = t !== 'sim'; D.pcb.hidden = t !== 'pcb';
+    if (t === 'pcb') { stop(); renderPcb(); } else main3d?.resize();
+  }
+
+  function openShop(url) {
+    if (window.pywebview?.api?.open_external) window.pywebview.api.open_external(url);
+    else window.open(url, '_blank', 'noopener');
+  }
+  const shopUrl = (c) => `https://so.szlcsc.com/global.html?k=${encodeURIComponent(c)}`;
+
+  async function renderPcb() {
+    if (!boards) {
+      clear(D.pcb).append(h('div', { class: 'muted' }, '读取中…'));
+      try { boards = await get('boards'); } catch (e) { clear(D.pcb).append(h('div', { class: 'pn-banner bad' }, e.message)); return; }
+    }
+    const b = boards[0];
+    if (!b) { clear(D.pcb).append(h('div', { class: 'pn-banner' }, '这个工程还没有元件清单（pcb/<板名>/parts.json）。')); return; }
+    const total = b.parts.reduce((n, p) => n + (p.qty || 0), 0);
+    const img = b.images?.[boardImg];
+    clear(D.pcb).append(
+      h('div', { class: 'pn-pcb-head' },
+        h('div', {}, h('strong', {}, b.board), h('span', { class: 'muted' }, `  ${b.parts.length} 种元件，共 ${total} 个`)),
+        h('div', { class: 'pn-tabs small' },
+          ...['board', 'schematic'].filter((k) => b.images?.[k]).map((k) => h('button', {
+            class: boardImg === k ? 'active' : '', onclick: () => { boardImg = k; renderPcb(); },
+          }, k === 'board' ? 'PCB 图' : '原理图')))),
+      h('div', { class: 'pn-pcb-body' },
+        h('div', { class: 'pn-pcb-img' }, img ? h('img', { src: authUrl(`boards/${b.id}/${img}`), alt: boardImg === 'board' ? 'PCB 图' : '原理图' }) : null),
+        h('div', { class: 'pn-pcb-table' },
+          h('table', { class: 'pn-parts' },
+            h('thead', {}, h('tr', {}, ['位号', '元件', '用途', '数量', '焊接', '立创料号'].map((x) => h('th', {}, x)))),
+            h('tbody', {}, b.parts.map((p) => h('tr', {},
+              h('td', { class: 'mono' }, p.refs.join(', ')),
+              h('td', {}, h('div', {}, p.name), h('div', { class: 'muted small' }, p.manufacturer || '')),
+              h('td', {}, p.role || ''),
+              h('td', { class: 'num' }, String(p.qty)),
+              h('td', {}, p.mount === 'THT' ? '插件' : '贴片', h('div', { class: 'muted small' }, p.jlc_library || '')),
+              h('td', {}, h('a', { href: shopUrl(p.lcsc), class: 'mono', title: `在立创商城打开 ${p.lcsc}`,
+                onclick: (e) => { e.preventDefault(); openShop(shopUrl(p.lcsc)); } }, p.lcsc, ' ↗'))))))),
+      ),
+      h('div', { class: 'muted small' }, `料号和库存是 ${b.checked_at} 在嘉立创 EDA 和立创商城核对的；点料号会打开立创商城对应的商品。整板也可以直接把 Gerber、BOM、坐标文件上传到嘉立创下单贴片。`),
+    );
+  }
 
   // ------------------------------------------------------------ lifecycle
   async function ensureProject() {

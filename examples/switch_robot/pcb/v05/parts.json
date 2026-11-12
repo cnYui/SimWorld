@@ -1,0 +1,329 @@
+{
+ "board": "Switch Robot Carrier V0.5",
+ "source": "electronics/v05/parts_check.json (PR #3, commit 861aadb)",
+ "checked_at": "2026-11-12",
+ "images": {
+  "board": "board.png",
+  "schematic": "schematic.png"
+ },
+ "parts": [
+  {
+   "lcsc": "C492401",
+   "refs": [
+    "J1",
+    "J4",
+    "J5"
+   ],
+   "qty": 3,
+   "name": "PZ254V-11-02P",
+   "manufacturer": "XFCN(兴飞)",
+   "role": "5V 输入 PZ254 2P",
+   "spec": "插针结构:1x2P;间距:2.54mm;行距:-;圆针/方针:方针;安装方式:直插;排数:单排;总PIN位数:2P;额定电流:3A;额定电压:250V;配合针长度:6.1mm;塑高:2.5mm;端接针长度:3mm;触头材质:黄铜;触头镀层:金;工作温度:-40℃~+105℃;颜色:黑色;",
+   "package": "HDR-TH_2P-P2.54-V-M",
+   "mount": "THT",
+   "jlc_library": "扩展库",
+   "stock": 768500,
+   "checked_at": "2026-11-12"
+  },
+  {
+   "lcsc": "C165948",
+   "refs": [
+    "USB1"
+   ],
+   "qty": 1,
+   "name": "TYPE-C-31-M-12",
+   "manufacturer": "韩国韩荣",
+   "role": "USB-C 16P USB2.0",
+   "spec": "连接器类型:Type-C;协议标准:-;公母:母;安装方式:卧贴;触点数量:16P;端口数量:1;额定电流 - 电源:5A;工作温度:-30℃~+80℃;",
+   "package": "USB-C_SMD-TYPE-C-31-M-12_1",
+   "mount": "SMT",
+   "jlc_library": "扩展库",
+   "stock": 263870,
+   "checked_at": "2026-11-12"
+  },
+  {
+   "lcsc": "C23186",
+   "refs": [
+    "R7",
+    "R8"
+   ],
+   "qty": 2,
+   "name": "0603WAF5101T5E",
+   "manufacturer": "UNI-ROYAL(厚声)",
+   "role": "5.1k CC1 下拉",
+   "spec": "电阻类型:厚膜电阻;阻值:5.1kΩ;精度:±1%;功率:100mW;工作电压:75V;温度系数:±100ppm/℃;",
+   "package": "R0603",
+   "mount": "SMT",
+   "jlc_library": "基础库",
+   "stock": 14441900,
+   "checked_at": "2026-11-12"
+  },
+  {
+   "lcsc": "C8678",
+   "refs": [
+    "D1"
+   ],
+   "qty": 1,
+   "name": "SS34",
+   "manufacturer": "MDD(辰达半导体)",
+   "role": "SS34 VBUS→VIN5 肖特基",
+   "spec": "二极管配置:独立式;正向压降(Vf):550mV@3A;直流反向耐压(Vr):40V;整流电流:3A;",
+   "package": "SMA_L4.3-W2.6-LS5.2-RD",
+   "mount": "SMT",
+   "jlc_library": "基础库",
+   "stock": 1955140,
+   "checked_at": "2026-11-12"
+  },
+  {
+   "lcsc": "C5395",
+   "refs": [
+    "F1"
+   ],
+   "qty": 1,
+   "name": "RUEF110",
+   "manufacturer": "Littelfuse(美国力特)",
+   "role": "RUEF110 自恢复保险丝",
+   "spec": "耐压(Vmax):30V;最大电流(Imax):100A;保持电流(Ihold):1.1A;跳闸电流(Itrip):2.2A;",
+   "package": "FUSE-TH_L7.0-W3.1-P5.08-D1.2",
+   "mount": "THT",
+   "jlc_library": "扩展库",
+   "stock": 935,
+   "checked_at": "2026-11-12"
+  },
+  {
+   "lcsc": "C713400",
+   "refs": [
+    "C1"
+   ],
+   "qty": 1,
+   "name": "EEUFR1E471B",
+   "manufacturer": "PANASONIC(松下)",
+   "role": "470uF 25V 电解",
+   "spec": "容值:470uF;精度:±20%;额定电压:25V;纹波电流:967.5mA@120Hz;等效串联电阻(ESR):-;",
+   "package": "CAP-TH_BD10.0-P5.00-D0.6-FD",
+   "mount": "THT",
+   "jlc_library": "扩展库",
+   "stock": 380,
+   "checked_at": "2026-11-12"
+  },
+  {
+   "lcsc": "C14663",
+   "refs": [
+    "C2",
+    "C6"
+   ],
+   "qty": 2,
+   "name": "CC0603KRX7R9BB104",
+   "manufacturer": "YAGEO(国巨)",
+   "role": "100nF 舵机电源",
+   "spec": "容值:100nF;精度:±10%;额定电压:50V;温度系数:X7R;",
+   "package": "C0603",
+   "mount": "SMT",
+   "jlc_library": "基础库",
+   "stock": 17200,
+   "checked_at": "2026-11-12"
+  },
+  {
+   "lcsc": "C2937625",
+   "refs": [
+    "J3"
+   ],
+   "qty": 1,
+   "name": "PZ254V-11-03P",
+   "manufacturer": "XFCN(兴飞)",
+   "role": "舵机 PZ254 3P",
+   "spec": "插针结构:1x3P;间距:2.54mm;行距:-;圆针/方针:方针;安装方式:直插;排数:单排;总PIN位数:3P;额定电流:3A;额定电压:250V;配合针长度:6.1mm;塑高:2.5mm;端接针长度:3mm;触头材质:黄铜;触头镀层:金;工作温度:-40℃~+105℃;颜色:黑色;",
+   "package": "HDR-TH_3P-P2.54-V-M_PZ254V-11-03P",
+   "mount": "THT",
+   "jlc_library": "扩展库",
+   "stock": 960640,
+   "checked_at": "2026-11-12"
+  },
+  {
+   "lcsc": "C6186",
+   "refs": [
+    "U4"
+   ],
+   "qty": 1,
+   "name": "AMS1117-3.3",
+   "manufacturer": "Advanced Monolithic Systems",
+   "role": "AMS1117-3.3",
+   "spec": "输出极性:正极;工作电压:15V;输出电压:3.3V;输出电流:1A;电源纹波抑制比(PSRR):72dB@(120Hz);输出类型:固定;",
+   "package": "SOT-223-3_L6.5-W3.4-P2.30-LS7.0-BR",
+   "mount": "SMT",
+   "jlc_library": "基础库",
+   "stock": 1002620,
+   "checked_at": "2026-11-12"
+  },
+  {
+   "lcsc": "C15850",
+   "refs": [
+    "C3",
+    "C4",
+    "C5"
+   ],
+   "qty": 3,
+   "name": "CL21A106KAYNNNE",
+   "manufacturer": "SAMSUNG(三星)",
+   "role": "10uF LDO 输入",
+   "spec": "容值:10uF;精度:±10%;额定电压:25V;温度系数:X5R;",
+   "package": "C0805",
+   "mount": "SMT",
+   "jlc_library": "基础库",
+   "stock": 1790160,
+   "checked_at": "2026-11-12"
+  },
+  {
+   "lcsc": "C2838502",
+   "refs": [
+    "U3"
+   ],
+   "qty": 1,
+   "name": "ESP32-C3-MINI-1-N4",
+   "manufacturer": "ESPRESSIF(乐鑫)",
+   "role": "ESP32-C3-MINI-1-N4",
+   "spec": "SMD module, ESP32-C3FN4, PCB antenna, -40?C ~ +85?C",
+   "package": "WIFIM-SMD_ESP32-C3-MINI-1",
+   "mount": "SMT",
+   "jlc_library": "扩展库",
+   "stock": 13494,
+   "checked_at": "2026-11-12"
+  },
+  {
+   "lcsc": "C25804",
+   "refs": [
+    "R9",
+    "R10",
+    "R11",
+    "R12"
+   ],
+   "qty": 4,
+   "name": "0603WAF1002T5E",
+   "manufacturer": "UNI-ROYAL(厚声)",
+   "role": "10k EN 上拉",
+   "spec": "电阻类型:厚膜电阻;阻值:10kΩ;精度:±1%;功率:100mW;工作电压:75V;温度系数:±100ppm/℃;",
+   "package": "R0603",
+   "mount": "SMT",
+   "jlc_library": "基础库",
+   "stock": 3711800,
+   "checked_at": "2026-11-12"
+  },
+  {
+   "lcsc": "C15849",
+   "refs": [
+    "C7"
+   ],
+   "qty": 1,
+   "name": "CL10A105KB8NNNC",
+   "manufacturer": "SAMSUNG(三星)",
+   "role": "1uF EN 延时",
+   "spec": "容值:1uF;精度:±10%;额定电压:50V;温度系数:X5R;",
+   "package": "C0603",
+   "mount": "SMT",
+   "jlc_library": "基础库",
+   "stock": 1380200,
+   "checked_at": "2026-11-12"
+  },
+  {
+   "lcsc": "C318884",
+   "refs": [
+    "SW1",
+    "SW2"
+   ],
+   "qty": 2,
+   "name": "TS-1187A-B-A-B",
+   "manufacturer": "XKB Connection(中国星坤)",
+   "role": "RESET 按键",
+   "spec": "电路结构:单刀单掷;按钮形状:圆形按钮;作用力:1.6N;安装方式:立贴;开关长度:5.1mm;开关宽度:5.1mm;开关高度:1.5mm;带支架:不带支架;触点电流:50mA;额定电压:12V;带灯:无;工作寿命:10万次;",
+   "package": "SW-SMD_4P-L5.1-W5.1-P3.70-LS6.5-TL_H1.5",
+   "mount": "SMT",
+   "jlc_library": "基础库",
+   "stock": 545200,
+   "checked_at": "2026-11-12"
+  },
+  {
+   "lcsc": "C492403",
+   "refs": [
+    "J6"
+   ],
+   "qty": 1,
+   "name": "PZ254V-11-04P",
+   "manufacturer": "XFCN(兴飞)",
+   "role": "UART0 调试排针 4P（可不焊）",
+   "spec": "插针结构:1x4P;间距:2.54mm;行距:-;圆针/方针:方针;安装方式:直插;排数:单排;总PIN位数:4P;额定电流:3A;额定电压:250V;配合针长度:6.1mm;塑高:2.5mm;端接针长度:3mm;触头材质:黄铜;触头镀层:金;工作温度:-40℃~+105℃;颜色:黑色;",
+   "package": "HDR-TH_4P-P2.54-V-M",
+   "mount": "THT",
+   "jlc_library": "扩展库",
+   "stock": 60300,
+   "checked_at": "2026-11-12"
+  },
+  {
+   "lcsc": "C22962",
+   "refs": [
+    "R5"
+   ],
+   "qty": 1,
+   "name": "0603WAF2200T5E",
+   "manufacturer": "UNI-ROYAL(厚声)",
+   "role": "220R PWM 串阻",
+   "spec": "电阻类型:厚膜电阻;阻值:220Ω;精度:±1%;功率:100mW;最大工作电压:75V;温度系数:±100ppm/℃;",
+   "package": "R0603",
+   "mount": "SMT",
+   "jlc_library": "基础库",
+   "stock": 968300,
+   "checked_at": "2026-11-12"
+  },
+  {
+   "lcsc": "C25803",
+   "refs": [
+    "R6",
+    "R3",
+    "R4"
+   ],
+   "qty": 3,
+   "name": "0603WAF1003T5E",
+   "manufacturer": "UNI-ROYAL(厚声)",
+   "role": "100k PWM 下拉",
+   "spec": "电阻类型:厚膜电阻;阻值:100kΩ;精度:±1%;功率:100mW;工作电压:75V;温度系数:±100ppm/℃;",
+   "package": "R0603",
+   "mount": "SMT",
+   "jlc_library": "基础库",
+   "stock": 6187100,
+   "checked_at": "2026-11-12"
+  },
+  {
+   "lcsc": "C23179",
+   "refs": [
+    "R1",
+    "R2"
+   ],
+   "qty": 2,
+   "name": "0603WAF4700T5E",
+   "manufacturer": "UNI-ROYAL(厚声)",
+   "role": "470R U1 LED",
+   "spec": "电阻类型:厚膜电阻;阻值:470Ω;精度:±1%;功率:100mW;工作电压:75V;温度系数:±100ppm/℃;",
+   "package": "R0603",
+   "mount": "SMT",
+   "jlc_library": "基础库",
+   "stock": 1133900,
+   "checked_at": "2026-11-12"
+  },
+  {
+   "lcsc": "C29276",
+   "refs": [
+    "U1",
+    "U2"
+   ],
+   "qty": 2,
+   "name": "AQY212EHAX",
+   "manufacturer": "PANASONIC(松下)",
+   "role": "AQY212EHAX PhotoMOS",
+   "spec": "触点形式:SPST-NO(1 Form A);负载类型:-;正向压降(Vf):1.25V;负载电压:60V;连续负载电流:550mA;导通电阻:850mΩ;",
+   "package": "SOP-4_L6.5-W4.6-P2.54-LS10.2-TR",
+   "mount": "SMT",
+   "jlc_library": "扩展库",
+   "stock": 5666,
+   "checked_at": "2026-11-12"
+  }
+ ]
+}

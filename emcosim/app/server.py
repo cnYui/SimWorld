@@ -387,6 +387,24 @@ class Handler(BaseHTTPRequestHandler):
                 b = dict(b)
                 return api.bind_pin(prj, b.pop('pin'), **b)
 
+        if head == 'boards' and method == 'GET':
+            # Purchasable parts per board: pcb/<board>/parts.json (+ images next to it).
+            root = app.project().root / 'pcb'
+            if len(p) == 1:
+                out = []
+                for f in sorted(root.glob('*/parts.json')):
+                    d = json.loads(f.read_text(encoding='utf8'))
+                    d['id'] = f.parent.name
+                    out.append(d)
+                return out
+            if len(p) == 3 and re.fullmatch(r'[\w\-]+', p[1]) and re.fullmatch(r'[\w\-]+\.(png|jpg|jpeg|svg)', p[2]):
+                f = root / p[1] / p[2]
+                if not f.is_file():
+                    raise ApiError('not found', 404)
+                self._send(f.read_bytes(), mimetypes.guess_type(f.name)[0] or 'application/octet-stream')
+                return None
+            raise ApiError('not found', 404)
+
         if head == 'pcb' and method == 'GET':
             prj = app.project()
             pcb = prj.pcb()

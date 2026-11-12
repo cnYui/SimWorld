@@ -583,3 +583,24 @@ pre.log { background: var(--sunken); border: 1px solid var(--line); border-radiu
   .pn-charts { flex-basis: auto; }
   .pn-chart canvas { height: 160px; }
 }
+.pn-tabs { display: inline-flex; border: 1px solid var(--line-strong); border-radius: 6px; overflow: hidden; }
+.pn-tabs button { border: 0; background: var(--panel); color: var(--text-2); padding: 6px 14px; font-size: 13px; cursor: pointer; }
+.pn-tabs button + button { border-left: 1px solid var(--line-strong); }
+.pn-tabs button.active { background: var(--accent); color: var(--accent-ink); }
+.pn-tabs.small button { padding: 4px 10px; font-size: 12px; }
+.pn-sim { display: flex; flex-direction: column; gap: 8px; flex: 1; min-height: 0; }
+.pn-sim[hidden], .pn-pcb[hidden], .pn-tests[hidden] { display: none; }
+.pn-pcb { display: flex; flex-direction: column; gap: 8px; flex: 1; min-height: 0; }
+.pn-pcb-head { display: flex; justify-content: space-between; align-items: center; }
+.pn-pcb-body { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr); gap: 10px; flex: 1; min-height: 0; }
+.pn-pcb-img { background: #fff; border: 1px solid var(--line); border-radius: 8px; display: flex; align-items: center; justify-content: center; overflow: auto; }
+.pn-pcb-img img { max-width: 100%; max-height: 100%; object-fit: contain; }
+.pn-pcb-table { overflow: auto; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; }
+.pn-parts { width: 100%; border-collapse: collapse; font-size: 13px; }
+.pn-parts th { position: sticky; top: 0; background: var(--panel-2); text-align: left; font-weight: 600; padding: 7px 8px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+.pn-parts td { padding: 6px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+.pn-parts td.num { text-align: right; }
+.pn-parts a { color: var(--accent); text-decoration: none; white-space: nowrap; }
+.pn-parts a:hover { text-decoration: underline; }
+.small { font-size: 11px; }
+@media (max-width: 900px) { .pn-pcb-body { grid-template-columns: 1fr; } }
