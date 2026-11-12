@@ -13,13 +13,13 @@ $ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue'
 $Root = Split-Path -Parent $PSScriptRoot
 $Tools = Join-Path $Root 'tools'
-$NgspiceVersion = '44.2'
+$NgspiceVersion = '47'
 New-Item -ItemType Directory -Force $Tools | Out-Null
 function Say($m) { Write-Host "`n== $m" -ForegroundColor Cyan }
 function Have($c) { [bool](Get-Command $c -ErrorAction SilentlyContinue) }
 function Fetch($url, $out) {
   Write-Host "downloading $url"
-  & curl.exe -fL --retry 3 -A 'Mozilla/5.0' -o $out $url
+  & curl.exe -fL --retry 3 -o $out $url   # no custom User-Agent: SourceForge's CDN refuses some
   if ($LASTEXITCODE -ne 0) { throw "download failed: $url" }
 }
 
@@ -63,19 +63,18 @@ $ng = Join-Path $Tools 'ngspice'
 if (Test-Path (Join-Path $ng 'Spice64\bin\ngspice_con.exe')) { Write-Host 'already in tools\ngspice' }
 else {
   $arc = Join-Path $Tools "ngspice-${NgspiceVersion}_64.7z"
-  Fetch "https://sourceforge.net/projects/ngspice/files/ng-spice-rework/$NgspiceVersion/ngspice-${NgspiceVersion}_64.7z/download" $arc
-  New-Item -ItemType Directory -Force $ng | Out-Null
-  & tar.exe -xf $arc -C $ng
-  if ($LASTEXITCODE -ne 0) {
-    $7z = @("$env:ProgramFiles\7-Zip\7z.exe", "${env:ProgramFiles(x86)}\7-Zip\7z.exe") | Where-Object { Test-Path $_ } | Select-Object -First 1
-    if (-not $7z -and (Have 'winget')) {
-      winget install -e --id 7zip.7zip --accept-package-agreements --accept-source-agreements
-      $7z = "$env:ProgramFiles\7-Zip\7z.exe"
-    }
-    & $7z x -y "-o$ng" $arc | Out-Null
-    if ($LASTEXITCODE -ne 0) { throw 'could not unpack ngspice' }
+  $base = 'https://sourceforge.net/projects/ngspice/files/ng-spice-rework'
+  try {
+    # current release folder first; SourceForge moves older versions to old-releases/
+    try { Fetch "$base/$NgspiceVersion/ngspice-${NgspiceVersion}_64.7z/download" $arc }
+    catch { Fetch "$base/old-releases/$NgspiceVersion/ngspice-${NgspiceVersion}_64.7z/download" $arc }
+    New-Item -ItemType Directory -Force $ng | Out-Null
+    & tar.exe -xf $arc -C $ng
+    if ($LASTEXITCODE -ne 0) { throw 'tar could not unpack the .7z (install 7-Zip and unpack it into tools\ngspice)' }
+    Remove-Item $arc
+  } catch {
+    Write-Host "ngspice not installed ($_). Circuit checks are skipped until it is there; everything else works." -ForegroundColor Yellow
   }
-  Remove-Item $arc
 }
 
 Say 'Patched QEMU (ESP32 firmware tests)'

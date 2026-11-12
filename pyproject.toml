@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=68"]
+requires = ["setuptools>=77"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -7,7 +7,7 @@ name = "emcosim"
 version = "0.3.0"
 description = "Electronics + physics co-simulation: ESP32 firmware in QEMU, equivalent power/motor models, MuJoCo mechanics, MCP tools for AI agents"
 readme = "README.md"
-license = { text = "Apache-2.0" }
+license = "Apache-2.0"
 requires-python = ">=3.10"
 dependencies = [
   "mujoco>=3.3",
