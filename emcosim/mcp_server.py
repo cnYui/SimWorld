@@ -19,6 +19,7 @@ except ImportError:                     # mcp 1.x
 
 from . import api, calibrate as cal
 from .project import Project, dump_yaml
+from .toolpaths import find_ngspice
 
 
 def build_server(project_root):
@@ -183,7 +184,7 @@ def build_server(project_root):
         """Which board files the project uses and whether KiCad and ngspice are available."""
         import shutil
         from . import eda
-        return {'board': prj().data.get('board'), 'kicad': eda.status(), 'ngspice': shutil.which('ngspice')}
+        return {'board': prj().data.get('board'), 'kicad': eda.status(), 'ngspice': find_ngspice()}
 
     @mcp.tool()
     def board_import(path: str, netlist: str | None = None, name: str | None = None) -> dict:

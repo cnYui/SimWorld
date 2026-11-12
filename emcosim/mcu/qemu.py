@@ -18,6 +18,7 @@ import time
 from pathlib import Path
 
 from .. import firmware as fwmod
+from ..toolpaths import local_qemu
 
 EVT = re.compile(r'^EVT\s+(\S+)\s*(.*)$')
 
@@ -34,11 +35,11 @@ def _bundled_qemu():
 
 
 def find_qemu():
-    exe = os.environ.get('EMCOSIM_QEMU') or _bundled_qemu() or shutil.which('qemu-system-xtensa-cosim') \
-        or shutil.which('qemu-system-xtensa')
+    exe = os.environ.get('EMCOSIM_QEMU') or _bundled_qemu() or local_qemu() \
+        or shutil.which('qemu-system-xtensa-cosim') or shutil.which('qemu-system-xtensa')
     if not exe:
-        raise RuntimeError('No patched qemu-system-xtensa found. Use the Docker image, run '
-                           'platform/qemu/build.sh, or set EMCOSIM_QEMU to the binary.')
+        raise RuntimeError('No patched qemu-system-xtensa found. Run scripts/setup.sh (or scripts\\setup.ps1 on '
+                           'Windows), build it with qemu/build.sh, or set EMCOSIM_QEMU to the binary.')
     roms = os.environ.get('EMCOSIM_QEMU_ROMS')
     if not roms:
         for cand in (Path(exe).resolve().parent / 'share' / 'qemu', Path(exe).resolve().parent.parent / 'share' / 'qemu',

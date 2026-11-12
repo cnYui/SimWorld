@@ -112,9 +112,10 @@ def build(netlist, loads, supply, t_end, lead_l_h=1e-6):
 
 
 def run(circuit, probes, timeout=300):
-    exe = shutil.which('ngspice')
+    from ..toolpaths import find_ngspice
+    exe = find_ngspice()
     if not exe:
-        raise RuntimeError('ngspice not found (Windows: bundled with the installer; Linux: apt install ngspice)')
+        raise RuntimeError('ngspice not found: run scripts/setup.sh or scripts\\setup.ps1, or install ngspice')
     vecs = ' '.join(f'v({_node(n)})' for n in probes)
     text = circuit + f'\n.control\nset wr_singlescale\nrun\nwrdata out.txt {vecs}\n.endc\n.end\n'
     with tempfile.TemporaryDirectory() as tmp:

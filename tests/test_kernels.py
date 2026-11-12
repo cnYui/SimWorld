@@ -1,6 +1,5 @@
 """KiCad (board), ngspice (circuit) and MuJoCo (model) kernels behind the MCP tools."""
 import asyncio
-import shutil
 
 import pytest
 
@@ -8,11 +7,12 @@ from emcosim import api, eda, model_edit
 from emcosim.electrical import board_spice
 from emcosim.mcp_server import build_server
 from emcosim.project import Project
+from emcosim.toolpaths import find_ngspice
 
 from conftest import EXAMPLE
 
 needs_kicad = pytest.mark.skipif(not eda.find_cli() or not eda.find_python(), reason='KiCad not installed')
-needs_ngspice = pytest.mark.skipif(not shutil.which('ngspice'), reason='ngspice not installed')
+needs_ngspice = pytest.mark.skipif(not find_ngspice(), reason='ngspice not installed')
 
 
 @pytest.fixture

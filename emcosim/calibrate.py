@@ -44,9 +44,10 @@ def spice_netlist(power, node, i_step, t_step=1e-3, t_end=12e-3, defaults=None):
 
 
 def run_ngspice(netlist):
-    exe = shutil.which('ngspice')
+    from .toolpaths import find_ngspice
+    exe = find_ngspice()
     if not exe:
-        raise RuntimeError('ngspice not found (apt install ngspice, or use the Docker image)')
+        raise RuntimeError('ngspice not found: run scripts/setup.sh or scripts\\setup.ps1, or install ngspice')
     with tempfile.TemporaryDirectory() as tmp:
         (Path(tmp) / 'cal.cir').write_text(netlist)
         subprocess.run([exe, '-b', 'cal.cir'], cwd=tmp, check=True, capture_output=True, timeout=120)
