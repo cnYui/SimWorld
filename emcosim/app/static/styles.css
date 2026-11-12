@@ -528,3 +528,58 @@ pre.log { background: var(--sunken); border: 1px solid var(--line); border-radiu
 .composer textarea { border: 0; outline: none; background: transparent; resize: none; padding: 8px 10px 2px; min-height: 40px; max-height: 200px; line-height: 1.45; }
 .composer .bar { display: flex; align-items: center; gap: 6px; padding: 4px 6px 6px 10px; font-size: 11.5px; color: var(--text-3); }
 .composer .bar .grow { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* ------------------------------------------------------------------ simple mode + panel */
+.app.simple { grid-template-columns: minmax(0, 1fr) auto; }
+.app.simple .statusbar { grid-column: 1 / -1; }
+.app.simple .rail, .app.simple .chat-wrap { display: none; }
+.rail-simple { font-size: 12px; font-weight: 600; color: var(--text-2); }
+.screen.panel { display: flex; flex-direction: column; gap: 8px; padding: 10px 12px; height: 100%; overflow: auto; }
+.screen.panel[hidden] { display: none; }
+.pn-head { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.pn-title { display: flex; flex-direction: column; min-width: 150px; }
+.pn-title strong { font-size: 16px; }
+.pn-tests { display: flex; gap: 6px; flex-wrap: wrap; flex: 1; align-items: center; }
+.pn-test {
+  border: 1px solid var(--line-strong); background: var(--panel); color: var(--text);
+  border-radius: 6px; padding: 6px 12px; font-size: 13px; cursor: pointer; display: inline-flex; gap: 6px; align-items: center;
+}
+.pn-test:hover { background: var(--hover); }
+.pn-test.active { border-color: var(--accent); background: var(--accent-weak); color: var(--accent); font-weight: 600; }
+.pn-test.blocked { opacity: .5; }
+.pn-pct { font-size: 11px; color: var(--accent); }
+.pn-tools { display: flex; gap: 6px; }
+.pn-banner { padding: 7px 12px; border-radius: 6px; font-size: 13px; background: var(--sunken); }
+.pn-banner.ok { background: var(--ok-weak); color: var(--ok); }
+.pn-banner.bad { background: var(--bad-weak); color: var(--bad); }
+.pn-banner.busy { background: var(--accent-weak); color: var(--accent); }
+.pn-body { display: grid; grid-template-columns: minmax(0, 1.7fr) minmax(260px, 1fr); gap: 8px; min-height: 300px; flex: 1 1 46%; }
+.pn-view, .pn-side { position: relative; background: var(--view-bg); border-radius: 8px; overflow: hidden; min-height: 0; }
+.pn-view canvas, .pn-side canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.pn-tag { position: absolute; left: 8px; top: 8px; z-index: 1; font-size: 12px; padding: 3px 8px; border-radius: 4px;
+  background: rgba(20, 26, 34, .72); color: #fff; pointer-events: none; }
+.pn-right { display: grid; grid-template-rows: minmax(140px, 1fr) auto; gap: 8px; min-height: 0; }
+.pn-readout { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; font-size: 13px; }
+.pn-state { font-size: 18px; font-weight: 600; display: flex; gap: 12px; align-items: baseline; margin-bottom: 6px; }
+.pn-state .mono { font-size: 13px; font-weight: 400; color: var(--text-2); }
+.pn-state.on { color: var(--ok); }
+.pn-state.off { color: var(--s1); }
+.pn-kv { display: grid; grid-template-columns: 1fr 1fr; gap: 3px 14px; }
+.pn-kv .kv { display: flex; justify-content: space-between; gap: 8px; }
+.pn-kv .k { color: var(--text-3); }
+.pn-kv .kv.bad .v { color: var(--bad); font-weight: 600; }
+.pn-warn { margin-top: 8px; color: var(--warn); }
+.pn-play { display: flex; align-items: center; gap: 10px; }
+.pn-play input[type=range] { flex: 1; }
+.pn-time { font-size: 12px; color: var(--text-2); min-width: 120px; text-align: right; }
+.pn-charts { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; flex: none; }
+.pn-chart { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px; display: flex; flex-direction: column; min-height: 0; }
+.pn-chart canvas { width: 100%; height: 170px; display: block; }
+.pn-legend { display: flex; gap: 12px; font-size: 12px; margin-bottom: 2px; }
+.pn-legend .muted { margin-left: auto; }
+.pn-foot { font-size: 11px; }
+@media (max-width: 900px) {
+  .pn-body, .pn-charts { grid-template-columns: 1fr; }
+  .pn-charts { flex-basis: auto; }
+  .pn-chart canvas { height: 160px; }
+}

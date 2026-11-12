@@ -3,6 +3,7 @@ import { initToken, connectEvents } from './api.js';
 import { store } from './store.js';
 import { h, icon, clear, toast, toastError } from './ui.js';
 import { createStart } from './screens/start.js';
+import { createPanel } from './screens/panel.js';
 import { createOverview } from './screens/overview.js';
 import { createParams } from './screens/params.js';
 import { createScenarios } from './screens/scenarios.js';
@@ -13,6 +14,7 @@ import { createPrint } from './screens/print.js';
 import { createChat } from './chat.js';
 
 const SCREENS = [
+  { id: 'panel', title: '仿真面板', icon: 'results', make: createPanel, simple: true },
   { id: 'start', title: '开始', icon: 'home', make: createStart },
   { id: 'overview', title: '工程总览', icon: 'overview', make: createOverview, needsProject: true },
   { id: 'params', title: '参数', icon: 'sliders', make: createParams, needsProject: true },
@@ -64,8 +66,20 @@ function show(id, arg) {
 
 function fromHash() {
   const m = location.hash.match(/^#\/([\w-]+)(?:\/(.+))?/);
-  if (m) show(m[1], m[2] ? decodeURIComponent(m[2]) : undefined);
-  else show(store.app?.project ? 'overview' : 'start');
+  if (m && (advanced || m[1] === 'panel')) show(m[1], m[2] ? decodeURIComponent(m[2]) : undefined);
+  else show(advanced ? (store.app?.project ? 'overview' : 'start') : 'panel');
+}
+
+// Simple mode (default): only the panel. Advanced mode shows the navigation rail
+// with parameters, sweeps, printing and settings.
+let advanced = false;
+try { advanced = localStorage.getItem('emcosim.advanced') === '1'; } catch (e) { /* ignore */ }
+function setAdvanced(on) {
+  advanced = !!on;
+  try { localStorage.setItem('emcosim.advanced', advanced ? '1' : '0'); } catch (e) { /* ignore */ }
+  document.getElementById('app').classList.toggle('simple', !advanced);
+  renderStatus();
+  nav(advanced ? (store.app?.project ? 'overview' : 'start') : 'panel');
 }
 window.addEventListener('popstate', fromHash);
 
@@ -76,11 +90,13 @@ const ctx = {
   toggleChat: (open) => chat.toggle(open),
   askChat: (text) => { chat.toggle(true); chat.prefill(text); },
   currentScreen: () => current,
+  setAdvanced: (on) => setAdvanced(on),
 };
 
 // ------------------------------------------------------------------ rail
 function buildRail() {
   rail.append(h('div', { class: 'logo', title: 'emcosim' }, icon('logo')));
+  rail.append(h('button', { class: 'rail-simple', 'aria-label': '回到简单面板', title: '回到简单面板', onclick: () => setAdvanced(false) }, '简'));
   const tip = h('div', { class: 'rail-tip', hidden: true });
   document.body.append(tip);
   const mk = (s) => {
@@ -91,7 +107,7 @@ function buildRail() {
     }, icon(s.icon));
     return b;
   };
-  SCREENS.filter((s) => !s.bottom).forEach((s) => rail.append(mk(s)));
+  SCREENS.filter((s) => !s.bottom && !s.simple).forEach((s) => rail.append(mk(s)));
   rail.append(h('div', { class: 'spacer' }));
   const chatBtn = h('button', {
     'aria-label': 'AI 助手（Ctrl+J）', id: 'railChat', onclick: () => chat.toggle(),
@@ -134,9 +150,9 @@ function renderStatus() {
       h('span', { class: 'led busy' }), `${job.kind === 'sweep' ? '扫参' : '运行'} ${job.args.scenario}`,
       h('span', { class: 'mini-progress' }, h('i', { style: { width: `${Math.round(job.progress * 100)}%` } })),
       `${Math.round(job.progress * 100)}%`, queued ? ` · 排队 ${queued}` : '') : null,
-    h('button', { class: 'seg', onclick: () => nav('start'), title: q.found ? q.path : (q.error || '') },
+    !advanced ? null : h('button', { class: 'seg', onclick: () => nav('start'), title: q.found ? q.path : (q.error || '') },
       h('span', { class: 'led ' + (q.found ? 'ok' : 'warn') }), q.found ? 'QEMU 就绪' : 'QEMU 未找到'),
-    h('button', { class: 'seg', onclick: () => nav('settings') }, h('span', { class: 'led ' + chatLed }), chatTxt),
+    advanced ? h('button', { class: 'seg', onclick: () => nav('settings') }, h('span', { class: 'led ' + chatLed }), chatTxt) : null,
     h('span', { class: 'seg', title: '与后台的实时连接' },
       h('span', { class: 'led ' + (sseState === 'open' ? 'ok' : sseState === 'closed' ? 'bad' : 'warn') }),
       sseState === 'open' ? '已连接' : sseState === 'closed' ? '已断开' : '重连中'),
@@ -237,7 +253,7 @@ function setupSplitter() {
 }
 
 document.addEventListener('keydown', (e) => {
-  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'j') { e.preventDefault(); chat.toggle(); }
+  if (advanced && (e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'j') { e.preventDefault(); chat.toggle(); }
 });
 
 // ------------------------------------------------------------------ boot
@@ -256,6 +272,7 @@ async function boot() {
     } else fatal('无法连接 emcosim 后台', e.message);
     return;
   }
+  document.getElementById('app').classList.toggle('simple', !advanced);
   buildRail();
   setupSplitter();
   chat = createChat(document.getElementById('chat'), document.getElementById('chatWrap'), ctx);

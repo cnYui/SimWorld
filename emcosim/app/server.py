@@ -123,6 +123,21 @@ def _qemu_status():
         return {'found': False, 'error': str(e)}
 
 
+def _scenario_info(project, texts):
+    """Title / description / whether QEMU is needed, for the simple panel."""
+    import yaml
+    out = {}
+    for name, text in texts.items():
+        try:
+            d = yaml.safe_load(text) or {}
+        except yaml.YAMLError:
+            d = {}
+        backend = d.get('mcu_backend') or (project.data.get('mcu') or {}).get('backend') or 'qemu'
+        out[name] = {'title': d.get('title') or name, 'description': d.get('description') or '',
+                     'needs_qemu': backend == 'qemu', 'duration_s': d.get('duration_s')}
+    return out
+
+
 def _scenario_texts(project):
     out = {}
     d = project.root / 'scenarios'
@@ -285,6 +300,7 @@ class Handler(BaseHTTPRequestHandler):
                 ov = api.project_overview(prj)
                 ov['data'] = prj.data
                 ov['scenario_texts'] = _scenario_texts(prj)
+                ov['scenario_info'] = _scenario_info(prj, ov['scenario_texts'])
                 ov['firmware_params'] = _fw_param_defaults()
                 ov['presets'] = _motor_presets()
                 return ov

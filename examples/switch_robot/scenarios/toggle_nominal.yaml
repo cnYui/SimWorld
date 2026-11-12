@@ -1,13 +1,14 @@
 # Press the button twice: the light should go ON, then OFF again.
 # Nominal hardware: 3 N switch, separate USB supply for the ESP32.
+title: 正常开关两次（真实固件）
 description: Two button presses toggle the light ON then OFF
 duration_s: 4.5
 events:
   - {t: 0.8, press: button1, hold_s: 0.1}
   - {t: 2.8, press: button1, hold_s: 0.1}
 expect:
-  - {signal: joint.rocker_axis.deg, at: 2.6, lt: -2.0, note: switch flipped to ON}
-  - {signal: joint.rocker_axis.deg, at: 4.5, gt: 2.0, note: switch flipped back to OFF}
+  - {signal: joint.rocker_axis.deg, at: 2.6, lt: -2.0, note: 开关拨到了开}
+  - {signal: joint.rocker_axis.deg, at: 4.5, gt: 2.0, note: 开关拨回了关}
   - {metric: mcu.resets, eq: 0}
   - {event: done, eq: 2}
-  - {metric: probe.press.force_n.peak, lt: 6.0, note: design test limit from simulation/README.md}
+  - {metric: probe.press.force_n.peak, lt: 6.0, note: 按压力低于 6 N 限值（simulation/README.md）}

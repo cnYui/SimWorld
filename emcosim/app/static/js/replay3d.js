@@ -135,6 +135,21 @@ export class Replay3D {
     this._framed = true;
   }
 
+  /** Close-up from the side, on the moving parts (press arm + rocker). */
+  sideView(dir = [-1, 0, 0.05], zoom = 1.05) {
+    const desc = this._desc;
+    if (!desc) return;
+    const box = new THREE.Box3();
+    this.bodies.forEach((b, i) => { if (/press_arm|rocker/i.test(desc.bodies[i]) && b.children.length) box.expandByObject(b); });
+    if (box.isEmpty()) this.bodies.forEach((b, i) => { if (desc.bodies[i] !== 'world' && b.children.length) box.expandByObject(b); });
+    const c = box.getCenter(new THREE.Vector3()), size = box.getSize(new THREE.Vector3()).length() || 0.05;
+    this.controls.target.copy(c);
+    this.camera.position.copy(c).add(new THREE.Vector3(...dir).normalize().multiplyScalar(size * zoom));
+    this.controls.update();
+    this._framed = true;
+    this.render();
+  }
+
   resetView() { this._framed = false; if (this._desc) this.frame(this._desc); this.render(); }
 
   get duration() { const f = this.frames; return f ? f.t[f.n - 1] : 0; }

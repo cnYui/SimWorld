@@ -4,6 +4,7 @@
 # limit). A stiff 9 N switch stalls the servo; the stall current hits the port's
 # current limit, the 5 V rail collapses, the dev-board LDO drops out and the
 # ESP32 brown-out detector resets the chip.
+title: 故障：舵机堵转把单片机拖到重启（真实固件）
 description: Servo stalls on a stiff 9 N switch; ESP32 shares the servo's 5 V supply
 duration_s: 3.0
 overrides:
@@ -11,5 +12,5 @@ overrides:
 events:
   - {t: 0.8, press: button1, hold_s: 0.1}
 expect:
-  - {metric: mcu.resets, eq: 0, note: the ESP32 must not reset while the servo pushes}
-  - {signal: joint.rocker_axis.deg, at: 3.0, lt: -2.0, note: switch should end ON}
+  - {metric: mcu.resets, eq: 0, note: 舵机按压时单片机不能重启}
+  - {signal: joint.rocker_axis.deg, at: 3.0, lt: -2.0, note: 最后开关应该停在开}

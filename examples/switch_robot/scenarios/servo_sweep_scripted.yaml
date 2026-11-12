@@ -1,5 +1,6 @@
 # Firmware-free check of the electro-mechanical chain: a scripted MCU drives
 # GPIO18 directly. Fast; used by tests and parameter sweeps.
+title: 舵机按一下再退回（快速）
 description: Scripted PWM drives the arm to -17 deg and back (no QEMU)
 duration_s: 2.0
 mcu_backend: scripted

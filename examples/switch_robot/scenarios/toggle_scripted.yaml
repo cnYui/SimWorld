@@ -1,0 +1,16 @@
+# Press ON then OFF with a scripted MCU (no firmware, no QEMU): the quickest way
+# to see the arm, the rocker and the contact force. Runs anywhere.
+title: 开关一次再关上（快速）
+description: Scripted PWM presses the switch ON, then OFF (no QEMU)
+duration_s: 3.4
+mcu_backend: scripted
+pin_script:
+  - {t: 0.0, pin: 18, pulse_us: 1500}
+  - {t: 0.4, pin: 18, pulse_us: 1311}
+  - {t: 1.1, pin: 18, pulse_us: 1500}
+  - {t: 1.9, pin: 18, pulse_us: 1689}
+  - {t: 2.6, pin: 18, pulse_us: 1500}
+expect:
+  - {signal: joint.rocker_axis.deg, at: 1.6, lt: -2.0, note: 开关拨到了开}
+  - {signal: joint.rocker_axis.deg, at: 3.4, gt: 2.0, note: 开关拨回了关}
+  - {metric: probe.press.force_n.peak, lt: 6.0, note: 按压力低于 6 N 限值}
