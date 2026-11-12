@@ -322,7 +322,7 @@ def build_server(project_root):
         for code, refs in sorted(by_lcsc.items()):
             try:
                 info = parts.part(code)
-                rows.append({'lcsc': code, 'refs': refs, 'mpn': info.get('mpn') or info.get('model'),
+                rows.append({'lcsc': code, 'refs': refs, 'mpn': info.get('model') or info.get('mpn'),
                              'stock': info.get('stock'), 'library_type': info.get('library_type'),
                              'price': info.get('price') or info.get('prices')})
             except Exception as e:
