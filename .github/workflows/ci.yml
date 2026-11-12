@@ -13,6 +13,6 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - run: sudo apt-get update && sudo apt-get install -y --no-install-recommends ngspice
+      - run: sudo apt-get update && sudo apt-get install -y --no-install-recommends ngspice libglu1-mesa libxcursor1 libxinerama1 libxft2 libxrender1
       - run: pip install -e ".[step,dev]"
       - run: pytest -q

@@ -46,7 +46,7 @@ if [ "$SYSTEM" = 1 ]; then
     have ngspice || brew install ngspice
     [ -d /Applications/KiCad ] || ls /Applications/KiCad*/KiCad.app >/dev/null 2>&1 || brew install --cask kicad
   elif have apt-get; then
-    pkgs="ngspice libglib2.0-0 libpixman-1-0 libgcrypt20 libslirp0"
+    pkgs="ngspice libglib2.0-0 libpixman-1-0 libgcrypt20 libslirp0 libglu1-mesa libxcursor1 libxinerama1 libxft2"
     if ! have kicad-cli; then
       if have add-apt-repository && grep -qi ubuntu /etc/os-release; then
         $SUDO add-apt-repository -y ppa:kicad/kicad-9.0-releases
