@@ -3,7 +3,7 @@
 # (this is what the GitHub Actions workflow runs). Produces OUT/ with
 # qemu-system-xtensa.exe, the MinGW DLLs it needs and share/qemu/ ROMs.
 #
-#   pacman -S --needed git mingw-w64-x86_64-{gcc,glib2,pixman,libgcrypt,ninja,meson,python,pkgconf} \
+#   pacman -S --needed git mingw-w64-x86_64-{gcc,glib2,pixman,libgcrypt,ninja,meson,python,python-distlib,python-setuptools,pkgconf} \
 #             bison flex diffutils make
 #   qemu/build-windows.sh /c/out/qemu
 set -euo pipefail
