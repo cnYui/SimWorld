@@ -3,7 +3,7 @@
 # (this is what the GitHub Actions workflow runs). Produces OUT/ with
 # qemu-system-xtensa.exe, the MinGW DLLs it needs and share/qemu/ ROMs.
 #
-#   pacman -S --needed git mingw-w64-x86_64-{gcc,glib2,pixman,libgcrypt,libslirp,ninja,meson,python,pkgconf} \
+#   pacman -S --needed git mingw-w64-x86_64-{gcc,glib2,pixman,libgcrypt,ninja,meson,python,pkgconf} \
 #             bison flex diffutils make
 #   qemu/build-windows.sh /c/out/qemu
 set -euo pipefail
@@ -20,7 +20,7 @@ if ! git apply --reverse --check "$HERE"/0001-*.patch 2>/dev/null; then
   git apply "$HERE"/0001-*.patch
 fi
 mkdir -p build && cd build
-../configure --target-list=xtensa-softmmu --enable-gcrypt --enable-slirp \
+../configure --target-list=xtensa-softmmu --enable-gcrypt --disable-slirp \
   --disable-werror --disable-docs --disable-user --disable-capstone --disable-vnc --disable-sdl \
   --disable-gtk --disable-opengl --disable-guest-agent --disable-tools
 ninja qemu-system-xtensa.exe
