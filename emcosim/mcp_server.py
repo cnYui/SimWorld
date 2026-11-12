@@ -281,6 +281,54 @@ def build_server(project_root):
         res.pop('trace', None)
         return res
 
+    # ------------------------------------------------- parts (JLCPCB / LCSC, built in)
+    @mcp.tool()
+    def parts_search(query: str, limit: int = 10, filters: dict | None = None) -> dict:
+        """Search JLCPCB's in-stock parts in plain words ("10k 0603 1%", "LDO 3.3V SOT-223 1A",
+        "Schottky 40V 3A SMA"). filters: package, manufacturer, library_type ("basic" /
+        "preferred" / "extended"), min_stock, spec_filters, sort_by ... Data: PCB Parts MCP
+        (MIT, pcbparts.dev); stock/price here are the daily snapshot, use part_info for live."""
+        from . import parts
+        return parts.search(query, limit, **(filters or {}))
+
+    @mcp.tool()
+    def part_info(lcsc: str | None = None, mpn: str | None = None) -> dict:
+        """Live JLCPCB/LCSC details for one part by LCSC number (C6186) or manufacturer part number:
+        stock, price tiers, library type (assembly fee), package, datasheet, attributes."""
+        from . import parts
+        return parts.part(lcsc, mpn)
+
+    @mcp.tool()
+    def parts_alternatives(lcsc: str, limit: int = 10, filters: dict | None = None) -> dict:
+        """In-stock replacements for a part, checked for compatibility, cheapest assembly first.
+        filters: same_package, library_type, min_stock."""
+        from . import parts
+        return parts.alternatives(lcsc, limit, **(filters or {}))
+
+    @mcp.tool()
+    def board_parts_status() -> dict:
+        """For every part on the board (netlist LCSC numbers): live stock, price and library type,
+        and which ones are out of stock or extended (assembly fee)."""
+        from . import eda, parts
+        b = prj().data.get('board') or {}
+        if not b.get('netlist'):
+            raise ValueError('board has no netlist')
+        comps = eda.read_netlist(root / b['netlist'])['components']
+        by_lcsc = {}
+        for ref, c in comps.items():
+            if c.get('lcsc'):
+                by_lcsc.setdefault(c['lcsc'], []).append(ref)
+        rows = []
+        for code, refs in sorted(by_lcsc.items()):
+            try:
+                info = parts.part(code)
+                rows.append({'lcsc': code, 'refs': refs, 'mpn': info.get('mpn') or info.get('model'),
+                             'stock': info.get('stock'), 'library_type': info.get('library_type'),
+                             'price': info.get('price') or info.get('prices')})
+            except Exception as e:
+                rows.append({'lcsc': code, 'refs': refs, 'error': str(e)})
+        return {'parts': rows, 'source': parts.CREDIT}
+
     # ---------------------------------------------------------------- mechanics (MuJoCo)
     @mcp.tool()
     def model_info(tag: str | None = None) -> dict:

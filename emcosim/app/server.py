@@ -405,6 +405,16 @@ class Handler(BaseHTTPRequestHandler):
                 return None
             raise ApiError('not found', 404)
 
+        if head == 'part' and len(p) == 2 and method == 'GET':
+            # live stock / price for the PCB page, through the built-in parts lookup
+            from .. import parts
+            if not re.fullmatch(r'C\d{1,10}', p[1]):
+                raise ApiError('bad LCSC number')
+            try:
+                return parts.part(p[1])
+            except parts.PartsUnavailable as e:
+                raise ApiError(str(e), 503)
+
         if head == 'ai_setup' and method == 'GET':
             return _ai_setup(app.project().root)
 

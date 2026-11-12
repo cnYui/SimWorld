@@ -412,18 +412,42 @@ export function createPanel(ctx) {
         h('div', { class: 'pn-pcb-img' }, img ? h('img', { src: authUrl(`boards/${b.id}/${img}`), alt: boardImg === 'board' ? 'PCB 图' : '原理图' }) : null),
         h('div', { class: 'pn-pcb-table' },
           h('table', { class: 'pn-parts' },
-            h('thead', {}, h('tr', {}, ['位号', '元件', '用途', '数量', '焊接', '立创料号'].map((x) => h('th', {}, x)))),
+            h('thead', {}, h('tr', {}, ['位号', '元件', '用途', '数量', '焊接', '现在库存 / 单价', '立创料号'].map((x) => h('th', {}, x)))),
             h('tbody', {}, b.parts.map((p) => h('tr', {},
               h('td', { class: 'mono' }, p.refs.join(', ')),
               h('td', {}, h('div', {}, p.name), h('div', { class: 'muted small' }, p.manufacturer || '')),
               h('td', {}, p.role || ''),
               h('td', { class: 'num' }, String(p.qty)),
               h('td', {}, p.mount === 'THT' ? '插件' : '贴片', h('div', { class: 'muted small' }, p.jlc_library || '')),
+              liveCell(p.lcsc),
               h('td', {}, h('a', { href: shopUrl(p.lcsc), class: 'mono', title: `在立创商城打开 ${p.lcsc}`,
                 onclick: (e) => { e.preventDefault(); openShop(shopUrl(p.lcsc)); } }, p.lcsc, ' ↗'))))))),
       ),
-      h('div', { class: 'muted small' }, `料号和库存是 ${b.checked_at} 在嘉立创 EDA 和立创商城核对的；点料号会打开立创商城对应的商品。整板也可以直接把 Gerber、BOM、坐标文件上传到嘉立创下单贴片。`),
+      h('div', { class: 'muted small' }, `料号是 ${b.checked_at} 在嘉立创 EDA 和立创商城核对的；“现在库存”是打开这页时实时查的（数据来自开源的 PCB Parts MCP，MIT 许可）。点料号会打开立创商城对应的商品。整板也可以直接把 Gerber、BOM、坐标文件上传到嘉立创下单贴片。`),
     );
+  }
+
+  // live stock / price per LCSC number, fetched once per page load through the built-in parts lookup
+  const live = new Map();
+  function liveCell(code) {
+    const td = h('td', { class: 'small' });
+    const show = (r) => {
+      clear(td);
+      if (!r) td.append(h('span', { class: 'muted' }, '查询中…'));
+      else if (r.failed) td.append(h('span', { class: 'muted', title: r.failed }, '查不到'));
+      else {
+        const price = r.prices?.[0]?.price ?? r.price;
+        td.append(h('div', { class: r.stock > 0 ? '' : 'bad' }, r.stock > 0 ? `${r.stock.toLocaleString()} 个` : '缺货'),
+          price != null ? h('div', { class: 'muted' }, `$${price} 起`) : null);
+      }
+    };
+    if (!code) return td;
+    if (!live.has(code)) {
+      live.set(code, get(`part/${code}`).then((r) => r, (e) => ({ failed: e.message })));
+    }
+    show(null);
+    live.get(code).then(show);
+    return td;
   }
 
   // ------------------------------------------------------------ lifecycle

@@ -24,7 +24,15 @@ def prj(tmp_path):
 def test_mcp_lists_kernel_tools():
     tools = asyncio.run(build_server(EXAMPLE).list_tools())
     names = {t.name for t in tools}
-    assert {'board_drc', 'board_edit', 'board_import', 'circuit_check', 'model_info', 'model_edit'} <= names
+    assert {'board_drc', 'board_edit', 'board_import', 'circuit_check', 'model_info', 'model_edit',
+            'parts_search', 'part_info', 'parts_alternatives', 'board_parts_status'} <= names
+
+
+def test_parts_lookup_reports_unreachable_server(monkeypatch):
+    from emcosim import parts
+    monkeypatch.setattr(parts, 'ENDPOINT', 'http://127.0.0.1:9/mcp')
+    with pytest.raises(parts.PartsUnavailable, match='unavailable'):
+        parts.call('jlc_get_part', {'lcsc': 'C6186'}, timeout=5)
 
 
 def test_value_parsing():
