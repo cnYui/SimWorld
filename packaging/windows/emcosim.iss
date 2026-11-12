@@ -26,7 +26,7 @@ LicenseFile={#SrcDir}\licenses\emcosim-LICENSE.txt
 UninstallDisplayIcon={app}\emcosim-app.exe
 
 [Languages]
-Name: "chinesesimp"; MessagesFile: "compiler:Languages\ChineseSimplified.isl"
+Name: "chinesesimp"; MessagesFile: "ChineseSimplified.isl"
 Name: "english"; MessagesFile: "compiler:Default.isl"
 
 [Tasks]
