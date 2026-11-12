@@ -5,7 +5,8 @@ import { store } from '../store.js';
 import { h, icon, clear, toast, toastError, fmtNum, cssVar } from '../ui.js';
 import { TimeChart } from '../chart.js';
 
-const SIGS = ['joint.servo_axis.deg', 'joint.rocker_axis.deg', 'probe.press.force_n', 'act.servo1.torque',
+const SIGS = ['source.charger.i', 'branch.f1.i', 'node.v5_servo.v', 'act.servo1.i_supply', 'act.servo1.pulse_us',
+  'joint.servo_axis.deg', 'joint.rocker_axis.deg', 'probe.press.force_n', 'act.servo1.torque',
   'act.servo1.target_deg', 'mcu.rail_v', 'mcu.powered', 'mcu.resets', 'node.vin5.v', 'node.usb5v.v'];
 
 export function createPanel(ctx) {
@@ -24,16 +25,19 @@ export function createPanel(ctx) {
       D.tests = h('div', { class: 'pn-tests', role: 'group', 'aria-label': '选择测试' }),
       h('div', { class: 'pn-tools' },
         h('button', { class: 'btn ghost', onclick: () => ctx.setAdvanced(true), title: '参数表、扫参、打印、设置' }, '高级功能'))),
-    D.pcb = h('div', { class: 'pn-pcb', hidden: true }),
-    D.sim = h('div', { class: 'pn-sim' },
     D.banner = h('div', { class: 'pn-banner', hidden: true }),
+    D.pcb = h('div', { class: 'pn-pcb', hidden: true },
+      h('div', { class: 'pn-circuit-wrap' },
+        h('div', { class: 'pn-legend' }, h('strong', {}, '电路原理（跟着仿真动）'),
+          h('span', { class: 'muted' }, '线越粗电流越大，变红表示电压掉得太低')),
+        D.circuit = h('div', { class: 'pn-circuit' })),
+      D.pcbPlaySlot = h('div'),
+      D.parts = h('div', { class: 'pn-parts-wrap' })),
+    D.sim = h('div', { class: 'pn-sim' },
     h('div', { class: 'pn-body' },
       D.view = h('div', { class: 'pn-view' }, h('span', { class: 'pn-tag' }, '打印件、PCB 与外壳同一场景')),
       D.readout = h('div', { class: 'pn-readout' })),
-    h('div', { class: 'pn-play' },
-      D.playBtn = h('button', { class: 'btn icon', 'aria-label': '播放', onclick: () => togglePlay() }, '▶'),
-      D.slider = h('input', { type: 'range', min: 0, max: 1000, value: 0, 'aria-label': '时间' }),
-      D.time = h('span', { class: 'mono pn-time' }, '0.00 s')),
+    D.simPlaySlot = h('div'),
     h('div', { class: 'pn-charts' },
       h('div', { class: 'pn-chart' }, h('div', { class: 'pn-legend' },
         h('span', { style: { color: 'var(--s2)' } }, '按压臂角度'), h('span', { style: { color: 'var(--s1)' } }, '翘板角度'),
@@ -43,6 +47,11 @@ export function createPanel(ctx) {
         h('span', { class: 'muted' }, '力 / N')), D.forceCv = h('canvas')))),
     h('footer', { class: 'pn-foot muted' }, '电机、电源、开关参数是估计值，没有用实物测过；结果用来比较方案，不当作精确数值。'),
   );
+  D.play = h('div', { class: 'pn-play' },
+    D.playBtn = h('button', { class: 'btn icon', 'aria-label': '播放', onclick: () => togglePlay() }, '▶'),
+    D.slider = h('input', { type: 'range', min: 0, max: 1000, value: 0, 'aria-label': '时间' }),
+    D.time = h('span', { class: 'mono pn-time' }, '0.00 s'));
+  D.simPlaySlot.replaceWith(D.play);
   D.slider.addEventListener('input', () => { stop(); setTime(D.slider.value / 1000 * dur); });
 
   // ------------------------------------------------------------ tests row
@@ -198,6 +207,56 @@ export function createPanel(ctx) {
     D.slider.value = dur ? Math.round(tNow / dur * 1000) : 0;
     D.time.textContent = `${tNow.toFixed(2)} s / ${dur.toFixed(2)} s`;
     renderReadout();
+    if (tab === 'pcb') renderCircuit();
+  }
+
+  // ------------------------------------------------------------ live circuit
+  function renderCircuit() {
+    if (!D.circuit) return;
+    if (!runId) { D.circuit.innerHTML = '<div class="muted">先在上面选一个测试。</div>'; return; }
+    const bench = !!sig['node.usb5v.v'];
+    const v = (n) => at(n, tNow);
+    const vin = bench ? v('node.usb5v.v') : v('node.vin5.v'), vs = bench ? vin : v('node.v5_servo.v');
+    const v33 = v('mcu.rail_v'), iIn = bench ? null : v('source.charger.i'), iServo = v('act.servo1.i_supply');
+    const pulse = v('act.servo1.pulse_us'), powered = v('mcu.powered'), resets = v('mcu.resets') || 0;
+    const arm = v('joint.servo_axis.deg') || 0, rocker = v('joint.rocker_axis.deg') || 0, f = v('probe.press.force_n') || 0;
+    const ok = cssVar('--ok'), bad = cssVar('--bad'), ink = cssVar('--text'), dim = cssVar('--text-3'), line = cssVar('--line-strong');
+    const wire = (volt, lowAt, amps) => `stroke="${volt !== null && volt < lowAt ? bad : ink}" stroke-width="${(1.5 + Math.min(Math.abs(amps || 0), 1.5) * 5).toFixed(1)}"`;
+    const fmt = (x, d, u) => (x === null || x === undefined ? '–' : x.toFixed(d) + ' ' + u);
+    const box = (x, y, w, hgt, title, sub, color = line) => `<rect x="${x}" y="${y}" width="${w}" height="${hgt}" rx="6" fill="var(--panel)" stroke="${color}" stroke-width="1.5"/>`
+      + `<text x="${x + w / 2}" y="${y + 20}" text-anchor="middle" font-size="13" font-weight="600" fill="${ink}">${title}</text>`
+      + `<text x="${x + w / 2}" y="${y + 37}" text-anchor="middle" font-size="11" fill="${dim}">${sub}</text>`;
+    const val = (x, y, text, color = ink, anchor = 'middle') => `<text x="${x}" y="${y}" text-anchor="${anchor}" font-size="12" font-family="ui-monospace,monospace" fill="${color}">${text}</text>`;
+    const mcuOk = powered !== 0;
+    const on = rocker < 0;
+    // servo horn and rocker drawn rotating with the simulated angles
+    const horn = `<g transform="translate(905,58) rotate(${(-arm * 2).toFixed(1)})"><rect x="-4" y="-34" width="8" height="34" rx="3" fill="${cssVar('--s2')}"/></g>`;
+    const rock = `<g transform="translate(905,165) rotate(${(rocker * 6).toFixed(1)})"><rect x="-30" y="-6" width="60" height="12" rx="4" fill="${on ? ok : cssVar('--s1')}"/></g>`;
+    D.circuit.innerHTML = `<svg viewBox="0 0 1000 250" width="100%" role="img" aria-label="电路原理图">
+      ${bench ? `<text x="10" y="245" font-size="11" fill="${bad}">这个测试模拟的是旧的开发板接法（舵机接在开发板 5V 上），不是 V0.5 板；图按 V0.5 画，数值仅供对照。</text>` : ''}
+      ${box(10, 20, 110, 50, '充电头', '墙上插座 5V 2A')}
+      <line x1="120" y1="45" x2="200" y2="45" ${wire(vin, 4.3, iIn)}/>${val(160, 36, 'USB-C 线', dim)}
+      ${box(200, 20, 90, 50, 'D1 SS34', '防倒灌二极管')}
+      <line x1="290" y1="45" x2="330" y2="45" ${wire(vin, 4.3, iIn)}/>
+      <circle cx="335" cy="45" r="5" fill="${ink}"/>${val(325, 95, 'VIN5 ' + fmt(vin, 2, 'V'), vin !== null && vin < 4.3 ? bad : ink, 'end')}
+      ${val(325, 112, iIn === null ? '' : '总电流 ' + fmt(iIn, 2, 'A'), dim, 'end')}
+      <line x1="340" y1="45" x2="400" y2="45" ${wire(vs, 4.3, iServo)}/>
+      ${box(400, 20, 100, 50, 'F1 保险丝', 'RUEF110 1.1A')}
+      <line x1="500" y1="45" x2="620" y2="45" ${wire(vs, 4.3, iServo)}/>${val(560, 36, fmt(vs, 2, 'V'), vs !== null && vs < 4.3 ? bad : ink)}
+      ${box(620, 20, 120, 50, 'J3 → 舵机', '电流 ' + fmt(iServo, 2, 'A'), iServo > 0.6 ? bad : line)}
+      <line x1="740" y1="45" x2="860" y2="45" stroke="${dim}" stroke-dasharray="4 4"/>${val(800, 36, '齿轮 / 按压臂', dim)}
+      <circle cx="905" cy="58" r="16" fill="${cssVar('--s1')}" opacity=".35"/>${horn}
+      ${val(905, 100, '臂角 ' + arm.toFixed(1) + '°', dim)}
+      <line x1="905" y1="108" x2="905" y2="150" stroke="${dim}" stroke-dasharray="4 4"/>${val(950, 135, '接触力 ' + f.toFixed(2) + ' N', f > 6 ? bad : dim)}
+      ${rock}${val(905, 195, on ? '开关：开 ON' : '开关：关 OFF', on ? ok : cssVar('--s1'))}
+      <line x1="335" y1="50" x2="335" y2="160" ${wire(vin, 4.3, 0.05)}/>
+      <line x1="335" y1="160" x2="360" y2="160" ${wire(vin, 4.3, 0.05)}/>
+      ${box(360, 135, 120, 50, 'U4 AMS1117', '5V → 3.3V')}
+      <line x1="480" y1="160" x2="540" y2="160" ${wire(v33, 3.0, 0.05)}/>${val(510, 151, fmt(v33, 2, 'V'), v33 !== null && v33 < 3.0 ? bad : ink)}
+      ${box(540, 135, 140, 50, 'U3 ESP32-C3', mcuOk ? (resets ? `运行中 · 已重启 ${resets} 次` : '运行中') : '掉电了', mcuOk ? (resets ? bad : ok) : bad)}
+      <path d="M680 160 H690 Q700 160 700 150 V70" fill="none" stroke="${cssVar('--s7')}" stroke-width="2"/>
+      ${val(760, 125, 'GPIO4 PWM ' + (pulse ? Math.round(pulse) + ' µs' : '–'), cssVar('--s7'))}
+    </svg>`;
   }
 
   function renderReadout() {
@@ -246,8 +305,9 @@ export function createPanel(ctx) {
   function setTab(t) {
     tab = t;
     D.tabSim.classList.toggle('active', t === 'sim'); D.tabPcb.classList.toggle('active', t === 'pcb');
-    D.sim.hidden = t !== 'sim'; D.tests.hidden = t !== 'sim'; D.pcb.hidden = t !== 'pcb';
-    if (t === 'pcb') { stop(); renderPcb(); } else main3d?.resize();
+    D.sim.hidden = t !== 'sim'; D.pcb.hidden = t !== 'pcb';
+    if (t === 'pcb') { D.pcbPlaySlot.after(D.play); renderPcb(); renderCircuit(); }
+    else { D.view.parentElement.after(D.play); main3d?.resize(); }
   }
 
   function openShop(url) {
@@ -258,14 +318,14 @@ export function createPanel(ctx) {
 
   async function renderPcb() {
     if (!boards) {
-      clear(D.pcb).append(h('div', { class: 'muted' }, '读取中…'));
-      try { boards = await get('boards'); } catch (e) { clear(D.pcb).append(h('div', { class: 'pn-banner bad' }, e.message)); return; }
+      clear(D.parts).append(h('div', { class: 'muted' }, '读取中…'));
+      try { boards = await get('boards'); } catch (e) { clear(D.parts).append(h('div', { class: 'pn-banner bad' }, e.message)); return; }
     }
     const b = boards[0];
-    if (!b) { clear(D.pcb).append(h('div', { class: 'pn-banner' }, '这个工程还没有元件清单（pcb/<板名>/parts.json）。')); return; }
+    if (!b) { clear(D.parts).append(h('div', { class: 'pn-banner' }, '这个工程还没有元件清单（pcb/<板名>/parts.json）。')); return; }
     const total = b.parts.reduce((n, p) => n + (p.qty || 0), 0);
     const img = b.images?.[boardImg];
-    clear(D.pcb).append(
+    clear(D.parts).append(
       h('div', { class: 'pn-pcb-head' },
         h('div', {}, h('strong', {}, b.board), h('span', { class: 'muted' }, `  ${b.parts.length} 种元件，共 ${total} 个`)),
         h('div', { class: 'pn-tabs small' },
