@@ -1,7 +1,7 @@
 // App shell: auth, navigation rail, router, status bar, SSE dispatch.
 import { initToken, connectEvents } from './api.js';
 import { store } from './store.js';
-import { h, icon, clear, toast, toastError } from './ui.js';
+import { h, icon, clear, toast, toastError, copyText } from './ui.js';
 import { createStart } from './screens/start.js';
 import { createPanel } from './screens/panel.js';
 import { createOverview } from './screens/overview.js';
@@ -11,7 +11,6 @@ import { createResults } from './screens/results.js';
 import { createSweep } from './screens/sweep.js';
 import { createSettings } from './screens/settings.js';
 import { createPrint } from './screens/print.js';
-import { createChat } from './chat.js';
 
 const SCREENS = [
   { id: 'panel', title: '仿真面板', icon: 'results', make: createPanel, simple: true },
@@ -22,7 +21,7 @@ const SCREENS = [
   { id: 'results', title: '结果', icon: 'results', make: createResults, needsProject: true },
   { id: 'sweep', title: '扫参', icon: 'sweep', make: createSweep, needsProject: true },
   { id: 'print', title: '打印', icon: 'printer', make: createPrint, needsProject: true },
-  { id: 'settings', title: '设置', icon: 'settings', make: createSettings, bottom: true },
+  { id: 'settings', title: '设置', icon: 'settings', make: createSettings, hidden: true },
 ];
 
 const main = document.getElementById('main');
@@ -87,35 +86,43 @@ const ctx = {
   nav,
   openRun: (runId) => nav('results', runId),
   compareRuns: (a, b) => nav('results', `${a}..${b}`),
-  toggleChat: (open) => chat.toggle(open),
-  askChat: (text) => { chat.toggle(true); chat.prefill(text); },
+  toggleChat: () => {},
+  // the built-in AI assistant is gone: hand the question to the user's own AI (connected over MCP)
+  askChat: (text) => copyText(text, '已复制这句话，粘贴给你连上的 AI（Claude Code / Codex）'),
   currentScreen: () => current,
   setAdvanced: (on) => setAdvanced(on),
 };
 
 // ------------------------------------------------------------------ rail
+let navCollapsed = false;
+try { navCollapsed = localStorage.getItem('emcosim.panel.nav') === 'collapsed'; } catch (e) { /* ignore */ }
+function setRailCollapsed(on) {
+  navCollapsed = on;
+  document.getElementById('app').classList.toggle('rail-collapsed', on);
+  const t = rail.querySelector('.rail-toggle');
+  if (t) { t.title = on ? '展开菜单' : '收起菜单'; t.setAttribute('aria-label', t.title); }
+  try { localStorage.setItem('emcosim.panel.nav', on ? 'collapsed' : 'open'); } catch (e) { /* ignore */ }
+}
+// same look as the simple panel's left menu: brand, labelled items, collapsible to icons
 function buildRail() {
-  rail.append(h('div', { class: 'logo', title: 'SimWorld' }, icon('logo')));
-  rail.append(h('button', { class: 'rail-simple', 'aria-label': '回到简单面板', title: '回到简单面板', onclick: () => setAdvanced(false) }, '简'));
   const tip = h('div', { class: 'rail-tip', hidden: true });
   document.body.append(tip);
-  const mk = (s) => {
-    const b = h('button', {
-      'data-id': s.id, 'aria-label': s.title, onclick: () => nav(s.id),
-      onmouseenter: () => { const r = b.getBoundingClientRect(); tip.textContent = s.title; tip.hidden = false; tip.style.left = r.right + 8 + 'px'; tip.style.top = r.top + 10 + 'px'; },
-      onmouseleave: () => { tip.hidden = true; },
-    }, icon(s.icon));
+  const hover = (b, text) => ({
+    onmouseenter: () => { if (!navCollapsed) return; const r = b().getBoundingClientRect(); tip.textContent = text; tip.hidden = false; tip.style.left = r.right + 8 + 'px'; tip.style.top = r.top + 8 + 'px'; },
+    onmouseleave: () => { tip.hidden = true; },
+  });
+  const item = (attrs, ic, label) => {
+    let b;
+    b = h('button', { class: 'rail-item', 'aria-label': label, ...attrs, ...hover(() => b, label) }, icon(ic), h('span', { class: 'rail-label' }, label));
     return b;
   };
-  SCREENS.filter((s) => !s.bottom && !s.simple).forEach((s) => rail.append(mk(s)));
-  rail.append(h('div', { class: 'spacer' }));
-  const chatBtn = h('button', {
-    'aria-label': 'AI 助手（Ctrl+J）', id: 'railChat', onclick: () => chat.toggle(),
-    onmouseenter: () => { const r = chatBtn.getBoundingClientRect(); tip.textContent = 'AI 助手  Ctrl+J'; tip.hidden = false; tip.style.left = r.right + 8 + 'px'; tip.style.top = r.top + 10 + 'px'; },
-    onmouseleave: () => { tip.hidden = true; },
-  }, icon('chat'));
-  rail.append(chatBtn);
-  SCREENS.filter((s) => s.bottom).forEach((s) => rail.append(mk(s)));
+  rail.append(
+    h('button', { class: 'rail-toggle', onclick: () => setRailCollapsed(!navCollapsed) }, icon('chevron')),
+    h('div', { class: 'rail-brand' }, h('strong', {}, 'SimWorld'), h('span', { class: 'muted small' }, '高级功能')),
+  );
+  SCREENS.filter((s) => !s.hidden && !s.simple).forEach((s) => rail.append(item({ 'data-id': s.id, onclick: () => nav(s.id) }, s.icon, s.title)));
+  rail.append(h('div', { class: 'spacer' }), item({ onclick: () => setAdvanced(false) }, 'undo', '回到简单面板'));
+  setRailCollapsed(navCollapsed);
 }
 
 function updateRailBadges() {
@@ -133,16 +140,8 @@ let sseState = 'connecting';
 function renderStatus() {
   const app = store.app || {};
   const q = app.qemu || {};
-  const cs = store.chatStatus;
   const job = store.runningJob();
   const queued = [...store.jobs.values()].filter((j) => j.status === 'queued').length;
-  let chatTxt = '检测中…', chatLed = '';
-  if (cs && !cs.error) {
-    if (cs.backend === 'api_key') { chatTxt = cs.api_key.configured ? `API Key · ${cs.api_key.model}` : 'API Key 未设置'; chatLed = cs.api_key.configured ? 'ok' : 'warn'; }
-    else if (!cs.claude_code.found) { chatTxt = 'Claude Code 未安装'; chatLed = 'warn'; }
-    else if (!cs.claude_code.logged_in) { chatTxt = 'Claude Code 未登录'; chatLed = 'warn'; }
-    else { chatTxt = 'Claude Code 已登录'; chatLed = 'ok'; }
-  }
   clear(statusbar).append(
     h('span', { class: 'seg grow', title: app.project || '' }, icon('folder', 'sm'),
       h('span', { class: 'path mono' }, app.project || '未打开工程')),
@@ -152,7 +151,6 @@ function renderStatus() {
       `${Math.round(job.progress * 100)}%`, queued ? ` · 排队 ${queued}` : '') : null,
     !advanced ? null : h('button', { class: 'seg', onclick: () => nav('start'), title: q.found ? q.path : (q.error || '') },
       h('span', { class: 'led ' + (q.found ? 'ok' : 'warn') }), q.found ? 'QEMU 就绪' : 'QEMU 未找到'),
-    advanced ? h('button', { class: 'seg', onclick: () => nav('settings') }, h('span', { class: 'led ' + chatLed }), chatTxt) : null,
     h('span', { class: 'seg', title: '与后台的实时连接' },
       h('span', { class: 'led ' + (sseState === 'open' ? 'ok' : sseState === 'closed' ? 'bad' : 'warn') }),
       sseState === 'open' ? '已连接' : sseState === 'closed' ? '已断开' : '重连中'),
@@ -185,7 +183,6 @@ function onEvent(kind, data) {
       store.emit('job_progress', data);
       break;
     }
-    case 'chat': chat.onEvent(data); break;
     case 'project_changed': store.loadProject().catch(toastError); break;
     case 'files_changed': store.emit('files_changed'); break;
     case 'scenarios_changed': store.loadProject().then(() => store.emit('scenarios')).catch(toastError); break;
@@ -229,35 +226,6 @@ function jobStatusToast(j) {
   }
 }
 
-// ------------------------------------------------------------------ chat panel + splitter
-let chat;
-function setupSplitter() {
-  const sp = document.getElementById('chatSplitter');
-  const root = document.documentElement;
-  try { const w = localStorage.getItem('emcosim.chatW'); if (w) root.style.setProperty('--chat-w', w + 'px'); } catch (e) { /* ignore */ }
-  const setW = (w) => {
-    w = Math.max(280, Math.min(w, Math.round(innerWidth * 0.6)));
-    root.style.setProperty('--chat-w', w + 'px');
-    try { localStorage.setItem('emcosim.chatW', w); } catch (e) { /* ignore */ }
-  };
-  sp.addEventListener('mousedown', (e) => {
-    e.preventDefault();
-    sp.classList.add('drag');
-    const move = (ev) => setW(innerWidth - ev.clientX - 2);
-    const up = () => { sp.classList.remove('drag'); removeEventListener('mousemove', move); removeEventListener('mouseup', up); };
-    addEventListener('mousemove', move); addEventListener('mouseup', up);
-  });
-  sp.addEventListener('keydown', (e) => {
-    const cur = document.getElementById('chat').offsetWidth;
-    if (e.key === 'ArrowLeft') setW(cur + 20);
-    if (e.key === 'ArrowRight') setW(cur - 20);
-  });
-}
-
-document.addEventListener('keydown', (e) => {
-  if (advanced && (e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'j') { e.preventDefault(); chat.toggle(); }
-});
-
 // ------------------------------------------------------------------ boot
 async function boot() {
   const token = initToken();
@@ -276,8 +244,6 @@ async function boot() {
   }
   document.getElementById('app').classList.toggle('simple', !advanced);
   buildRail();
-  setupSplitter();
-  chat = createChat(document.getElementById('chat'), document.getElementById('chatWrap'), ctx);
   store.on('chatStatus', renderStatus);
   store.on('app', renderStatus);
   store.on('runs', updateRailBadges);
@@ -301,7 +267,7 @@ async function boot() {
     }
     if (st === 'open') opened = true;
   });
-  window.__emcosim = { store, onEvent, nav, chat };   // for automated UI tests
+  window.__emcosim = { store, onEvent, nav };   // for automated UI tests
 }
 
 boot();

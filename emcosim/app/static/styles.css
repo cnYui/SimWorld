@@ -90,7 +90,7 @@ svg.i.sm { width: 14px; height: 14px; }
 /* ------------------------------------------------------------------ layout */
 .app {
   display: grid; height: 100vh;
-  grid-template-columns: 52px minmax(0, 1fr) auto;
+  grid-template-columns: var(--rail-w, 168px) minmax(0, 1fr);
   grid-template-rows: minmax(0, 1fr) 24px;
 }
 .rail {
@@ -530,9 +530,9 @@ pre.log { background: var(--sunken); border: 1px solid var(--line); border-radiu
 .composer .bar .grow { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 /* ------------------------------------------------------------------ simple mode + panel */
-.app.simple { grid-template-columns: minmax(0, 1fr) auto; }
+.app.simple { grid-template-columns: minmax(0, 1fr); }
 .app.simple .statusbar { grid-column: 1 / -1; }
-.app.simple .rail, .app.simple .chat-wrap { display: none; }
+.app.simple .rail { display: none; }
 .rail-simple { font-size: 12px; font-weight: 600; color: var(--text-2); }
 .screen.panel[hidden] { display: none; }
 .pn-test:hover { background: var(--hover); }
@@ -667,12 +667,6 @@ pre.log { background: var(--sunken); border: 1px solid var(--line); border-radiu
 }
 
 /* panel: brand, project chip, empty states */
-.pn-nav-brand { flex-direction: row; align-items: center; gap: 10px; }
-.pn-nav-brand > .pn-nav-label { display: flex; flex-direction: column; }
-.pn-logo { width: 30px; height: 30px; border-radius: 8px; background: var(--accent); color: var(--accent-ink); display: grid; place-items: center; flex: none; }
-.pn-logo svg { width: 20px; height: 20px; }
-.nav-collapsed .pn-nav-brand { display: flex; justify-content: center; padding: 2px 0 12px; }
-.nav-collapsed .pn-nav-brand > .pn-nav-label { display: none; }
 .pn-proj { margin-top: auto; display: flex; flex-direction: column; gap: 2px; border-top: 1px solid var(--line); padding-top: 8px; }
 .pn-proj:empty { display: none; }
 .pn-proj-label { font-size: 11px; color: var(--text-3); padding: 0 10px; }
@@ -713,3 +707,29 @@ pre.log { background: var(--sunken); border: 1px solid var(--line); border-radiu
 .pn-welcome-ai { display: flex; gap: 8px; align-items: flex-start; text-align: left; margin-top: 14px; padding: 10px 12px; border-radius: 8px;
   background: var(--accent-weak); color: var(--text-2); font-size: 13px; line-height: 1.6; width: 100%; }
 .pn-welcome-ai svg { flex: none; width: 16px; height: 16px; margin-top: 3px; color: var(--accent); }
+
+/* advanced-mode rail: same look as the simple panel's left menu */
+.app.rail-collapsed { --rail-w: 52px; }
+.app .rail { align-items: stretch; padding: 10px 8px; gap: 4px; overflow: hidden; min-width: 0; }
+.rail .rail-toggle { align-self: flex-end; width: 32px; height: 28px; border-radius: 6px; color: var(--text-2); display: grid; place-items: center; flex: none; }
+.rail .rail-toggle svg.i { width: 16px; height: 16px; transform: rotate(180deg); transition: transform .18s ease; }
+.rail-collapsed .rail .rail-toggle { align-self: center; }
+.rail-collapsed .rail .rail-toggle svg.i { transform: none; }
+.rail-brand { display: flex; flex-direction: column; padding: 2px 8px 12px; white-space: nowrap; }
+.rail-brand strong { font-size: 15px; }
+.rail button.rail-item { width: auto; height: 36px; display: flex; align-items: center; gap: 10px; padding: 0 10px; border-radius: 6px;
+  font-size: 14px; white-space: nowrap; text-align: left; flex: none; }
+.rail button.rail-item svg.i { width: 18px; height: 18px; flex: none; }
+.rail button.rail-item.active { font-weight: 600; }
+.rail button.rail-item.active::before { display: none; }
+.rail-collapsed .rail-brand, .rail-collapsed .rail-label { display: none; }
+.rail-collapsed .rail button.rail-item { justify-content: center; padding: 0; }
+
+.pn-nav-bottom { display: flex; flex-direction: column; border-top: 1px solid var(--line); padding-top: 6px; margin-top: 6px; }
+.pn-proj + .pn-nav-bottom { margin-top: 6px; }
+.pn-proj:empty + .pn-nav-bottom { margin-top: auto; }
+.pn-settings { display: flex; flex-direction: column; gap: 12px; }
+.pn-set-row { display: grid; grid-template-columns: 130px minmax(0, 1fr); align-items: center; gap: 10px; }
+.pn-set-row .k { color: var(--text-3); font-size: 13px; }
+.pn-set-row .mono { overflow-wrap: anywhere; }
+.pn-set-row .seg-ctl { justify-self: start; }

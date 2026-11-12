@@ -98,13 +98,6 @@ export function createStart(ctx) {
                   : h('div', { class: 'note', style: { marginTop: '6px' } }, icon('alert', 'sm'),
                     h('span', {}, '运行固件场景（mcu_backend: qemu，例如 toggle_nominal）需要打过补丁的 QEMU。没有 QEMU 也能跑 scripted 场景（例如 servo_sweep_scripted），用来快速扫机械和电气参数。',
                       q.error ? h('div', { class: 'mono', style: { marginTop: '4px' } }, q.error) : null)))),
-            h('div', { class: 'env-row' }, h('span', { class: 'led ' + (cc?.logged_in ? 'ok' : cc ? 'warn' : '') }),
-              h('div', { class: 'grow' }, h('div', {}, h('b', {}, 'AI 助手'), ' ',
-                !cs ? '检测中…' : cs.backend === 'api_key' ? (cs.api_key.configured ? '使用 API Key' : 'API Key 未设置')
-                  : !cc.found ? 'Claude Code 未安装' : cc.logged_in ? `Claude Code 已登录（${cc.version || ''}）` : 'Claude Code 未登录'),
-                h('div', { class: 'row', style: { marginTop: '6px' } },
-                  h('button', { class: 'btn sm', onclick: () => ctx.nav('settings') }, '设置 AI 助手'),
-                  h('button', { class: 'btn sm ghost', onclick: () => ctx.toggleChat(true) }, icon('chat', 'sm'), '打开对话')))),
             h('div', { class: 'env-row' }, h('span', { class: 'led ok' }),
               h('div', { class: 'grow' }, h('b', {}, '版本'), ' ', h('span', { class: 'mono' }, app.version || ''))))),
         h('div', { class: 'card' },

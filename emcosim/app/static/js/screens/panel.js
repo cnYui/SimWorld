@@ -20,16 +20,17 @@ export function createPanel(ctx) {
   //         with the play bar and the two charts fixed under the centre.
   let navCollapsed = false;
   try { navCollapsed = localStorage.getItem('emcosim.panel.nav') === 'collapsed'; } catch { /* storage off */ }
+  const navItemBtn = (ic, label, onclick) => h('button', { class: 'pn-nav-item', title: label, onclick }, icon(ic), h('span', { class: 'pn-nav-label' }, label));
   const navItem = (id, ic, label) => h('button', { class: 'pn-nav-item', 'data-tab': id, title: label, onclick: () => setTab(id) },
     icon(ic), h('span', { class: 'pn-nav-label' }, label));
   el.append(
     D.nav = h('nav', { class: 'pn-nav', 'aria-label': '页面' },
       D.navToggle = h('button', { class: 'pn-nav-toggle', onclick: () => setNav(!navCollapsed) }, icon('chevron')),
-      h('div', { class: 'pn-nav-brand' }, h('span', { class: 'pn-logo' }, icon('logo')),
-        h('span', { class: 'pn-nav-label' }, h('strong', {}, 'SimWorld'), h('span', { class: 'muted small' }, '电子 + 物理仿真'))),
+      h('div', { class: 'pn-nav-brand' }, h('strong', {}, 'SimWorld'), h('span', { class: 'muted small' }, '电子 + 物理仿真')),
       D.tabSim = navItem('sim', 'cube', '仿真'),
       D.tabPcb = navItem('pcb', 'board', 'PCB 元件'),
-      D.projBox = h('div', { class: 'pn-proj' })),
+      D.projBox = h('div', { class: 'pn-proj' }),
+      h('div', { class: 'pn-nav-bottom' }, navItemBtn('settings', '设置', () => showSettings()))),
     h('div', { class: 'pn-main' },
       D.welcome = h('div', { class: 'pn-welcome', hidden: true }),
       D.banner = h('div', { class: 'pn-banner', hidden: true }),
@@ -185,6 +186,33 @@ export function createPanel(ctx) {
           block('Claude Code：在终端里运行一次', s.claude_code),
           block('Codex：把这段加到配置文件里', s.codex, `配置文件位置：${s.codex_config}`)),
         h('p', { class: 'muted small' }, '这个页面不保存你的 AI 账号，AI 用的是你自己电脑上的 Claude Code 或 Codex。')),
+      actions: [{ label: '关闭', value: true }],
+    });
+  }
+
+  // ------------------------------------------------------------ settings (appearance, about)
+  function showSettings() {
+    let theme = 'system';
+    try { theme = localStorage.getItem('emcosim.theme') || 'system'; } catch { /* storage off */ }
+    const app = store.app || {};
+    const seg = h('div', { class: 'seg-ctl', role: 'group', 'aria-label': '主题' });
+    const drawSeg = () => clear(seg).append(...[['system', '跟随系统'], ['light', '浅色'], ['dark', '深色']].map(([v, l]) =>
+      h('button', { class: theme === v ? 'on' : '', 'aria-pressed': String(theme === v), onclick: () => {
+        theme = v;
+        try { if (v === 'system') localStorage.removeItem('emcosim.theme'); else localStorage.setItem('emcosim.theme', v); } catch { /* storage off */ }
+        if (v === 'system') delete document.documentElement.dataset.theme; else document.documentElement.dataset.theme = v;
+        store.emit('theme', v); drawSeg();
+      } }, l)));
+    drawSeg();
+    const q = app.qemu || {};
+    modal({
+      title: '设置', width: '560px',
+      body: h('div', { class: 'pn-settings' },
+        h('div', { class: 'pn-set-row' }, h('span', { class: 'k' }, '外观'), seg),
+        h('div', { class: 'pn-set-row' }, h('span', { class: 'k' }, '版本'), h('span', { class: 'mono' }, app.version || '—')),
+        h('div', { class: 'pn-set-row' }, h('span', { class: 'k' }, '当前工程'), h('span', { class: 'mono small' }, app.project || '未打开')),
+        h('div', { class: 'pn-set-row' }, h('span', { class: 'k' }, '固件仿真（QEMU）'), h('span', { class: 'small' }, q.found ? h('span', { class: 'mono' }, q.path) : '没找到，运行 scripts\\setup 安装')),
+        h('div', { class: 'pn-set-row' }, h('span', { class: 'k' }, '许可'), h('span', { class: 'small' }, 'Apache-2.0；QEMU、KiCad 为 GPL，作为独立程序运行'))),
       actions: [{ label: '关闭', value: true }],
     });
   }
@@ -550,7 +578,6 @@ export function createPanel(ctx) {
     const card = (ic, title, text, onclick, primary) => h('button', { class: 'pn-start' + (primary ? ' primary' : ''), onclick },
       h('span', { class: 'pn-start-ico' }, icon(ic)), h('span', { class: 'pn-start-txt' }, h('strong', {}, title), h('span', { class: 'muted small' }, text)));
     clear(D.welcome).append(h('div', { class: 'pn-welcome-in' },
-      h('div', { class: 'pn-welcome-logo' }, icon('logo')),
       h('h1', {}, '欢迎使用 SimWorld'),
       h('p', { class: 'muted' }, '把 PCB 和 3D 模型放进来，在同一个场景里跑真实的电路和物理测试；再让你的 AI 改板子、改模型，直到测试通过。'),
       h('div', { class: 'pn-start-grid' },

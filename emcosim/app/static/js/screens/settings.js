@@ -70,43 +70,6 @@ export function createSettings(ctx) {
 
     clear(body).append(h('div', { class: 'set-wrap' },
       h('div', { class: 'card' },
-        h('header', {}, h('h2', {}, icon('chat'), 'AI 助手')),
-        h('div', { class: 'body col', style: { gap: '12px' } },
-          h('div', { class: 'backend-pick' },
-            pick('claude_code', '本机 Claude Code（推荐）', '使用你电脑上安装的 Claude Code 和它自己的登录，费用计入你自己的 Claude 套餐；本软件不保存你的 Claude 账号凭证。'),
-            pick('api_key', 'Anthropic API Key', '直接用 API Key 调用 Claude API，按 API 用量计费。适合没装 Claude Code 的电脑。')),
-          backend === 'claude_code' ? h('div', { class: 'col' },
-            h('div', { class: 'kv' },
-              h('span', { class: 'k' }, 'Claude Code'), h('span', { class: 'v' }, !cs ? '检测中…' : cc.found ? h('span', { class: 'ok-t' }, '已安装') : h('span', { class: 'warn-t' }, '没有找到')),
-              cc.found ? [h('span', { class: 'k' }, '版本'), h('span', { class: 'v' }, cc.version || '—'), h('span', { class: 'k' }, '路径'), h('span', { class: 'v' }, cc.path || '—')] : null,
-              h('span', { class: 'k' }, '登录状态'), h('span', { class: 'v' }, !cs ? '—' : cc.logged_in ? h('span', { class: 'ok-t' }, `已登录${cc.auth_method ? `（${cc.auth_method}）` : ''}`) : h('span', { class: 'warn-t' }, cc.login_running ? '登录进行中…' : '未登录'))),
-            cc.error ? h('div', { class: 'banner bad' }, icon('alert'), h('span', { class: 'grow mono' }, cc.error)) : null,
-            !cc.found && cs ? h('div', { class: 'banner' }, icon('alert'), h('span', { class: 'grow' }, '需要先安装 Claude Code（官方命令行工具），装好后点右上角“重新检测”。'),
-              h('a', { class: 'btn sm', href: 'https://claude.com/claude-code', target: '_blank', rel: 'noopener', onclick: (e) => { e.preventDefault(); window.open('https://claude.com/claude-code', '_blank'); } }, icon('external', 'sm'), '安装 Claude Code')) : null,
-            h('div', { class: 'row wrap' },
-              h('button', { class: 'btn primary', disabled: busy || !cc.found || cc.login_running, onclick: () => login(false) }, icon('user', 'sm'), cc.logged_in ? '重新登录 Claude' : '登录 Claude'),
-              h('button', { class: 'btn', disabled: busy || !cc.found || cc.login_running, title: '用 Anthropic Console 账号（API 计费）登录', onclick: () => login(true) }, '用 Console 账号登录'),
-              cc.logged_in ? h('button', { class: 'btn danger', onclick: logout }, '退出登录') : null,
-              h('a', { href: 'https://claude.com/claude-code', target: '_blank', rel: 'noopener', class: 'btn ghost', onclick: (e) => { e.preventDefault(); window.open('https://claude.com/claude-code', '_blank'); } }, icon('external', 'sm'), 'Claude Code 官网')),
-            logEl,
-            h('div', { class: 'hint' }, '登录由 Claude Code 自己完成（会打开浏览器）。本软件只调用 claude 命令，不接触也不保存你的账号凭证；每条消息都是一次 claude -p 调用，只开放 emcosim 的工具。'),
-            h('details', {}, h('summary', { class: 'muted', style: { cursor: 'pointer' } }, '高级：指定 claude 可执行文件'),
-              h('div', { class: 'row', style: { marginTop: '6px' } }, pathInput)))
-            : h('div', { class: 'col' },
-              h('div', { class: 'row' }, keyInput,
-                h('button', { class: 'btn primary', onclick: async () => {
-                  if (!keyInput.value.trim()) return toast('请先输入 API Key', { kind: 'bad' });
-                  try { await post('settings/api_key', { key: keyInput.value.trim() }); keyInput.value = ''; await refresh(); toast('API Key 已保存'); } catch (e) { toastError(e); }
-                } }, '保存'),
-                s.has_api_key ? h('button', { class: 'btn danger', onclick: async () => {
-                  if (!(await confirmDialog('删除 API Key', '从这台电脑上删除保存的 API Key？', '删除', true))) return;
-                  try { await post('settings/api_key', { key: null }); await refresh(); toast('已删除'); } catch (e) { toastError(e); }
-                } }, '删除') : null),
-              h('div', { class: 'hint' }, s.has_api_key ? '已保存一个 API Key（Windows 上用 DPAPI 加密，只有当前 Windows 账号能解密）。' : '还没有保存 API Key。可以在 console.anthropic.com 创建。'),
-              h('div', { class: 'row wrap' },
-                h('label', { class: 'field' }, '模型', modelInput, h('datalist', { id: 'models' }, MODELS.map((m) => h('option', { value: m })))),
-                h('label', { class: 'field' }, '思考强度', effortSel))))),
-      h('div', { class: 'card' },
         h('header', {}, h('h2', {}, icon('sun'), '外观')),
         h('div', { class: 'body row' }, h('span', { class: 'muted' }, '主题'),
           h('div', { class: 'seg-ctl', role: 'group', 'aria-label': '主题' },
