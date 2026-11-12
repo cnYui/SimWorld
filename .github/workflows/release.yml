@@ -6,6 +6,10 @@ on:
   push:
     tags: ['v*']
   workflow_dispatch:
+    inputs:
+      tag:
+        description: 'release tag to create or update (e.g. v0.3.0)'
+        required: true
 permissions:
   contents: write
 jobs:
@@ -61,11 +65,11 @@ jobs:
           merge-multiple: true
       - env:
           GH_TOKEN: ${{ github.token }}
-          TAG: ${{ github.ref_name }}
+          TAG: ${{ inputs.tag || github.ref_name }}
         run: |
           if gh release view "$TAG" -R "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             gh release upload "$TAG" assets/* --clobber -R "$GITHUB_REPOSITORY"
           else
-            gh release create "$TAG" assets/* -R "$GITHUB_REPOSITORY" --title "SimWorld $TAG" \
+            gh release create "$TAG" assets/* -R "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --title "SimWorld $TAG" \
               --notes "Patched QEMU for ESP32 firmware co-simulation, downloaded by scripts/setup. QEMU is GPL-2.0: source = Espressif tag in qemu/build.sh + qemu/0001-*.patch."
           fi
