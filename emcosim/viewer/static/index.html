@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>emcosim viewer</title>
+<style>
+  :root { --bg:#f6f7f9; --panel:#fff; --ink:#1d2329; --muted:#66707a; --line:#d9dee3; --ok:#1a7f37; --bad:#c62828; --accent:#2563eb; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#14171a; --panel:#1c2024; --ink:#e7eaee; --muted:#9aa4ae; --line:#2e353c; --ok:#4ade80; --bad:#f87171; --accent:#60a5fa; } }
+  * { box-sizing: border-box; }
+  body { margin:0; font:13px/1.45 system-ui, -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif; background:var(--bg); color:var(--ink); }
+  .app { display:grid; grid-template-columns: 300px 1fr; height:100vh; }
+  aside { border-right:1px solid var(--line); background:var(--panel); overflow:auto; padding:12px; }
+  main { display:grid; grid-template-rows: 52vh auto 1fr; min-width:0; min-height:0; }
+  h2 { font-size:12px; text-transform:uppercase; letter-spacing:.04em; color:var(--muted); margin:14px 0 6px; }
+  select, button, input { font:inherit; color:inherit; }
+  select { width:100%; padding:5px; background:var(--bg); border:1px solid var(--line); border-radius:6px; }
+  .check { display:flex; gap:6px; padding:3px 0; border-bottom:1px dashed var(--line); }
+  .check b { width:14px; flex:none; }
+  .ok { color:var(--ok); } .bad { color:var(--bad); }
+  .kv { display:grid; grid-template-columns: 1fr auto; gap:2px 8px; font-variant-numeric: tabular-nums; }
+  .kv span:nth-child(odd) { color:var(--muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  pre { white-space:pre-wrap; font:11px/1.4 ui-monospace, Menlo, Consolas, monospace; background:var(--bg); padding:8px; border-radius:6px; max-height:260px; overflow:auto; margin:0; }
+  #view { position:relative; min-height:260px; }
+  #view canvas { display:block; width:100%; height:100%; }
+  .bar { display:flex; align-items:center; gap:10px; padding:8px 12px; border-top:1px solid var(--line); background:var(--panel); }
+  .bar input[type=range] { flex:1; }
+  .bar button { padding:4px 12px; border:1px solid var(--line); background:var(--bg); border-radius:6px; cursor:pointer; }
+  #time { font-variant-numeric: tabular-nums; min-width:80px; text-align:right; }
+  #charts { display:grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); align-content:start; gap:8px; padding:8px; background:var(--bg); overflow:auto; min-height:0; }
+  .chart { background:var(--panel); border:1px solid var(--line); border-radius:8px; padding:6px 8px; }
+  .chart header { display:flex; justify-content:space-between; color:var(--muted); font-size:11px; }
+  .chart canvas { width:100%; height:120px; display:block; }
+  #pick { display:flex; flex-wrap:wrap; gap:4px; }
+  #pick label { font-size:11px; background:var(--bg); border:1px solid var(--line); border-radius:10px; padding:1px 7px; cursor:pointer; }
+  .empty { color:var(--muted); padding:20px; }
+  @media (max-width: 800px) { .app { grid-template-columns: 1fr; height:auto; } aside { border-right:0; border-bottom:1px solid var(--line); } main { grid-template-rows: 320px auto auto; } }
+</style>
+</head>
+<body>
+<div class="app">
+  <aside>
+    <h2>Run</h2>
+    <select id="runs"></select>
+    <div id="desc" style="margin-top:6px;color:var(--muted)"></div>
+    <h2>Checks</h2><div id="checks"></div>
+    <h2>Metrics</h2><div id="metrics" class="kv"></div>
+    <h2>ESP32 serial</h2><pre id="uart"></pre>
+    <h2>Signals</h2><div id="pick"></div>
+  </aside>
+  <main>
+    <div id="view"></div>
+    <div class="bar">
+      <button id="play">播放</button>
+      <select id="speed" style="width:auto"><option value="0.25">0.25×</option><option value="0.5" selected>0.5×</option><option value="1">1×</option></select>
+      <input id="slider" type="range" min="0" max="1000" value="0">
+      <span id="time">0.000 s</span>
+    </div>
+    <div id="charts"></div>
+  </main>
+</div>
+<script type="importmap">{ "imports": { "three": "./vendor/three.module.min.js" } }</script>
+<script type="module" src="./app.js"></script>
+</body>
+</html>

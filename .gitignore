@@ -1,0 +1,8 @@
+__pycache__/
+*.egg-info/
+runs/
+qemu/src/
+qemu/out/
+firmware/*/build/
+firmware/*/sdkconfig
+firmware/*/sdkconfig.old

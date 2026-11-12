@@ -1,0 +1,120 @@
+emcosim: '0.1'
+name: switch_robot
+mcu:
+  type: esp32
+  backend: qemu
+  step_ms: 1
+  icount_shift: 3
+  supply: ldo3v3
+  current:
+    run_a: 0.05
+    reset_a: 0.02
+  brownout:
+    v_trip: 2.43
+    v_release: 2.53
+    note: ESP32 brown-out level 0 (CONFIG_ESP_BROWNOUT_DET_LVL_SEL_0)
+  firmware:
+    flash: firmware/switch_robot.bin
+    size_bytes: 266240
+    params: {}
+power:
+  nodes:
+    vin:
+      c_f: 0.0
+      net: VIN5
+      note: J1 pin 1
+    v5_servo:
+      c_f: 0.0004701
+      net: V5_SERVO
+      note: C1+C2 from PCB
+    usb5v:
+      c_f: 1.0e-05
+      note: MCU dev board USB 5 V (separately powered, README J2)
+  sources:
+    adapter:
+      node: vin
+      v: 5.0
+      r_ohm: 0.25
+      note: 'assumed: 5 V 2 A adapter + 1 m 22 AWG lead, round trip'
+    usb:
+      node: usb5v
+      v: 5.0
+      r_ohm: 0.3
+      i_limit_a: 0.5
+      note: 'assumed: PC USB 2.0 port (500 mA limit) + cable'
+  branches:
+    f1:
+      from: vin
+      to: v5_servo
+      r_ohm: 0.1729
+      note: RUEF110 cold resistance 0.15 ohm (assumed) + PCB copper 0.0229 ohm
+  regulators:
+    ldo3v3:
+      type: ldo
+      input: usb5v
+      v_out: 3.3
+      dropout_v: 1.1
+      c_out_f: 2.2e-05
+      i_q_a: 0.005
+      note: AMS1117-3.3 class on the dev board (assumed)
+mechanics:
+  timestep_s: 0.000125
+  parts: {}
+  joints:
+    servo_axis:
+      body: press_arm
+      type: hinge
+      axis:
+      - 1
+      - 0
+      - 0
+      range_deg:
+      - -40
+      - 40
+    rocker_axis:
+      body: rocker
+      type: hinge
+      axis:
+      - 1
+      - 0
+      - 0
+      range_deg:
+      - -3.92
+      - 3.92
+  elements:
+    rocker_detent:
+      type: bistable
+      joint: rocker_axis
+      stable_deg: 3.5
+      peak_force_n: 3.0
+      lever_m: 0.024
+      note: assumed, same as simulation/parameters.json
+  probes:
+    press:
+      type: contact
+      geoms_a: arm_collision
+      geoms_b: rocker_collision
+  mjcf: mechanics/switch_robot.xml
+  initial_deg:
+    rocker_axis: 3.5
+actuators:
+  servo1:
+    type: servo
+    joint: servo_axis
+    node: usb5v
+    preset: sg90
+    note: 'bench wiring: servo + on the dev board 5V pin (shares the USB port with the ESP32); the PCB
+      routes it from J1 via F1 (node v5_servo)'
+inputs:
+  button1:
+    type: button
+    active: low
+bindings:
+- pin: GPIO18
+  net: PWM_IN
+  to: servo1
+- pin: GPIO0
+  from: button1
+pcb:
+  file: pcb/carrier_v04.kicad_pcb
+  summary: pcb/carrier_v04.import.yaml

@@ -1,0 +1,465 @@
+diff --git a/hw/gpio/esp32_gpio.c b/hw/gpio/esp32_gpio.c
+index 84aefd4..3f5b7e9 100644
+--- a/hw/gpio/esp32_gpio.c
++++ b/hw/gpio/esp32_gpio.c
+@@ -29,6 +29,15 @@ static uint64_t esp32_gpio_read(void *opaque, hwaddr addr, unsigned int size)
+     case A_GPIO_STRAP:
+         r = s->strap_mode;
+         break;
++    case 0x04: r = (uint32_t)s->out; break;
++    case 0x10: r = (uint32_t)(s->out >> 32); break;
++    case 0x20: r = (uint32_t)s->enable; break;
++    case 0x2C: r = (uint32_t)(s->enable >> 32); break;
++    case 0x3C: r = (uint32_t)((s->in & ~s->enable) | (s->out & s->enable)); break;
++    case 0x40: r = (uint32_t)(((s->in & ~s->enable) | (s->out & s->enable)) >> 32); break;
++    case 0x530 ... 0x530 + 4 * 39:
++        r = s->func_out_sel[(addr - 0x530) / 4];
++        break;
+ 
+     default:
+         break;
+@@ -39,6 +48,28 @@ static uint64_t esp32_gpio_read(void *opaque, hwaddr addr, unsigned int size)
+ static void esp32_gpio_write(void *opaque, hwaddr addr,
+                        uint64_t value, unsigned int size)
+ {
++    Esp32GpioState *s = ESP32_GPIO(opaque);
++    const uint64_t lo = 0xffffffffULL, hi = 0xffULL << 32;
++    uint64_t v = (uint32_t)value;
++    switch (addr) {
++    case 0x04: s->out = (s->out & hi) | v; break;
++    case 0x08: s->out |= v; break;
++    case 0x0C: s->out &= ~v; break;
++    case 0x10: s->out = (s->out & lo) | ((v & 0xff) << 32); break;
++    case 0x14: s->out |= (v & 0xff) << 32; break;
++    case 0x18: s->out &= ~((v & 0xff) << 32); break;
++    case 0x20: s->enable = (s->enable & hi) | v; break;
++    case 0x24: s->enable |= v; break;
++    case 0x28: s->enable &= ~v; break;
++    case 0x2C: s->enable = (s->enable & lo) | ((v & 0xff) << 32); break;
++    case 0x30: s->enable |= (v & 0xff) << 32; break;
++    case 0x34: s->enable &= ~((v & 0xff) << 32); break;
++    case 0x530 ... 0x530 + 4 * 39:
++        s->func_out_sel[(addr - 0x530) / 4] = (uint32_t)value;
++        break;
++    default:
++        break;
++    }
+ }
+ 
+ static const MemoryRegionOps uart_ops = {
+@@ -49,6 +80,13 @@ static const MemoryRegionOps uart_ops = {
+ 
+ static void esp32_gpio_reset(DeviceState *dev)
+ {
++    Esp32GpioState *s = ESP32_GPIO(dev);
++    s->out = 0;
++    s->enable = 0;
++    for (int i = 0; i < 40; i++) {
++        s->func_out_sel[i] = ESP32_GPIO_SIMPLE_OUT_SIG;
++    }
++    /* s->in is driven by the outside world and survives a reset. */
+ }
+ 
+ static void esp32_gpio_realize(DeviceState *dev, Error **errp)
+@@ -62,6 +100,9 @@ static void esp32_gpio_init(Object *obj)
+ 
+     /* Set the default value for the strap_mode property */
+     object_property_set_int(obj, "strap_mode", ESP32_STRAP_MODE_FLASH_BOOT, &error_fatal);
++    /* Without a co-simulation link every input reads high (as if pulled up),
++     * so an active-low button is "not pressed". */
++    s->in = ~0ULL;
+ 
+     memory_region_init_io(&s->iomem, obj, &uart_ops, s,
+                           TYPE_ESP32_GPIO, 0x1000);
+diff --git a/hw/misc/esp32_ledc.c b/hw/misc/esp32_ledc.c
+index 9cebea9..2fb62e9 100644
+--- a/hw/misc/esp32_ledc.c
++++ b/hw/misc/esp32_ledc.c
+@@ -51,10 +51,74 @@ static uint32_t esp32_ledc_get_percent(Esp32LEDCState *s, uint32_t value, hwaddr
+     return duty_res ? (100 * duty_val / ((2 << (duty_res - 1)) - 1)) : 0;
+ }
+ 
++static void esp32_ledc_cosim_write(Esp32LEDCState *s, hwaddr addr, uint32_t value)
++{
++    if (addr >= sizeof(s->regs)) {
++        return;
++    }
++    s->regs[addr / 4] = value;
++    if (addr < 0x140) {
++        int ch = addr / 0x14;
++        int off = addr % 0x14;
++        bool high_speed = ch < 8;
++        uint32_t duty_reg = s->regs[(ch * 0x14 + 0x08) / 4];
++        if (off == 0x0C && (value & (1u << 31))) {
++            /* CONF1.DUTY_START: high-speed channels latch immediately; low-speed
++             * channels also need PARA_UP, which the IDF driver sets afterwards. */
++            if (high_speed) {
++                s->latched_duty[ch] = duty_reg;
++            }
++        } else if (off == 0x00 && !high_speed && (value & (1u << 4))) {
++            s->latched_duty[ch] = duty_reg;
++        }
++    }
++}
++
++bool esp32_ledc_channel_output(Esp32LEDCState *s, int ch, double apb_hz,
++                               double *freq_hz, double *duty)
++{
++    bool high_speed = ch < 8;
++    uint32_t conf0 = s->regs[(ch * 0x14) / 4];
++    int timer = conf0 & 3;
++    uint32_t tconf = s->regs[((high_speed ? 0x140 : 0x160) + timer * 8) / 4];
++    uint32_t res = tconf & 0x1f;
++    uint32_t div = (tconf >> 5) & 0x3ffff;
++    bool paused = tconf & (1u << 23);
++    bool rst = tconf & (1u << 24);
++    bool tick_sel = tconf & (1u << 25);
++    bool sig_out_en = conf0 & (1u << 2);
++    double clk;
++    if (!sig_out_en || rst || paused || res == 0 || div < 256) {
++        *freq_hz = 0;
++        *duty = (conf0 & (1u << 3)) ? 1.0 : 0.0;
++        return false;
++    }
++    if (high_speed) {
++        clk = tick_sel ? apb_hz : 1e6;           /* APB_CLK or REF_TICK */
++    } else {
++        bool apb_sel = s->regs[0x190 / 4] & 1;  /* LEDC_CONF.APB_CLK_SEL */
++        clk = tick_sel ? (apb_sel ? apb_hz : 8e6) : 1e6;
++    }
++    *freq_hz = clk / (div / 256.0) / (double)(1u << res);
++    *duty = (s->latched_duty[ch] / 16.0) / (double)(1u << res);
++    if (*duty > 1.0) {
++        *duty = 1.0;
++    }
++    return true;
++}
++
++static void esp32_ledc_reset(DeviceState *dev)
++{
++    Esp32LEDCState *s = ESP32_LEDC(dev);
++    memset(s->regs, 0, sizeof(s->regs));
++    memset(s->latched_duty, 0, sizeof(s->latched_duty));
++}
++
+ static void esp32_ledc_write(void *opaque, hwaddr addr,
+                             uint64_t value, unsigned int size)
+ {
+     Esp32LEDCState *s = ESP32_LEDC(opaque);
++    esp32_ledc_cosim_write(s, addr, (uint32_t)value);
+     switch (addr) {
+     case A_LEDC_HSTIMER0_CONF_REG ... A_LEDC_LSTIMER3_CONF_REG:
+         /* get duty resolution from timer config */
+@@ -136,6 +200,7 @@ static void esp32_ledc_class_init(ObjectClass *klass, void *data)
+ {
+     DeviceClass *dc = DEVICE_CLASS(klass);
+     dc->realize = esp32_ledc_realize;
++    dc->reset = esp32_ledc_reset;
+ }
+ 
+ static const TypeInfo esp32_ledc_info = {
+diff --git a/hw/xtensa/esp32.c b/hw/xtensa/esp32.c
+index 84c0d1a..f6ca363 100644
+--- a/hw/xtensa/esp32.c
++++ b/hw/xtensa/esp32.c
+@@ -168,6 +168,7 @@ static void esp32_soc_reset(DeviceState *dev)
+         device_cold_reset(DEVICE(&s->aes));
+         device_cold_reset(DEVICE(&s->rsa));
+         device_cold_reset(DEVICE(&s->gpio));
++        device_cold_reset(DEVICE(&s->ledc));
+         for (int i = 0; i < ESP32_UART_COUNT; ++i) {
+             device_cold_reset(DEVICE(&s->uart[i]));
+         }
+@@ -397,6 +398,8 @@ static void esp32_soc_realize(DeviceState *dev, Error **errp)
+     qdev_realize(DEVICE(&s->ledc), &s->periph_bus, &error_fatal);
+     esp32_soc_add_periph_device(sys_mem, &s->ledc, DR_REG_LEDC_BASE);
+ 
++    esp32_cosim_init(s);
++
+     qdev_realize(DEVICE(&s->rtc_cntl), &s->rtc_bus, &error_fatal);
+     esp32_soc_add_periph_device(sys_mem, &s->rtc_cntl, DR_REG_RTCCNTL_BASE);
+ 
+diff --git a/hw/xtensa/esp32_cosim.c b/hw/xtensa/esp32_cosim.c
+new file mode 100644
+index 0000000..31e8f9c
+--- /dev/null
++++ b/hw/xtensa/esp32_cosim.c
+@@ -0,0 +1,211 @@
++/*
++ * ESP32 lock-step co-simulation link.
++ *
++ * Every ESP32_COSIM_PERIOD_US microseconds of *virtual* time (default 1000)
++ * the emulator stops, sends one text line describing the pin outputs to an
++ * external simulator over a UNIX socket, and blocks until it receives one line
++ * with the pin inputs and the supply state.  Run QEMU with -icount so that
++ * virtual time is decoupled from wall-clock time; the external simulator then
++ * owns the shared clock.
++ *
++ *   QEMU -> sim:  F <seq> <vtime_ns> <out_hex> <en_hex> <nreset> <npwm>
++ *                   [<gpio>:<freq_hz>:<duty>]...\n
++ *   sim -> QEMU:  I <in_hex> <power_good>\n      (power_good 0 = brown-out)
++ *                 Q\n                            (quit the emulator)
++ *
++ * While power_good is 0 the SoC is held in reset with the reset cause set to
++ * RTCWDT_BROWN_OUT_RESET, which is what esp_reset_reason() reports after a
++ * real brown-out.
++ *
++ * Copyright (c) 2026 the emcosim authors.
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License version 2 or
++ * (at your option) any later version.
++ */
++
++#include "qemu/osdep.h"
++#include "qemu/error-report.h"
++#include "qemu/timer.h"
++#include "qemu/main-loop.h"
++#include "sysemu/runstate.h"
++#include "hw/xtensa/esp32.h"
++#include <sys/socket.h>
++#include <sys/un.h>
++
++#define LEDC_HS_SIG_OUT0_IDX 71
++#define LEDC_LS_SIG_OUT0_IDX 79
++
++typedef struct {
++    Esp32SocState *soc;
++    QEMUTimer *timer;
++    int fd;
++    int64_t period_ns;
++    int64_t next_ns;
++    uint64_t seq;
++    uint32_t resets;
++    bool power_good;
++    char rx[256];
++    size_t rx_len;
++} Esp32Cosim;
++
++static Esp32Cosim cosim;
++
++static void cosim_fail(const char *what)
++{
++    error_report("esp32 cosim: %s; shutting down", what);
++    qemu_system_shutdown_request(SHUTDOWN_CAUSE_HOST_ERROR);
++    if (cosim.fd >= 0) {
++        close(cosim.fd);
++        cosim.fd = -1;
++    }
++}
++
++static bool cosim_send(const char *buf, size_t len)
++{
++    while (len) {
++        ssize_t n = write(cosim.fd, buf, len);
++        if (n < 0 && errno == EINTR) {
++            continue;
++        }
++        if (n <= 0) {
++            return false;
++        }
++        buf += n;
++        len -= n;
++    }
++    return true;
++}
++
++static bool cosim_recv_line(char *line, size_t cap)
++{
++    for (;;) {
++        char *nl = memchr(cosim.rx, '\n', cosim.rx_len);
++        if (nl) {
++            size_t n = nl - cosim.rx;
++            if (n >= cap) {
++                return false;
++            }
++            memcpy(line, cosim.rx, n);
++            line[n] = 0;
++            memmove(cosim.rx, nl + 1, cosim.rx_len - n - 1);
++            cosim.rx_len -= n + 1;
++            return true;
++        }
++        if (cosim.rx_len == sizeof(cosim.rx)) {
++            return false;
++        }
++        ssize_t r = read(cosim.fd, cosim.rx + cosim.rx_len,
++                         sizeof(cosim.rx) - cosim.rx_len);
++        if (r < 0 && errno == EINTR) {
++            continue;
++        }
++        if (r <= 0) {
++            return false;
++        }
++        cosim.rx_len += r;
++    }
++}
++
++static void cosim_tick(void *opaque)
++{
++    Esp32SocState *s = cosim.soc;
++    Esp32GpioState *g = &s->gpio;
++    GString *out = g_string_new(NULL);
++    GString *pwm = g_string_new(NULL);
++    int npwm = 0;
++    char line[256];
++
++    if (cosim.fd < 0) {
++        g_string_free(out, true);
++        g_string_free(pwm, true);
++        return;
++    }
++
++    for (int pin = 0; pin < 40; pin++) {
++        uint32_t sig = g->func_out_sel[pin] & 0x1ff;
++        int ch = -1;
++        if (sig >= LEDC_HS_SIG_OUT0_IDX && sig < LEDC_HS_SIG_OUT0_IDX + 8) {
++            ch = sig - LEDC_HS_SIG_OUT0_IDX;
++        } else if (sig >= LEDC_LS_SIG_OUT0_IDX && sig < LEDC_LS_SIG_OUT0_IDX + 8) {
++            ch = 8 + sig - LEDC_LS_SIG_OUT0_IDX;
++        }
++        if (ch >= 0 && (g->enable >> pin & 1)) {
++            double freq, duty;
++            esp32_ledc_channel_output(&s->ledc, ch, 80e6, &freq, &duty);
++            if (g->func_out_sel[pin] & (1u << 9)) {   /* INV_SEL */
++                duty = 1.0 - duty;
++            }
++            g_string_append_printf(pwm, " %d:%.6f:%.8f", pin, freq, duty);
++            npwm++;
++        }
++    }
++    g_string_printf(out, "F %" PRIu64 " %" PRId64 " %" PRIx64 " %" PRIx64 " %u %d%s\n",
++                    cosim.seq++, qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL),
++                    g->out, g->enable, cosim.resets, npwm, pwm->str);
++    bool ok = cosim_send(out->str, out->len);
++    g_string_free(out, true);
++    g_string_free(pwm, true);
++    if (!ok || !cosim_recv_line(line, sizeof(line))) {
++        cosim_fail("link closed");
++        return;
++    }
++    if (line[0] == 'Q') {
++        qemu_system_shutdown_request(SHUTDOWN_CAUSE_HOST_QMP_QUIT);
++        return;
++    }
++    uint64_t in = 0;
++    int power = 1;
++    if (sscanf(line, "I %" SCNx64 " %d", &in, &power) < 1) {
++        cosim_fail("malformed input line");
++        return;
++    }
++    g->in = in;
++    if (!power) {
++        /* Brown-out: hold the chip in reset for as long as the supply is low. */
++        for (int i = 0; i < ESP32_CPU_COUNT; i++) {
++            s->rtc_cntl.reset_cause[i] = ESP32_RTCWDT_BROWN_OUT_RESET;
++        }
++        s->requested_reset = 0x7; /* PROCPU | APPCPU | PERIPH */
++        if (cosim.power_good) {
++            cosim.resets++;
++        }
++        qemu_system_reset_request(SHUTDOWN_CAUSE_GUEST_RESET);
++    }
++    cosim.power_good = power;
++
++    cosim.next_ns += cosim.period_ns;
++    timer_mod(cosim.timer, cosim.next_ns);
++}
++
++void esp32_cosim_init(Esp32SocState *s)
++{
++    const char *path = getenv("ESP32_COSIM_SOCKET");
++    const char *period = getenv("ESP32_COSIM_PERIOD_US");
++    struct sockaddr_un addr = { .sun_family = AF_UNIX };
++
++    cosim.fd = -1;
++    if (!path || !*path) {
++        return;
++    }
++    if (strlen(path) >= sizeof(addr.sun_path)) {
++        error_report("esp32 cosim: socket path too long");
++        exit(1);
++    }
++    strcpy(addr.sun_path, path);
++    cosim.fd = socket(AF_UNIX, SOCK_STREAM, 0);
++    if (cosim.fd < 0 || connect(cosim.fd, (struct sockaddr *)&addr, sizeof(addr)) < 0) {
++        error_report("esp32 cosim: cannot connect to %s: %s", path, strerror(errno));
++        exit(1);
++    }
++    cosim.soc = s;
++    cosim.power_good = true;
++    cosim.period_ns = (period ? atoll(period) : 1000) * 1000LL;
++    if (cosim.period_ns <= 0) {
++        cosim.period_ns = 1000000;
++    }
++    cosim.next_ns = cosim.period_ns;
++    cosim.timer = timer_new_ns(QEMU_CLOCK_VIRTUAL, cosim_tick, NULL);
++    timer_mod(cosim.timer, cosim.next_ns);
++    info_report("esp32 cosim: linked to %s, step %" PRId64 " ns", path, cosim.period_ns);
++}
+diff --git a/hw/xtensa/meson.build b/hw/xtensa/meson.build
+index 363d03e..8e4ff97 100644
+--- a/hw/xtensa/meson.build
++++ b/hw/xtensa/meson.build
+@@ -7,7 +7,7 @@ xtensa_ss.add(files(
+ xtensa_ss.add(when: 'CONFIG_XTENSA_SIM', if_true: files('sim.c'))
+ xtensa_ss.add(when: 'CONFIG_XTENSA_VIRT', if_true: files('virt.c'))
+ xtensa_ss.add(when: 'CONFIG_XTENSA_XTFPGA', if_true: files('xtfpga.c'))
+-xtensa_ss.add(when: 'CONFIG_XTENSA_ESP32', if_true: files('esp32.c', 'esp32_intc.c'))
++xtensa_ss.add(when: 'CONFIG_XTENSA_ESP32', if_true: files('esp32.c', 'esp32_intc.c', 'esp32_cosim.c'))
+ xtensa_ss.add(when: 'CONFIG_XTENSA_ESP32S3', if_true: files('esp32s3.c', 'esp32s3_intc.c', 'esp32s3_clk.c'))
+ 
+ hw_arch += {'xtensa': xtensa_ss}
+diff --git a/include/hw/gpio/esp32_gpio.h b/include/hw/gpio/esp32_gpio.h
+index 163b41a..77c3199 100644
+--- a/include/hw/gpio/esp32_gpio.h
++++ b/include/hw/gpio/esp32_gpio.h
+@@ -20,8 +20,16 @@ typedef struct Esp32GpioState {
+     MemoryRegion iomem;
+     qemu_irq irq;
+     uint32_t strap_mode;
++    /* co-simulation additions: output/enable latches, externally driven inputs,
++     * and the GPIO matrix output routing (signal index per pad). */
++    uint64_t out;
++    uint64_t enable;
++    uint64_t in;
++    uint32_t func_out_sel[40];
+ } Esp32GpioState;
+ 
++#define ESP32_GPIO_SIMPLE_OUT_SIG 256
++
+ typedef struct Esp32GpioClass {
+     SysBusDeviceClass parent_class;
+ } Esp32GpioClass;
+diff --git a/include/hw/misc/esp32_ledc.h b/include/hw/misc/esp32_ledc.h
+index 818b984..5a46a5e 100644
+--- a/include/hw/misc/esp32_ledc.h
++++ b/include/hw/misc/esp32_ledc.h
+@@ -17,8 +17,16 @@ typedef struct Esp32LEDCState {
+     uint32_t timer_conf_reg[ESP32_LEDC_TIMER_CNT];
+     uint32_t channel_conf0_reg[ESP32_LEDC_CHANNEL_CNT];
+     LEDState led[ESP32_LEDC_CHANNEL_CNT];
++    /* co-simulation additions: raw register file and the duty value that the
++     * hardware actually latched (on DUTY_START / PARA_UP). */
++    uint32_t regs[(0x190 + 4) / 4];
++    uint32_t latched_duty[ESP32_LEDC_CHANNEL_CNT];
+ } Esp32LEDCState;
+ 
++/* Returns true if the channel drives its output; fills frequency [Hz] and duty [0..1]. */
++bool esp32_ledc_channel_output(Esp32LEDCState *s, int ch, double apb_hz,
++                               double *freq_hz, double *duty);
++
+ REG32(LEDC_CONF_REG, 0x190)
+ 
+ #define LEDC_REG_GROUP(name, base) \
+diff --git a/include/hw/xtensa/esp32.h b/include/hw/xtensa/esp32.h
+index 4a84f5e..c882f1b 100644
+--- a/include/hw/xtensa/esp32.h
++++ b/include/hw/xtensa/esp32.h
+@@ -59,3 +59,7 @@ typedef struct Esp32SocState {
+ 
+     uint32_t requested_reset;
+ } Esp32SocState;
++
++/* Lock-step co-simulation link (hw/xtensa/esp32_cosim.c). Enabled when the
++ * ESP32_COSIM_SOCKET environment variable names a UNIX socket. */
++void esp32_cosim_init(Esp32SocState *s);

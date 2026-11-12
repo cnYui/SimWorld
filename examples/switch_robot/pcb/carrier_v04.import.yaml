@@ -1,0 +1,422 @@
+source: carrier_v04.kicad_pcb
+board:
+  x_min: 0.0
+  y_min: -40.0
+  width_mm: 60.0
+  height_mm: 40.0
+  thickness_mm: 1.6
+components:
+- ref: C1
+  value: 470uF
+  footprint: easyeda:CAP-TH_BD10.0-P5.00-D1.0-FD
+  x_mm: 27.0
+  y_mm: -9.0
+  rot_deg: 0.0
+  side: top
+  pads:
+    '1': V5_SERVO
+    '2': GND
+  value_si: 0.00047
+- ref: C2
+  value: 100nF
+  footprint: easyeda:CAP-TH_L4.0-W2.5-P2.50-D0.5
+  x_mm: 27.0
+  y_mm: -18.0
+  rot_deg: 0.0
+  side: top
+  pads:
+    '1': V5_SERVO
+    '2': GND
+  value_si: 1.0000000000000001e-07
+- ref: F1
+  value: RUEF110
+  footprint: easyeda:FUSE-TH_L7.0-W3.1-P5.08-D1.2
+  x_mm: 16.0
+  y_mm: -9.0
+  rot_deg: 0.0
+  side: top
+  pads:
+    '1': VIN5
+    '2': V5_SERVO
+- ref: J1
+  value: PZ254V-11-02P
+  footprint: easyeda:HDR-TH_2P-P2.54-V-M
+  x_mm: 8.0
+  y_mm: -9.0
+  rot_deg: 0.0
+  side: top
+  pads:
+    '1': VIN5
+    '2': GND
+- ref: J2
+  value: PZ254V-11-05P
+  footprint: easyeda:HDR-TH_5P-P2.54-V-M
+  x_mm: 24.0
+  y_mm: -35.5
+  rot_deg: 0.0
+  side: top
+  pads:
+    '1': GND
+    '2': PWM_IN
+    '3': KEY1
+    '4': KEY2
+    '5': GND
+- ref: J3
+  value: PZ254V-11-03P
+  footprint: easyeda:HDR-TH_3P-P2.54-V-M_PZ254V-11-03P
+  x_mm: 7.0
+  y_mm: -24.0
+  rot_deg: 0.0
+  side: top
+  pads:
+    '1': GND
+    '2': V5_SERVO
+    '3': SERVO_SIG
+- ref: J4
+  value: PZ254V-11-02P
+  footprint: easyeda:HDR-TH_2P-P2.54-V-M
+  x_mm: 53.0
+  y_mm: -13.0
+  rot_deg: 0.0
+  side: top
+  pads:
+    '1': BTN1_A
+    '2': BTN1_B
+- ref: J5
+  value: PZ254V-11-02P
+  footprint: easyeda:HDR-TH_2P-P2.54-V-M
+  x_mm: 53.0
+  y_mm: -27.0
+  rot_deg: 0.0
+  side: top
+  pads:
+    '1': BTN2_A
+    '2': BTN2_B
+- ref: R1
+  value: 470Ω
+  footprint: easyeda:RES-TH_BD2.3-L3.7-P7.70-D0.9
+  x_mm: 29.0
+  y_mm: -24.0
+  rot_deg: 0.0
+  side: top
+  pads:
+    '1': KEY1
+    '2': LED1
+  value_si: 470.0
+- ref: R2
+  value: 470Ω
+  footprint: easyeda:RES-TH_BD2.3-L3.7-P7.70-D0.9
+  x_mm: 33.0
+  y_mm: -31.0
+  rot_deg: 0.0
+  side: top
+  pads:
+    '1': KEY2
+    '2': LED2
+  value_si: 470.0
+- ref: R3
+  value: 100kΩ
+  footprint: easyeda:RES-TH_BD2.3-L3.7-P7.70-D0.9
+  x_mm: 17.0
+  y_mm: -23.0
+  rot_deg: 0.0
+  side: top
+  pads:
+    '1': KEY1
+    '2': GND
+  value_si: 100000.0
+- ref: R4
+  value: 100kΩ
+  footprint: easyeda:RES-TH_BD2.3-L3.7-P7.70-D0.9
+  x_mm: 17.0
+  y_mm: -27.5
+  rot_deg: 0.0
+  side: top
+  pads:
+    '1': KEY2
+    '2': GND
+  value_si: 100000.0
+- ref: R5
+  value: 220Ω
+  footprint: easyeda:RES-TH_BD2.3-L3.7-P7.70-D0.9
+  x_mm: 15.0
+  y_mm: -18.0
+  rot_deg: 0.0
+  side: top
+  pads:
+    '1': PWM_IN
+    '2': SERVO_SIG
+  value_si: 220.0
+- ref: R6
+  value: 100kΩ
+  footprint: easyeda:RES-TH_BD2.3-L3.7-P7.70-D0.9
+  x_mm: 15.0
+  y_mm: -31.0
+  rot_deg: 0.0
+  side: top
+  pads:
+    '1': PWM_IN
+    '2': GND
+  value_si: 100000.0
+- ref: U1
+  value: AQY212EH
+  footprint: easyeda:DIP-4_L6.4-W4.8-P2.54-LS7.6-BL
+  x_mm: 42.0
+  y_mm: -13.0
+  rot_deg: 0.0
+  side: top
+  pads:
+    '1': LED1
+    '2': GND
+    '3': BTN1_B
+    '4': BTN1_A
+- ref: U2
+  value: AQY212EH
+  footprint: easyeda:DIP-4_L6.4-W4.8-P2.54-LS7.6-BL
+  x_mm: 42.0
+  y_mm: -27.0
+  rot_deg: 0.0
+  side: top
+  pads:
+    '1': LED2
+    '2': GND
+    '3': BTN2_B
+    '4': BTN2_A
+- ref: H1
+  value: MountingHole
+  footprint: easyeda:NPTH
+  x_mm: 4.0
+  y_mm: -4.0
+  rot_deg: 0.0
+  side: top
+  pads:
+    ? ''
+    : ''
+- ref: H2
+  value: MountingHole
+  footprint: easyeda:NPTH
+  x_mm: 56.0
+  y_mm: -4.0
+  rot_deg: 0.0
+  side: top
+  pads:
+    ? ''
+    : ''
+- ref: H3
+  value: MountingHole
+  footprint: easyeda:NPTH
+  x_mm: 56.0
+  y_mm: -36.0
+  rot_deg: 0.0
+  side: top
+  pads:
+    ? ''
+    : ''
+- ref: H4
+  value: MountingHole
+  footprint: easyeda:NPTH
+  x_mm: 4.0
+  y_mm: -36.0
+  rot_deg: 0.0
+  side: top
+  pads:
+    ? ''
+    : ''
+nets:
+  BTN1_A:
+  - J4.1
+  - U1.4
+  BTN1_B:
+  - J4.2
+  - U1.3
+  BTN2_A:
+  - J5.1
+  - U2.4
+  BTN2_B:
+  - J5.2
+  - U2.3
+  GND:
+  - C1.2
+  - C2.2
+  - J1.2
+  - J2.1
+  - J2.5
+  - J3.1
+  - R3.2
+  - R4.2
+  - R6.2
+  - U1.2
+  - U2.2
+  KEY1:
+  - J2.3
+  - R1.1
+  - R3.1
+  KEY2:
+  - J2.4
+  - R2.1
+  - R4.1
+  LED1:
+  - R1.2
+  - U1.1
+  LED2:
+  - R2.2
+  - U2.1
+  PWM_IN:
+  - J2.2
+  - R5.1
+  - R6.1
+  SERVO_SIG:
+  - J3.3
+  - R5.2
+  V5_SERVO:
+  - C1.1
+  - C2.1
+  - F1.2
+  - J3.2
+  VIN5:
+  - F1.1
+  - J1.1
+copper:
+  V5_SERVO:
+    length_mm: 35.404
+    min_width_mm: 0.8001
+    series_ohm: 0.021745
+    pad_to_pad_ohm:
+      C1.1-C2.1: 0.005857
+      C1.1-F1.2: 0.003637
+      C1.1-J3.2: 0.015713
+      C2.1-F1.2: 0.009494
+      C2.1-J3.2: 0.021571
+      F1.2-J3.2: 0.012077
+  GND:
+    length_mm: 104.027
+    min_width_mm: 0.8001
+    series_ohm: 0.063894
+    pad_to_pad_ohm:
+      C1.2-C2.2: 0.005857
+      C1.2-J1.2: 0.013448
+      C1.2-J2.1: 0.019912
+      C1.2-J2.5: 0.027459
+      C1.2-J3.1: 0.020577
+      C1.2-R3.2: 0.011699
+      C1.2-R4.2: 0.014463
+      C1.2-R6.2: 0.017121
+      C1.2-U1.2: 0.006007
+      C1.2-U2.2: 0.015606
+      C2.2-J1.2: 0.019306
+      C2.2-J2.1: 0.014055
+      C2.2-J2.5: 0.021602
+      C2.2-J3.1: 0.026434
+      C2.2-R3.2: 0.005841
+      C2.2-R4.2: 0.008606
+      C2.2-R6.2: 0.011264
+      C2.2-U1.2: 0.011864
+      C2.2-U2.2: 0.021464
+      J1.2-J2.1: 0.033361
+      J1.2-J2.5: 0.040908
+      J1.2-J3.1: 0.007128
+      J1.2-R3.2: 0.025147
+      J1.2-R4.2: 0.027911
+      J1.2-R6.2: 0.03057
+      J1.2-U1.2: 0.019456
+      J1.2-U2.2: 0.029055
+      J2.1-J2.5: 0.007547
+      J2.1-J3.1: 0.040489
+      J2.1-R3.2: 0.008214
+      J2.1-R4.2: 0.005449
+      J2.1-R6.2: 0.002791
+      J2.1-U1.2: 0.025919
+      J2.1-U2.2: 0.035518
+      J2.5-J3.1: 0.048036
+      J2.5-R3.2: 0.015761
+      J2.5-R4.2: 0.012996
+      J2.5-R6.2: 0.010338
+      J2.5-U1.2: 0.033466
+      J2.5-U2.2: 0.043066
+      J3.1-R3.2: 0.032275
+      J3.1-R4.2: 0.03504
+      J3.1-R6.2: 0.037698
+      J3.1-U1.2: 0.026584
+      J3.1-U2.2: 0.036183
+      R3.2-R4.2: 0.002764
+      R3.2-R6.2: 0.005423
+      R3.2-U1.2: 0.017706
+      R3.2-U2.2: 0.027305
+      R4.2-R6.2: 0.002658
+      R4.2-U1.2: 0.02047
+      R4.2-U2.2: 0.030069
+      R6.2-U1.2: 0.023128
+      R6.2-U2.2: 0.032728
+      U1.2-U2.2: 0.009599
+  VIN5:
+    length_mm: 5.985
+    min_width_mm: 0.8001
+    series_ohm: 0.003676
+    pad_to_pad_ohm:
+      F1.1-J1.1: 0.003676
+  PWM_IN:
+    length_mm: 25.131
+    min_width_mm: 0.3048
+    series_ohm: 0.040519
+    pad_to_pad_ohm:
+      J2.2-R5.1: 0.040519
+      J2.2-R6.1: 0.01956
+      R5.1-R6.1: 0.020959
+  KEY1:
+    length_mm: 34.352
+    min_width_mm: 0.3048
+    series_ohm: 0.055385
+    pad_to_pad_ohm:
+      J2.3-R1.1: 0.02802
+      J2.3-R3.1: 0.055385
+      R1.1-R3.1: 0.027365
+  KEY2:
+    length_mm: 23.045
+    min_width_mm: 0.3048
+    series_ohm: 0.037155
+    pad_to_pad_ohm:
+      J2.4-R2.1: 0.009022
+      J2.4-R4.1: 0.037155
+      R2.1-R4.1: 0.028133
+  SERVO_SIG:
+    length_mm: 15.348
+    min_width_mm: 0.3048
+    series_ohm: 0.024746
+    pad_to_pad_ohm:
+      J3.3-R5.2: 0.024746
+  BTN1_A:
+    length_mm: 8.242
+    min_width_mm: 0.3048
+    series_ohm: 0.013289
+    pad_to_pad_ohm:
+      J4.1-U1.4: 0.013289
+  BTN1_B:
+    length_mm: 8.295
+    min_width_mm: 0.3048
+    series_ohm: 0.013374
+    pad_to_pad_ohm:
+      J4.2-U1.3: 0.013374
+  BTN2_A:
+    length_mm: 8.242
+    min_width_mm: 0.3048
+    series_ohm: 0.013289
+    pad_to_pad_ohm:
+      J5.1-U2.4: 0.013289
+  BTN2_B:
+    length_mm: 8.295
+    min_width_mm: 0.3048
+    series_ohm: 0.013374
+    pad_to_pad_ohm:
+      J5.2-U2.3: 0.013374
+  LED1:
+    length_mm: 17.352
+    min_width_mm: 0.3048
+    series_ohm: 0.027977
+    pad_to_pad_ohm:
+      R1.2-U1.1: 0.027977
+  LED2:
+    length_mm: 3.306
+    min_width_mm: 0.3048
+    series_ohm: 0.005331
+    pad_to_pad_ohm:
+      R2.2-U2.1: 0.005253

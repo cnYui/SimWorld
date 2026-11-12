@@ -1,0 +1,36 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "emcosim"
+version = "0.1.0"
+description = "Electronics + physics co-simulation: ESP32 firmware in QEMU, equivalent power/motor models, MuJoCo mechanics, MCP tools for AI agents"
+readme = "README.md"
+license = { text = "Apache-2.0" }
+requires-python = ">=3.10"
+dependencies = [
+  "mujoco>=3.3",
+  "numpy>=1.24",
+  "scipy>=1.10",
+  "pyyaml>=6",
+  "trimesh>=4",
+  "Pillow>=10",
+  "mcp>=1.2",  # 1.x (FastMCP) and 2.x (MCPServer) both work
+]
+
+[project.optional-dependencies]
+step = ["cascadio>=0.0.13"]
+dev = ["pytest>=8", "gmsh>=4.11"]
+
+[project.scripts]
+emcosim = "emcosim.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["emcosim*"]
+
+[tool.setuptools.package-data]
+"emcosim.viewer" = ["static/*", "static/vendor/*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

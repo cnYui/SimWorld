@@ -1,0 +1,913 @@
+(kicad_pcb
+  (version 20240108)
+  (generator "emcosim_easyeda_pro")
+  (general
+    (thickness 1.6))
+  (layers
+    (0 "F.Cu" signal)
+    (31 "B.Cu" signal)
+    (44 "Edge.Cuts" user))
+  (net 0 "")
+  (net 1 "BTN1_A")
+  (net 2 "BTN1_B")
+  (net 3 "BTN2_A")
+  (net 4 "BTN2_B")
+  (net 5 "GND")
+  (net 6 "KEY1")
+  (net 7 "KEY2")
+  (net 8 "LED1")
+  (net 9 "LED2")
+  (net 10 "PWM_IN")
+  (net 11 "SERVO_SIG")
+  (net 12 "V5_SERVO")
+  (net 13 "VIN5")
+  (footprint "easyeda:CAP-TH_BD10.0-P5.00-D1.0-FD"
+    (layer "F.Cu")
+    (uuid "f78e9b6e-33a7-5696-87b7-b76bc85df43d")
+    (at 27 -9)
+    (property "Reference" "C1"
+      (at 0 0))
+    (property "Value" "470uF"
+      (at 0 0))
+    (property "MPN" "EEUFR1E471"
+      (at 0 0))
+    (pad "1" thru_hole circle
+      (at -2.5401 0)
+      (size 1.8 1.8)
+      (drill 1)
+      (layers "*.Cu" "*.Mask")
+      (net 12 "V5_SERVO"))
+    (pad "2" thru_hole circle
+      (at 2.5399 0)
+      (size 1.8 1.8)
+      (drill 1)
+      (layers "*.Cu" "*.Mask")
+      (net 5 "GND")))
+  (footprint "easyeda:CAP-TH_L4.0-W2.5-P2.50-D0.5"
+    (layer "F.Cu")
+    (uuid "ab583aa8-b832-57a4-bee2-e07eacc87eaa")
+    (at 27 -18)
+    (property "Reference" "C2"
+      (at 0 0))
+    (property "Value" "100nF"
+      (at 0 0))
+    (property "MPN" "FK18X7R1H104K"
+      (at 0 0))
+    (pad "1" thru_hole circle
+      (at -1.25 0)
+      (size 1.8 1.8)
+      (drill 1)
+      (layers "*.Cu" "*.Mask")
+      (net 12 "V5_SERVO"))
+    (pad "2" thru_hole circle
+      (at 1.2499 0)
+      (size 1.8 1.8)
+      (drill 1)
+      (layers "*.Cu" "*.Mask")
+      (net 5 "GND")))
+  (footprint "easyeda:FUSE-TH_L7.0-W3.1-P5.08-D1.2"
+    (layer "F.Cu")
+    (uuid "349f6918-ae2e-5c34-8e5c-aa1a228441cb")
+    (at 16 -9)
+    (property "Reference" "F1"
+      (at 0 0))
+    (property "Value" "RUEF110"
+      (at 0 0))
+    (property "MPN" "RUEF110"
+      (at 0 0))
+    (pad "1" thru_hole circle
+      (at -2.54 0)
+      (size 1.8 1.8)
+      (drill 1)
+      (layers "*.Cu" "*.Mask")
+      (net 13 "VIN5"))
+    (pad "2" thru_hole circle
+      (at 2.54 0)
+      (size 1.8 1.8)
+      (drill 1)
+      (layers "*.Cu" "*.Mask")
+      (net 12 "V5_SERVO")))
+  (footprint "easyeda:HDR-TH_2P-P2.54-V-M"
+    (layer "F.Cu")
+    (uuid "b360001b-2b74-5d89-a44b-950d3658b934")
+    (at 8 -9)
+    (property "Reference" "J1"
+      (at 0 0))
+    (property "Value" "PZ254V-11-02P"
+      (at 0 0))
+    (property "MPN" "PZ254V-11-02P"
+      (at 0 0))
+    (pad "1" thru_hole circle
+      (at -0 1.27)
+      (size 1.8 1.8)
+      (drill 1)
+      (layers "*.Cu" "*.Mask")
+      (net 13 "VIN5"))
+    (pad "2" thru_hole circle
+      (at -0 -1.27)
+      (size 1.8 1.8)
+      (drill 1)
+      (layers "*.Cu" "*.Mask")
+      (net 5 "GND")))
+  (footprint "easyeda:HDR-TH_5P-P2.54-V-M"
+    (layer "F.Cu")
+    (uuid "9247846a-c859-5d45-8af3-6a5d874269af")
+    (at 24 -35.5)
+    (property "Reference" "J2"
+      (at 0 0))
+    (property "Value" "PZ254V-11-05P"
+      (at 0 0))
+    (property "MPN" "PZ254V-11-05P"
+      (at 0 0))
+    (pad "1" thru_hole circle
+      (at -5.08 -0.0001)
+      (size 1.8 1.8)
+      (drill 1)
+      (layers "*.Cu" "*.Mask")
+      (net 5 "GND"))
+    (pad "2" thru_hole circle
+      (at -2.54 -0.0001)
+      (size 1.8 1.8)
+      (drill 1)
+      (layers "*.Cu" "*.Mask")
+      (net 10 "PWM_IN"))
+    (pad "3" thru_hole circle
+      (at -0 -0.0001)
+      (size 1.8 1.8)
+      (drill 1)
+      (layers "*.Cu" "*.Mask")
+      (net 6 "KEY1"))
+    (pad "4" thru_hole circle
+      (at 2.54 -0.0001)
+      (size 1.8 1.8)
+      (drill 1)
+      (layers "*.Cu" "*.Mask")
+      (net 7 "KEY2"))
+    (pad "5" thru_hole circle
+      (at 5.08 -0.0001)
+      (size 1.8 1.8)
+      (drill 1)
+      (layers "*.Cu" "*.Mask")
+      (net 5 "GND")))
+  (footprint "easyeda:HDR-TH_3P-P2.54-V-M_PZ254V-11-03P"
+    (layer "F.Cu")
+    (uuid "996d5eba-be94-59bd-acdd-120a2458d30c")
+    (at 7 -24)
+    (property "Reference" "J3"
+      (at 0 0))
+    (property "Value" "PZ254V-11-03P"
+      (at 0 0))
+    (property "MPN" "PZ254V-11-03P"
+      (at 0 0))
+    (pad "1" thru_hole circle
+      (at -0 2.54)
+      (size 1.8 1.8)
+      (drill 1)
+      (layers "*.Cu" "*.Mask")
+      (net 5 "GND"))
+    (pad "2" thru_hole circle
+      (at -0 0)
+      (size 1.8 1.8)
+      (drill 1)
+      (layers "*.Cu" "*.Mask")
+      (net 12 "V5_SERVO"))
+    (pad "3" thru_hole circle
+      (at -0 -2.54)
+      (size 1.8 1.8)
+      (drill 1)
+      (layers "*.Cu" "*.Mask")
+      (net 11 "SERVO_SIG")))
+  (footprint "easyeda:HDR-TH_2P-P2.54-V-M"
+    (layer "F.Cu")
+    (uuid "07343f36-1b00-5112-bfe5-aa2ac900b896")
+    (at 53 -13)
+    (property "Reference" "J4"
+      (at 0 0))
+    (property "Value" "PZ254V-11-02P"
+      (at 0 0))
+    (property "MPN" "PZ254V-11-02P"
+      (at 0 0))
+    (pad "1" thru_hole circle
+      (at -0.0001 1.27)
+      (size 1.8 1.8)
+      (drill 1)
+      (layers "*.Cu" "*.Mask")
+      (net 1 "BTN1_A"))
+    (pad "2" thru_hole circle
+      (at -0.0001 -1.27)
+      (size 1.8 1.8)
+      (drill 1)
+      (layers "*.Cu" "*.Mask")
+      (net 2 "BTN1_B")))
+  (footprint "easyeda:HDR-TH_2P-P2.54-V-M"
+    (layer "F.Cu")
+    (uuid "b15f0340-0e49-5462-8d02-d28fa064ecb8")
+    (at 53 -27)
+    (property "Reference" "J5"
+      (at 0 0))
+    (property "Value" "PZ254V-11-02P"
+      (at 0 0))
+    (property "MPN" "PZ254V-11-02P"
+      (at 0 0))
+    (pad "1" thru_hole circle
+      (at -0.0001 1.2701)
+      (size 1.8 1.8)
+      (drill 1)
+      (layers "*.Cu" "*.Mask")
+      (net 3 "BTN2_A"))
+    (pad "2" thru_hole circle
+      (at -0.0001 -1.2699)
+      (size 1.8 1.8)
+      (drill 1)
+      (layers "*.Cu" "*.Mask")
+      (net 4 "BTN2_B")))
+  (footprint "easyeda:RES-TH_BD2.3-L3.7-P7.70-D0.9"
+    (layer "F.Cu")
+    (uuid "ab2ccef8-6ecf-582d-ae7b-c8a3bc7a57d0")
+    (at 29 -24)
+    (property "Reference" "R1"
+      (at 0 0))
+    (property "Value" "470Ω"
+      (at 0 0))
+    (property "MPN" "MF1/8W-470Ω±1%-OT52"
+      (at 0 0))
+    (pad "1" thru_hole circle
+      (at -0.0001 3.81)
+      (size 1.8 1.8)
+      (drill 1)
+      (layers "*.Cu" "*.Mask")
+      (net 6 "KEY1"))
+    (pad "2" thru_hole circle
+      (at -0.0001 -3.81)
+      (size 1.8 1.8)
+      (drill 1)
+      (layers "*.Cu" "*.Mask")
+      (net 8 "LED1")))
+  (footprint "easyeda:RES-TH_BD2.3-L3.7-P7.70-D0.9"
+    (layer "F.Cu")
+    (uuid "028a51d2-d008-5562-8698-0820c8fafc04")
+    (at 33 -31)
+    (property "Reference" "R2"
+      (at 0 0))
+    (property "Value" "470Ω"
+      (at 0 0))
+    (property "MPN" "MF1/8W-470Ω±1%-OT52"
+      (at 0 0))
+    (pad "1" thru_hole circle
+      (at -3.8101 0.0001)
+      (size 1.8 1.8)
+      (drill 1)
+      (layers "*.Cu" "*.Mask")
+      (net 7 "KEY2"))
+    (pad "2" thru_hole circle
+      (at 3.8099 0.0001)
+      (size 1.8 1.8)
+      (drill 1)
+      (layers "*.Cu" "*.Mask")
+      (net 9 "LED2")))
+  (footprint "easyeda:RES-TH_BD2.3-L3.7-P7.70-D0.9"
+    (layer "F.Cu")
+    (uuid "83d7ed1b-813e-534f-823e-c10964a13265")
+    (at 17 -23)
+    (property "Reference" "R3"
+      (at 0 0))
+    (property "Value" "100kΩ"
+      (at 0 0))
+    (property "MPN" "MF1/8W-100K±1%-OT26"
+      (at 0 0))
+    (pad "1" thru_hole circle
+      (at -3.81 0)
+      (size 1.8 1.8)
+      (drill 1)
+      (layers "*.Cu" "*.Mask")
+      (net 6 "KEY1"))
+    (pad "2" thru_hole circle
+      (at 3.81 0)
+      (size 1.8 1.8)
+      (drill 1)
+      (layers "*.Cu" "*.Mask")
+      (net 5 "GND")))
+  (footprint "easyeda:RES-TH_BD2.3-L3.7-P7.70-D0.9"
+    (layer "F.Cu")
+    (uuid "cfadbe2a-ea4d-5b01-bcc9-4a7edad27a94")
+    (at 17 -27.5)
+    (property "Reference" "R4"
+      (at 0 0))
+    (property "Value" "100kΩ"
+      (at 0 0))
+    (property "MPN" "MF1/8W-100K±1%-OT26"
+      (at 0 0))
+    (pad "1" thru_hole circle
+      (at -3.81 -0.0001)
+      (size 1.8 1.8)
+      (drill 1)
+      (layers "*.Cu" "*.Mask")
+      (net 7 "KEY2"))
+    (pad "2" thru_hole circle
+      (at 3.81 -0.0001)
+      (size 1.8 1.8)
+      (drill 1)
+      (layers "*.Cu" "*.Mask")
+      (net 5 "GND")))
+  (footprint "easyeda:RES-TH_BD2.3-L3.7-P7.70-D0.9"
+    (layer "F.Cu")
+    (uuid "ba148abf-18f3-5103-bcd7-b0b7d66ddd12")
+    (at 15 -18)
+    (property "Reference" "R5"
+      (at 0 0))
+    (property "Value" "220Ω"
+      (at 0 0))
+    (property "MPN" "MF1/8W-220Ω±1%-OT52"
+      (at 0 0))
+    (pad "1" thru_hole circle
+      (at -3.81 0)
+      (size 1.8 1.8)
+      (drill 1)
+      (layers "*.Cu" "*.Mask")
+      (net 10 "PWM_IN"))
+    (pad "2" thru_hole circle
+      (at 3.81 0)
+      (size 1.8 1.8)
+      (drill 1)
+      (layers "*.Cu" "*.Mask")
+      (net 11 "SERVO_SIG")))
+  (footprint "easyeda:RES-TH_BD2.3-L3.7-P7.70-D0.9"
+    (layer "F.Cu")
+    (uuid "680b6312-a1a9-5ace-a11e-003e608e89b9")
+    (at 15 -31)
+    (property "Reference" "R6"
+      (at 0 0))
+    (property "Value" "100kΩ"
+      (at 0 0))
+    (property "MPN" "MF1/8W-100K±1%-OT26"
+      (at 0 0))
+    (pad "1" thru_hole circle
+      (at -3.81 0.0001)
+      (size 1.8 1.8)
+      (drill 1)
+      (layers "*.Cu" "*.Mask")
+      (net 10 "PWM_IN"))
+    (pad "2" thru_hole circle
+      (at 3.81 0.0001)
+      (size 1.8 1.8)
+      (drill 1)
+      (layers "*.Cu" "*.Mask")
+      (net 5 "GND")))
+  (footprint "easyeda:DIP-4_L6.4-W4.8-P2.54-LS7.6-BL"
+    (layer "F.Cu")
+    (uuid "884232c5-4fe2-5cf4-aa8c-1a88b58b8bf4")
+    (at 42 -13)
+    (property "Reference" "U1"
+      (at 0 0))
+    (property "Value" "AQY212EH"
+      (at 0 0))
+    (property "MPN" "AQY212EH"
+      (at 0 0))
+    (pad "1" thru_hole circle
+      (at -3.8101 -1.2649)
+      (size 1.8 1.8)
+      (drill 1)
+      (layers "*.Cu" "*.Mask")
+      (net 8 "LED1"))
+    (pad "2" thru_hole circle
+      (at -3.8098 1.2751)
+      (size 1.8 1.8)
+      (drill 1)
+      (layers "*.Cu" "*.Mask")
+      (net 5 "GND"))
+    (pad "3" thru_hole circle
+      (at 3.8102 1.2649)
+      (size 1.8 1.8)
+      (drill 1)
+      (layers "*.Cu" "*.Mask")
+      (net 2 "BTN1_B"))
+    (pad "4" thru_hole circle
+      (at 3.8102 -1.2751)
+      (size 1.8 1.8)
+      (drill 1)
+      (layers "*.Cu" "*.Mask")
+      (net 1 "BTN1_A")))
+  (footprint "easyeda:DIP-4_L6.4-W4.8-P2.54-LS7.6-BL"
+    (layer "F.Cu")
+    (uuid "ea888523-b92a-5808-afad-1260d25894e1")
+    (at 42 -27)
+    (property "Reference" "U2"
+      (at 0 0))
+    (property "Value" "AQY212EH"
+      (at 0 0))
+    (property "MPN" "AQY212EH"
+      (at 0 0))
+    (pad "1" thru_hole circle
+      (at -3.8101 -1.2649)
+      (size 1.8 1.8)
+      (drill 1)
+      (layers "*.Cu" "*.Mask")
+      (net 9 "LED2"))
+    (pad "2" thru_hole circle
+      (at -3.8098 1.2751)
+      (size 1.8 1.8)
+      (drill 1)
+      (layers "*.Cu" "*.Mask")
+      (net 5 "GND"))
+    (pad "3" thru_hole circle
+      (at 3.8102 1.265)
+      (size 1.8 1.8)
+      (drill 1)
+      (layers "*.Cu" "*.Mask")
+      (net 4 "BTN2_B"))
+    (pad "4" thru_hole circle
+      (at 3.8102 -1.275)
+      (size 1.8 1.8)
+      (drill 1)
+      (layers "*.Cu" "*.Mask")
+      (net 3 "BTN2_A")))
+  (footprint "easyeda:NPTH"
+    (layer "F.Cu")
+    (at 4 -4)
+    (property "Reference" "H1"
+      (at 0 0))
+    (property "Value" "MountingHole"
+      (at 0 0))
+    (pad "" np_thru_hole circle
+      (at 0 0)
+      (size 3.2 3.2)
+      (drill 3.2)
+      (layers "*.Cu" "*.Mask")))
+  (footprint "easyeda:NPTH"
+    (layer "F.Cu")
+    (at 56 -4)
+    (property "Reference" "H2"
+      (at 0 0))
+    (property "Value" "MountingHole"
+      (at 0 0))
+    (pad "" np_thru_hole circle
+      (at 0 0)
+      (size 3.2 3.2)
+      (drill 3.2)
+      (layers "*.Cu" "*.Mask")))
+  (footprint "easyeda:NPTH"
+    (layer "F.Cu")
+    (at 56 -36)
+    (property "Reference" "H3"
+      (at 0 0))
+    (property "Value" "MountingHole"
+      (at 0 0))
+    (pad "" np_thru_hole circle
+      (at 0 0)
+      (size 3.2 3.2)
+      (drill 3.2)
+      (layers "*.Cu" "*.Mask")))
+  (footprint "easyeda:NPTH"
+    (layer "F.Cu")
+    (at 4 -36)
+    (property "Reference" "H4"
+      (at 0 0))
+    (property "Value" "MountingHole"
+      (at 0 0))
+    (pad "" np_thru_hole circle
+      (at 0 0)
+      (size 3.2 3.2)
+      (drill 3.2)
+      (layers "*.Cu" "*.Mask")))
+  (segment
+    (start 25.7505 -18.001)
+    (end 25.7505 -10.2895)
+    (width 0.8001)
+    (layer "B.Cu")
+    (net 12 "V5_SERVO"))
+  (segment
+    (start 25.7505 -10.2895)
+    (end 24.4602 -8.9992)
+    (width 0.8001)
+    (layer "B.Cu")
+    (net 12 "V5_SERVO"))
+  (segment
+    (start 18.5395 -8.9992)
+    (end 24.4602 -8.9992)
+    (width 0.8001)
+    (layer "F.Cu")
+    (net 12 "V5_SERVO"))
+  (segment
+    (start 18.5395 -8.9992)
+    (end 18.3439 -8.9992)
+    (width 0.8001)
+    (layer "B.Cu")
+    (net 12 "V5_SERVO"))
+  (segment
+    (start 18.3439 -8.9992)
+    (end 8.5065 -18.8392)
+    (width 0.8001)
+    (layer "B.Cu")
+    (net 12 "V5_SERVO"))
+  (segment
+    (start 8.5065 -18.8392)
+    (end 8.5065 -22.5831)
+    (width 0.8001)
+    (layer "B.Cu")
+    (net 12 "V5_SERVO"))
+  (segment
+    (start 8.5065 -22.5831)
+    (end 7.0891 -24.0005)
+    (width 0.8001)
+    (layer "B.Cu")
+    (net 12 "V5_SERVO"))
+  (segment
+    (start 7.0891 -24.0005)
+    (end 7.0002 -24.0005)
+    (width 0.8001)
+    (layer "B.Cu")
+    (net 12 "V5_SERVO"))
+  (segment
+    (start 28.2499 -18.001)
+    (end 28.2499 -10.2895)
+    (width 0.8001)
+    (layer "B.Cu")
+    (net 5 "GND"))
+  (segment
+    (start 28.2499 -10.2895)
+    (end 29.5402 -8.9992)
+    (width 0.8001)
+    (layer "B.Cu")
+    (net 5 "GND"))
+  (segment
+    (start 8.001 -10.2692)
+    (end 8.2906 -10.5588)
+    (width 0.8001)
+    (layer "F.Cu")
+    (net 5 "GND"))
+  (segment
+    (start 8.2906 -10.5588)
+    (end 27.9806 -10.5588)
+    (width 0.8001)
+    (layer "F.Cu")
+    (net 5 "GND"))
+  (segment
+    (start 27.9806 -10.5588)
+    (end 29.5402 -8.9992)
+    (width 0.8001)
+    (layer "F.Cu")
+    (net 5 "GND"))
+  (segment
+    (start 20.8102 -22.9997)
+    (end 23.2512 -22.9997)
+    (width 0.8001)
+    (layer "B.Cu")
+    (net 5 "GND"))
+  (segment
+    (start 23.2512 -22.9997)
+    (end 28.2499 -18.001)
+    (width 0.8001)
+    (layer "B.Cu")
+    (net 5 "GND"))
+  (segment
+    (start 20.8102 -27.5006)
+    (end 20.8102 -22.9997)
+    (width 0.8001)
+    (layer "B.Cu")
+    (net 5 "GND"))
+  (segment
+    (start 21.6535 -37.8206)
+    (end 21.2395 -37.8206)
+    (width 0.8001)
+    (layer "F.Cu")
+    (net 5 "GND"))
+  (segment
+    (start 21.2395 -37.8206)
+    (end 18.9205 -35.499)
+    (width 0.8001)
+    (layer "F.Cu")
+    (net 5 "GND"))
+  (segment
+    (start 27.9222 -37.0053)
+    (end 22.4688 -37.0053)
+    (width 0.8001)
+    (layer "F.Cu")
+    (net 5 "GND"))
+  (segment
+    (start 22.4688 -37.0053)
+    (end 21.6535 -37.8206)
+    (width 0.8001)
+    (layer "F.Cu")
+    (net 5 "GND"))
+  (segment
+    (start 29.0805 -35.499)
+    (end 27.9222 -36.6573)
+    (width 0.8001)
+    (layer "F.Cu")
+    (net 5 "GND"))
+  (segment
+    (start 27.9222 -36.6573)
+    (end 27.9222 -37.0053)
+    (width 0.8001)
+    (layer "F.Cu")
+    (net 5 "GND"))
+  (segment
+    (start 7.0002 -21.4605)
+    (end 7.0002 -11.27)
+    (width 0.8001)
+    (layer "B.Cu")
+    (net 5 "GND"))
+  (segment
+    (start 7.0002 -11.27)
+    (end 8.001 -10.2692)
+    (width 0.8001)
+    (layer "B.Cu")
+    (net 5 "GND"))
+  (segment
+    (start 18.8112 -31.0007)
+    (end 18.8112 -33.8861)
+    (width 0.8001)
+    (layer "B.Cu")
+    (net 5 "GND"))
+  (segment
+    (start 18.8112 -33.8861)
+    (end 18.9205 -33.9954)
+    (width 0.8001)
+    (layer "B.Cu")
+    (net 5 "GND"))
+  (segment
+    (start 20.8102 -27.5006)
+    (end 18.8112 -29.4996)
+    (width 0.8001)
+    (layer "B.Cu")
+    (net 5 "GND"))
+  (segment
+    (start 18.8112 -29.4996)
+    (end 18.8112 -31.0007)
+    (width 0.8001)
+    (layer "B.Cu")
+    (net 5 "GND"))
+  (segment
+    (start 18.9205 -35.499)
+    (end 18.9205 -33.9954)
+    (width 0.8001)
+    (layer "B.Cu")
+    (net 5 "GND"))
+  (segment
+    (start 38.1914 -11.7246)
+    (end 32.2656 -11.7246)
+    (width 0.8001)
+    (layer "F.Cu")
+    (net 5 "GND"))
+  (segment
+    (start 32.2656 -11.7246)
+    (end 29.5402 -8.9992)
+    (width 0.8001)
+    (layer "F.Cu")
+    (net 5 "GND"))
+  (segment
+    (start 39.751 -12.7102)
+    (end 39.177 -12.7102)
+    (width 0.8001)
+    (layer "B.Cu")
+    (net 5 "GND"))
+  (segment
+    (start 39.177 -12.7102)
+    (end 38.1914 -11.7246)
+    (width 0.8001)
+    (layer "B.Cu")
+    (net 5 "GND"))
+  (segment
+    (start 38.1914 -25.7251)
+    (end 39.751 -24.1656)
+    (width 0.8001)
+    (layer "B.Cu")
+    (net 5 "GND"))
+  (segment
+    (start 39.751 -24.1656)
+    (end 39.751 -12.7102)
+    (width 0.8001)
+    (layer "B.Cu")
+    (net 5 "GND"))
+  (segment
+    (start 8.001 -7.7292)
+    (end 12.1895 -7.7292)
+    (width 0.8001)
+    (layer "F.Cu")
+    (net 13 "VIN5"))
+  (segment
+    (start 12.1895 -7.7292)
+    (end 13.4595 -8.9992)
+    (width 0.8001)
+    (layer "F.Cu")
+    (net 13 "VIN5"))
+  (segment
+    (start 11.1912 -31.0007)
+    (end 16.9596 -31.0007)
+    (width 0.3048)
+    (layer "F.Cu")
+    (net 10 "PWM_IN"))
+  (segment
+    (start 16.9596 -31.0007)
+    (end 21.4605 -35.499)
+    (width 0.3048)
+    (layer "F.Cu")
+    (net 10 "PWM_IN"))
+  (segment
+    (start 11.1912 -31.0007)
+    (end 11.1912 -18.001)
+    (width 0.3048)
+    (layer "B.Cu")
+    (net 10 "PWM_IN"))
+  (segment
+    (start 28.9992 -20.1905)
+    (end 24.0005 -25.1892)
+    (width 0.3048)
+    (layer "B.Cu")
+    (net 6 "KEY1"))
+  (segment
+    (start 24.0005 -25.1892)
+    (end 24.0005 -35.499)
+    (width 0.3048)
+    (layer "B.Cu")
+    (net 6 "KEY1"))
+  (segment
+    (start 13.1902 -22.9997)
+    (end 15.9995 -20.1905)
+    (width 0.3048)
+    (layer "F.Cu")
+    (net 6 "KEY1"))
+  (segment
+    (start 15.9995 -20.1905)
+    (end 28.9992 -20.1905)
+    (width 0.3048)
+    (layer "F.Cu")
+    (net 6 "KEY1"))
+  (segment
+    (start 29.1897 -31.0007)
+    (end 26.5405 -33.6499)
+    (width 0.3048)
+    (layer "B.Cu")
+    (net 7 "KEY2"))
+  (segment
+    (start 26.5405 -33.6499)
+    (end 26.5405 -35.499)
+    (width 0.3048)
+    (layer "B.Cu")
+    (net 7 "KEY2"))
+  (segment
+    (start 13.1902 -27.5006)
+    (end 14.5567 -28.8671)
+    (width 0.3048)
+    (layer "F.Cu")
+    (net 7 "KEY2"))
+  (segment
+    (start 14.5567 -28.8671)
+    (end 27.0561 -28.8671)
+    (width 0.3048)
+    (layer "F.Cu")
+    (net 7 "KEY2"))
+  (segment
+    (start 27.0561 -28.8671)
+    (end 29.1897 -31.0007)
+    (width 0.3048)
+    (layer "F.Cu")
+    (net 7 "KEY2"))
+  (segment
+    (start 18.8112 -18.001)
+    (end 15.5397 -18.001)
+    (width 0.3048)
+    (layer "F.Cu")
+    (net 11 "SERVO_SIG"))
+  (segment
+    (start 15.5397 -18.001)
+    (end 7.0002 -26.5405)
+    (width 0.3048)
+    (layer "F.Cu")
+    (net 11 "SERVO_SIG"))
+  (segment
+    (start 45.8114 -14.2748)
+    (end 48.3565 -11.7297)
+    (width 0.3048)
+    (layer "F.Cu")
+    (net 1 "BTN1_A"))
+  (segment
+    (start 48.3565 -11.7297)
+    (end 52.9996 -11.7297)
+    (width 0.3048)
+    (layer "F.Cu")
+    (net 1 "BTN1_A"))
+  (segment
+    (start 47.117 -13.1369)
+    (end 51.8668 -13.1369)
+    (width 0.3048)
+    (layer "B.Cu")
+    (net 2 "BTN1_B"))
+  (segment
+    (start 51.8668 -13.1369)
+    (end 52.9996 -14.2697)
+    (width 0.3048)
+    (layer "B.Cu")
+    (net 2 "BTN1_B"))
+  (segment
+    (start 45.8114 -11.7348)
+    (end 47.117 -13.0404)
+    (width 0.3048)
+    (layer "B.Cu")
+    (net 2 "BTN1_B"))
+  (segment
+    (start 47.117 -13.0404)
+    (end 47.117 -13.1369)
+    (width 0.3048)
+    (layer "B.Cu")
+    (net 2 "BTN1_B"))
+  (segment
+    (start 45.8114 -28.2753)
+    (end 48.3565 -25.7302)
+    (width 0.3048)
+    (layer "F.Cu")
+    (net 3 "BTN2_A"))
+  (segment
+    (start 48.3565 -25.7302)
+    (end 52.9996 -25.7302)
+    (width 0.3048)
+    (layer "F.Cu")
+    (net 3 "BTN2_A"))
+  (segment
+    (start 47.117 -27.1374)
+    (end 51.8668 -27.1374)
+    (width 0.3048)
+    (layer "B.Cu")
+    (net 4 "BTN2_B"))
+  (segment
+    (start 51.8668 -27.1374)
+    (end 52.9996 -28.2702)
+    (width 0.3048)
+    (layer "B.Cu")
+    (net 4 "BTN2_B"))
+  (segment
+    (start 45.8114 -25.7353)
+    (end 47.117 -27.0408)
+    (width 0.3048)
+    (layer "B.Cu")
+    (net 4 "BTN2_B"))
+  (segment
+    (start 47.117 -27.0408)
+    (end 47.117 -27.1374)
+    (width 0.3048)
+    (layer "B.Cu")
+    (net 4 "BTN2_B"))
+  (segment
+    (start 38.1889 -14.2646)
+    (end 38.1889 -15.5727)
+    (width 0.3048)
+    (layer "B.Cu")
+    (net 8 "LED1"))
+  (segment
+    (start 38.1889 -15.5727)
+    (end 28.9992 -24.7625)
+    (width 0.3048)
+    (layer "B.Cu")
+    (net 8 "LED1"))
+  (segment
+    (start 28.9992 -24.7625)
+    (end 28.9992 -27.8105)
+    (width 0.3048)
+    (layer "B.Cu")
+    (net 8 "LED1"))
+  (segment
+    (start 38.1889 -28.2651)
+    (end 38.1889 -29.5707)
+    (width 0.3048)
+    (layer "B.Cu")
+    (net 9 "LED2"))
+  (segment
+    (start 38.1889 -29.5707)
+    (end 36.8097 -30.9524)
+    (width 0.3048)
+    (layer "B.Cu")
+    (net 9 "LED2"))
+  (segment
+    (start 36.8097 -30.9524)
+    (end 36.8097 -31.0007)
+    (width 0.3048)
+    (layer "B.Cu")
+    (net 9 "LED2"))
+  (gr_line
+    (start 0 0)
+    (end 0 -40)
+    (stroke
+      (width 0.1)
+      (type solid))
+    (layer "Edge.Cuts"))
+  (gr_line
+    (start 0 -40)
+    (end 60 -40)
+    (stroke
+      (width 0.1)
+      (type solid))
+    (layer "Edge.Cuts"))
+  (gr_line
+    (start 60 -40)
+    (end 60 0)
+    (stroke
+      (width 0.1)
+      (type solid))
+    (layer "Edge.Cuts"))
+  (gr_line
+    (start 60 0)
+    (end 0 0)
+    (stroke
+      (width 0.1)
+      (type solid))
+    (layer "Edge.Cuts")))

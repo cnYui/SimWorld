@@ -1,0 +1,12 @@
+# Firmware-free check of the electro-mechanical chain: a scripted MCU drives
+# GPIO18 directly. Fast; used by tests and parameter sweeps.
+description: Scripted PWM drives the arm to -17 deg and back (no QEMU)
+duration_s: 2.0
+mcu_backend: scripted
+pin_script:
+  - {t: 0.0, pin: 18, pulse_us: 1500}
+  - {t: 0.3, pin: 18, pulse_us: 1311}
+  - {t: 1.2, pin: 18, pulse_us: 1500}
+expect:
+  - {signal: joint.rocker_axis.deg, at: 1.0, lt: -2.0}
+  - {signal: joint.servo_axis.deg, at: 2.0, gt: -1.0}

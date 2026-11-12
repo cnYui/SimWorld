@@ -1,0 +1,15 @@
+emcosim
+Copyright 2026 the emcosim authors. Licensed under the Apache License, Version 2.0 (LICENSE).
+
+Third-party components:
+
+- emcosim/viewer/static/vendor/three.module.min.js and OrbitControls.js: three.js r170,
+  MIT License (emcosim/viewer/static/vendor/three.LICENSE). OrbitControls.js has its
+  import path changed to the local file.
+- qemu/: patch against Espressif's QEMU fork (esp-develop-9.0.0-20240606). QEMU and
+  this patch are GPL-2.0-or-later. emcosim runs QEMU as a separate process and does not
+  link to it. The Docker image contains a QEMU binary built from that tag plus the patch.
+- examples/switch_robot/firmware/switch_robot.bin: built with ESP-IDF v5.4.2
+  (Apache-2.0; includes components under their own licenses, see ESP-IDF).
+- MuJoCo (Apache-2.0), NumPy, SciPy, trimesh, PyYAML, Pillow, mcp and cascadio
+  (OpenCASCADE, LGPL-2.1 with exception) are runtime dependencies installed by pip.
