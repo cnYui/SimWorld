@@ -562,20 +562,24 @@ def _ai_setup(root=None):
     codex = f'[mcp_servers.emcosim]\ncommand = {json.dumps(cmd[0])}\nargs = [{toml_list}]'
     claude = claude.replace('claude mcp add emcosim', 'claude mcp add -s user emcosim', 1)
     codex_cfg = str(Path.home() / '.codex' / 'config.toml')
-    prompt = (
-        '请帮我把本机的 SimWorld 电子+物理仿真平台接到你这里（MCP 服务，stdio，服务名 emcosim）。\n\n'
-        f'如果你是 Claude Code：在终端运行下面这条命令（已经装过 emcosim 的话先运行 claude mcp remove -s user emcosim）：\n'
-        f'{claude}\n\n'
-        f'如果你是 Codex：打开 {codex_cfg}（没有就新建），加入下面这段；已有 [mcp_servers.emcosim] 就整段替换：\n'
-        f'{codex}\n\n'
-        '配好后：如果你现在就能调用 emcosim 的工具，调用 current_project，告诉我连上了、页面里现在打开的是哪个工程；'
-        '如果要重启会话才生效，告诉我重启后说“检查 SimWorld”。\n\n'
+    about = (
         '说明：你操作的就是我浏览器里开着的 SimWorld 页面。我可以直接跟你说“打开示例工程”“打开 D:\\xxx 这个工程”'
         '“新建一个工程”，你用 open_example、open_project、new_project，页面会跟着切过去。'
         '工程打开后，你可以改 3D 模型（model_edit）、用 KiCad 检查和修改 PCB（board_drc、board_edit）、'
         '跑电路检查（circuit_check）和仿真测试（run_scenario），结果会出现在页面上，还能查嘉立创元件（parts_search、part_info）。'
         '改动前先告诉我要改什么。')
-    return {'claude_code': claude, 'codex': codex, 'project': str(root) if root else None, 'codex_config': codex_cfg, 'prompt': prompt}
+    after = ('配好后：如果你现在就能调用 emcosim 的工具，调用 current_project，告诉我连上了、页面里现在打开的是哪个工程；'
+             '如果要重启会话才生效，告诉我重启后说“检查 SimWorld”。\n\n')
+    prompt_claude = (
+        '请帮我把本机的 SimWorld 电子+物理仿真平台接到你这里（MCP 服务，stdio，服务名 emcosim）。\n\n'
+        '在终端运行下面这条命令（已经装过 emcosim 的话先运行 claude mcp remove -s user emcosim）：\n'
+        f'{claude}\n\n' + after + about)
+    prompt_codex = (
+        '请帮我把本机的 SimWorld 电子+物理仿真平台接到你这里（MCP 服务，stdio，服务名 emcosim）。\n\n'
+        f'打开 {codex_cfg}（没有就新建），加入下面这段；已有 [mcp_servers.emcosim] 就整段替换：\n'
+        f'{codex}\n\n' + after + about)
+    return {'claude_code': claude, 'codex': codex, 'project': str(root) if root else None, 'codex_config': codex_cfg,
+            'prompt_claude_code': prompt_claude, 'prompt_codex': prompt_codex}
 
 
 def serve(project_root=None, port=8765, host='127.0.0.1', open_browser=True):

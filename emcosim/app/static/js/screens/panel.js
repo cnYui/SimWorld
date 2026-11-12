@@ -169,22 +169,18 @@ export function createPanel(ctx) {
   async function showAiSetup() {
     let s;
     try { s = await get('ai_setup'); } catch (e) { toastError(e); return; }
-    const block = (title, text, hint) => h('div', { class: 'pn-ai-block' },
-      h('div', { class: 'pn-ai-title' }, h('strong', {}, title),
-        h('button', { class: 'btn sm', type: 'button', onclick: () => copyText(text) }, '复制')),
-      h('pre', { class: 'mono' }, text), hint ? h('div', { class: 'muted small' }, hint) : null);
+    const card = (name, text, hint) => h('div', { class: 'pn-ai-card' },
+      h('strong', {}, name), h('span', { class: 'muted small' }, hint),
+      h('button', { class: 'btn primary', type: 'button', onclick: () => copyText(text, `已复制，粘贴发给你的 ${name} 就行`) }, icon('copy'), `复制给 ${name}`));
     modal({
-      title: '连接你的 AI（Claude Code 或 Codex）',
-      width: '720px',
+      title: '连接你的 AI',
+      width: '620px',
       body: h('div', { class: 'pn-ai' },
-        h('p', {}, '复制下面这段话，发给你电脑上的 Claude Code 或 Codex，它会自己配置好并连上。',
-          '连上以后，它可以改 3D 模型、改 PCB、跑 KiCad 检查和仿真测试、查嘉立创元件，跑的每次测试都会出现在这个页面上。'),
-        h('div', { class: 'pn-ai-block' },
-          h('pre', { class: 'pn-ai-prompt' }, s.prompt),
-          h('button', { class: 'btn primary', type: 'button', onclick: () => copyText(s.prompt, '已复制，粘贴发给你的 AI 就行') }, '复制这段话')),
-        h('details', { class: 'pn-ai-manual' }, h('summary', {}, '自己手动配置'),
-          block('Claude Code：在终端里运行一次', s.claude_code),
-          block('Codex：把这段加到配置文件里', s.codex, `配置文件位置：${s.codex_config}`)),
+        h('p', {}, '用哪个就点哪个按钮，把复制的话发给它，它会自己配置好并连上。',
+          '连上以后，你可以直接让它打开或新建工程、改 3D 模型、改 PCB、跑 KiCad 检查和仿真测试、查嘉立创元件，结果都会出现在这个页面上。'),
+        h('div', { class: 'pn-ai-cards' },
+          card('Claude Code', s.prompt_claude_code, '它会在终端里运行一条命令'),
+          card('Codex', s.prompt_codex, '它会改一下自己的配置文件')),
         h('p', { class: 'muted small' }, '这个页面不保存你的 AI 账号，AI 用的是你自己电脑上的 Claude Code 或 Codex。')),
       actions: [{ label: '关闭', value: true }],
     });

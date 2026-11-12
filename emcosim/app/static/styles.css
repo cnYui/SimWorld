@@ -733,3 +733,8 @@ pre.log { background: var(--sunken); border: 1px solid var(--line); border-radiu
 .pn-set-row .k { color: var(--text-3); font-size: 13px; }
 .pn-set-row .mono { overflow-wrap: anywhere; }
 .pn-set-row .seg-ctl { justify-self: start; }
+.pn-ai-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 4px 0 12px; }
+.pn-ai-card { display: flex; flex-direction: column; gap: 6px; padding: 14px; border: 1px solid var(--line-strong); border-radius: 10px; background: var(--panel); }
+.pn-ai-card strong { font-size: 15px; }
+.pn-ai-card .btn { margin-top: 6px; justify-content: center; }
+@media (max-width: 560px) { .pn-ai-cards { grid-template-columns: 1fr; } }
