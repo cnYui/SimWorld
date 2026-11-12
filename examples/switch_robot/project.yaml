@@ -18,9 +18,6 @@ mcu:
     size_bytes: 266240
     params: {}
 power:
-  # Carrier V0.5 (electronics/v05): USB-C VBUS -> D1 SS34 -> VIN5; VIN5 -> F1 -> V5_SERVO
-  # (C1 470 uF + C2) -> J3 servo; VIN5 -> AMS1117-3.3 (U4) -> 3V3 -> ESP32 module.
-  # Powered by a USB-C phone charger in the wall socket below the switch.
   nodes:
     vin5:
       c_f: 3.0e-05
@@ -36,8 +33,8 @@ power:
       v: 4.75
       r_ohm: 0.3
       i_limit_a: 2.0
-      note: 'assumed: 5.1 V 2 A USB charger, 1 m USB-C cable (0.2 ohm round trip), SS34 drop
-        modelled as a fixed 0.35 V + 0.1 ohm (forward bias only; it blocks back-feed into USB)'
+      note: 'assumed: 5.1 V 2 A USB charger, 1 m USB-C cable (0.2 ohm round trip), SS34 drop modelled
+        as a fixed 0.35 V + 0.1 ohm (forward bias only; it blocks back-feed into USB)'
   branches:
     f1:
       from: vin5
@@ -99,8 +96,8 @@ actuators:
     joint: servo_axis
     node: v5_servo
     preset: sg90
-    note: 'V0.5: J3 pin 2 (5 V after F1). The bench wiring (servo on the dev board 5V pin) is
-      reproduced by the stall_brownout scenario overrides'
+    note: 'V0.5: J3 pin 2 (5 V after F1). The bench wiring (servo on the dev board 5V pin) is reproduced
+      by the stall_brownout scenario overrides'
 inputs:
   button1:
     type: button
@@ -158,3 +155,27 @@ printing:
         layer_height: 0.2
         wall_loops: 2
         sparse_infill_density: 15%
+board:
+  kicad_pcb: pcb/v05/carrier_v05.kicad_pcb
+  netlist: pcb/v05/source/carrier_v05.net
+  source: pcb/v05/source/Switch_Robot_Carrier_V05.epro
+  rules: JLCPCB 2-layer (kicad_dru)
+circuit:
+  netlist: pcb/v05/source/carrier_v05.net
+  supply:
+    net: VBUS
+    v: 5.1
+    r_ohm: 0.2
+    note: 'assumed: 5.1 V USB charger, 1 m USB-C cable'
+  loads:
+    servo:
+      net: V5_SERVO
+      signal: act.servo1.i_supply
+    mcu:
+      net: 3V3
+      a: 0.05
+      note: ESP32-C3 average draw, same as mcu.current.run_a (assumed)
+  compare:
+    VIN5: node.vin5.v
+    V5_SERVO: node.v5_servo.v
+    3V3: mcu.rail_v

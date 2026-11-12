@@ -131,4 +131,24 @@ prj.data['actuators']['servo1']['node'] = 'v5_servo'
 prj.data['actuators']['servo1']['note'] = ('V0.5: J3 pin 2 (5 V after F1). The bench wiring (servo on the dev board '
                                            '5V pin) is reproduced by the stall_brownout scenario overrides')
 prj.save()
+# 9. The V0.5 board through KiCad (the PCB kernel). Source: 嘉立创EDA's own exports of the V0.5
+#    project (.epro and Protel netlist, electronics/v05/export on branch claude/v05-eda-export).
+#    KiCad's importer turns the .epro into a .kicad_pcb; the netlist fills in pad nets it misses.
+#    Re-imported only when KiCad is installed; the committed board is used otherwise.
+from emcosim import eda  # noqa: E402
+v05 = HERE / 'pcb' / 'v05'
+if eda.find_cli():
+    print(eda.import_board(v05 / 'source' / 'Switch_Robot_Carrier_V05.epro', v05 / 'carrier_v05.kicad_pcb',
+                           netlist=v05 / 'source' / 'carrier_v05.net'))
+prj.data['board'] = {'kicad_pcb': 'pcb/v05/carrier_v05.kicad_pcb', 'netlist': 'pcb/v05/source/carrier_v05.net',
+                     'source': 'pcb/v05/source/Switch_Robot_Carrier_V05.epro', 'rules': 'JLCPCB 2-layer (kicad_dru)'}
+# 10. Circuit check with ngspice on that netlist: what feeds the board and what the run draws.
+prj.data['circuit'] = {
+    'netlist': 'pcb/v05/source/carrier_v05.net',
+    'supply': {'net': 'VBUS', 'v': 5.1, 'r_ohm': 0.2, 'note': 'assumed: 5.1 V USB charger, 1 m USB-C cable'},
+    'loads': {'servo': {'net': 'V5_SERVO', 'signal': 'act.servo1.i_supply'},
+              'mcu': {'net': '3V3', 'a': 0.05, 'note': 'ESP32-C3 average draw, same as mcu.current.run_a (assumed)'}},
+    'compare': {'VIN5': 'node.vin5.v', 'V5_SERVO': 'node.v5_servo.v', '3V3': 'mcu.rail_v'},
+}
+prj.save()
 print('project.yaml rebuilt;', pcb['components'], 'components,', len(pcb['nets']), 'nets')

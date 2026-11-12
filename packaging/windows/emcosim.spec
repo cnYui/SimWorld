@@ -1,5 +1,5 @@
 # PyInstaller spec: one folder with two executables sharing the same libraries.
-#   emcosim-app.exe  desktop window (no console)
+#   emcosim-app.exe  starts the local server and opens the panel in the browser (small console window)
 #   emcosim.exe      command line + MCP server (used by Claude Code from the app's chat)
 # Build from platform/:  pyinstaller packaging/windows/emcosim.spec --noconfirm
 # Expects build/stage/examples (from stage.py) and optionally build/stage/qemu.
@@ -42,7 +42,7 @@ a_cli = analysis('entry_cli.py')
 icon = ROOT / 'packaging' / 'windows' / 'emcosim.ico'
 icon = str(icon) if icon.exists() else None
 
-exe_app = EXE(PYZ(a_app.pure), a_app.scripts, [], exclude_binaries=True, name='emcosim-app', console=False,
+exe_app = EXE(PYZ(a_app.pure), a_app.scripts, [], exclude_binaries=True, name='emcosim-app', console=True,
               icon=icon, version=None)
 exe_cli = EXE(PYZ(a_cli.pure), a_cli.scripts, [], exclude_binaries=True, name='emcosim', console=True, icon=icon)
 

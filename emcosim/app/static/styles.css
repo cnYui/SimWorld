@@ -607,3 +607,22 @@ pre.log { background: var(--sunken); border: 1px solid var(--line); border-radiu
 .pn-circuit-wrap { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; }
 .pn-circuit svg { display: block; max-height: 300px; }
 .pn-parts-wrap { display: flex; flex-direction: column; gap: 8px; flex: 1; min-height: 320px; }
+
+/* panel: KiCad board check + connect-AI dialog */
+.pn-check { margin: 8px 0 10px; }
+.pn-check:empty { display: none; }
+.pn-check-head { display: flex; align-items: center; gap: 12px; margin-bottom: 6px; }
+.pn-check-list { margin: 6px 0 0; padding-left: 0; list-style: none; font-size: 12px; max-height: 160px; overflow: auto; }
+.pn-check-list li { padding: 3px 0; border-bottom: 1px solid var(--line); }
+.pn-check-list .sev { font-weight: 600; }
+.pn-check-list li.error .sev { color: var(--bad); }
+.pn-check-list li.warning .sev { color: var(--text-3); }
+.pn-ai p { margin: 0 0 10px; line-height: 1.6; }
+.pn-ai-block { margin: 0 0 14px; }
+.pn-ai-title { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; }
+.pn-ai-block pre { margin: 0; padding: 8px 10px; background: var(--panel-2, var(--bg)); border: 1px solid var(--line);
+  border-radius: 6px; white-space: pre-wrap; word-break: break-all; font-size: 12px; }
+/* PCB tab: natural height, the panel scrolls (circuit + check + parts don't fit one screen) */
+.pn-pcb { flex: none; }
+.pn-parts-wrap { flex: none; height: 480px; }
+.pn-pcb-body { min-height: 0; }

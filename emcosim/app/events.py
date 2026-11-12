@@ -51,9 +51,13 @@ class ProjectWatcher(threading.Thread):
                 return 0
         sc = root / 'scenarios'
         runs = root / 'runs'
+        # the files an agent edits through MCP besides project.yaml: the MuJoCo model and the board
+        extra = tuple(mtime(f) for f in sorted(root.glob('mechanics/*.xml')) + sorted(root.glob('pcb/*/*.kicad_pcb'))
+                      + sorted(root.glob('pcb/*/*.kicad_sch')))
         return (str(root), mtime(root / 'project.yaml'),
                 tuple(sorted((p.name, mtime(p)) for p in sc.glob('*.yaml'))) if sc.exists() else (),
-                tuple(sorted(p.name for p in runs.iterdir() if (p / 'run.json').exists())) if runs.exists() else ())
+                tuple(sorted(p.name for p in runs.iterdir() if (p / 'run.json').exists())) if runs.exists() else (),
+                extra)
 
     def run(self):
         while not self._stop.wait(self.interval):
@@ -74,6 +78,8 @@ class ProjectWatcher(threading.Thread):
             if last[3] != snap[3]:
                 new = sorted(set(snap[3]) - set(last[3]))
                 self.bus.publish('runs_changed', {'new': new})
+            if last[4] != snap[4]:
+                self.bus.publish('files_changed')
 
     def stop(self):
         self._stop.set()

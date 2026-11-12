@@ -405,6 +405,19 @@ class Handler(BaseHTTPRequestHandler):
                 return None
             raise ApiError('not found', 404)
 
+        if head == 'ai_setup' and method == 'GET':
+            return _ai_setup(app.project().root)
+
+        if head == 'board' and p[1:] == ['check'] and method == 'POST':
+            from .. import eda
+            prj = app.project()
+            board = (prj.data.get('board') or {}).get('kicad_pcb')
+            if not board:
+                raise ApiError('这个工程还没有 KiCad 板子文件（board.kicad_pcb）')
+            if not eda.find_cli():
+                raise ApiError('没有找到 KiCad。装好 KiCad 9 后再点检查（kicad.org/download）。', 409)
+            return eda.drc(prj.root / board, limit=60)
+
         if head == 'pcb' and method == 'GET':
             prj = app.project()
             pcb = prj.pcb()
@@ -522,6 +535,22 @@ def make_server(app: App, host='127.0.0.1', port=0):
             raise
         print(f'port {port} is in use, picking a free one', file=sys.stderr)
         return _Server((host, 0), handler)
+
+
+def _ai_setup(root):
+    """How to connect Claude Code / Codex to this project's MCP server, with this machine's paths."""
+    if getattr(sys, 'frozen', False):
+        exe = Path(sys.executable).with_name('emcosim.exe' if sys.platform == 'win32' else 'emcosim')
+        cmd = [str(exe)]
+    else:
+        cmd = [sys.executable, '-m', 'emcosim']
+    args = [*cmd[1:], '--project', str(root), 'mcp']
+    q = (lambda x: f'"{x}"' if ' ' in x or '\\' in x else x)
+    claude = 'claude mcp add emcosim -- ' + ' '.join(q(x) for x in [cmd[0], *args])
+    toml_list = ', '.join(json.dumps(a) for a in args)
+    codex = f'[mcp_servers.emcosim]\ncommand = {json.dumps(cmd[0])}\nargs = [{toml_list}]'
+    return {'claude_code': claude, 'codex': codex, 'project': str(root),
+            'codex_config': str(Path.home() / '.codex' / 'config.toml')}
 
 
 def serve(project_root=None, port=8765, host='127.0.0.1', open_browser=True):

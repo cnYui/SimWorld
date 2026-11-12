@@ -8,7 +8,7 @@
 
 ## Windows 应用
 
-v0.2 起有桌面版：一个窗口里看工程（PCB、机构、固件、引脚绑定、电源网络）、改参数、编辑和运行场景（带进度和实时曲线、可取消）、回放结果（3D + 曲线 + 串口）、对比两次运行、扫参，右侧是 AI 聊天面板。安装包由 GitHub Actions 的 emcosim-windows 工作流构建（Actions 页面 → 最新一次运行 → Artifacts → emcosim-windows-installer），里面带了打过补丁的 Windows 版 QEMU 和开关机器人示例，装好即可运行固件联合仿真，不需要 Docker 或 WSL。第一次打开示例时会把它复制到“文档\emcosim”下，运行结果写在那里。
+v0.3 起默认在浏览器里打开：双击 emcosim 会开一个小命令行窗口（关掉它就退出）并在默认浏览器里打开面板。v0.2 的桌面版：一个窗口里看工程（PCB、机构、固件、引脚绑定、电源网络）、改参数、编辑和运行场景（带进度和实时曲线、可取消）、回放结果（3D + 曲线 + 串口）、对比两次运行、扫参，右侧是 AI 聊天面板。安装包由 GitHub Actions 的 emcosim-windows 工作流构建（Actions 页面 → 最新一次运行 → Artifacts → emcosim-windows-installer），里面带了打过补丁的 Windows 版 QEMU 和开关机器人示例，装好即可运行固件联合仿真，不需要 Docker 或 WSL。第一次打开示例时会把它复制到“文档\emcosim”下，运行结果写在那里。
 
 聊天面板的做法和 ChatCut 一样：不自己接 Claude 账号，而是调用你电脑上安装的 Claude Code，并把 emcosim 的工具（get_project、set_param、run_scenario、sweep 等）通过 MCP 挂给它。登录用的是 Claude Code 自己的登录（设置页的“登录 Claude”按钮会运行 claude auth login），费用计入你自己的 Claude 套餐，本软件不保存 Claude 账号凭证；Anthropic 的条款不允许第三方软件自己提供 claude.ai 登录。没有装 Claude Code 时，可以在设置里填 Anthropic API Key（Windows 上用 DPAPI 加密保存），直接调用 Claude API，默认模型 claude-opus-5-5。AI 改的参数会写回 project.yaml，它启动的运行会自动出现在结果页。
 
@@ -36,8 +36,18 @@ pip：
 
 ## 接到 AI（MCP）
 
+平台本身不带 AI。用你自己的 Claude Code 或 Codex 连上它的 MCP 服务，就能让 AI 改模型、改 PCB、跑检查和测试，面板会自动显示 AI 跑出来的结果。面板右上角“连接 AI”会给出这台电脑上可以直接复制的命令。
+
+    # Claude Code
     claude mcp add emcosim -- emcosim --project /path/to/platform/examples/switch_robot mcp
     # Docker：claude mcp add emcosim -- docker run --rm -i emcosim mcp
+
+    # Codex：~/.codex/config.toml
+    [mcp_servers.emcosim]
+    command = "emcosim"
+    args = ["--project", "/path/to/platform/examples/switch_robot", "mcp"]
+
+内核工具（v0.3）：board_import（经 KiCad 的导入器读 .kicad_pcb、嘉立创EDA 导出的 .epro、Altium、Eagle，加上原 EDA 的网表补齐焊盘网络）、board_drc / board_erc（KiCad 的 DRC/ERC，导入时写入嘉立创两层板工艺规则）、board_netlist、board_edit（用 KiCad 自己的板子模型移元件、改值、改字段、改线宽和间距，每次留 .bak 备份并自动重跑 DRC）、schematic_edit、board_export_3d、circuit_check（用板子的真实网表和 ngspice 重算一次运行的电源路径，和联合仿真对比）、model_info / model_edit（按名字改 MuJoCo 模型的属性，改完必须能被 MuJoCo 编译，否则不保存）。需要本机装好 KiCad 9（kicad.org/download，Windows 默认路径会自动找到，或设 EMCOSIM_KICAD_CLI）和 ngspice。
 
 工具：get_project、import_pcb、import_model、import_firmware、define_joint、bind_pin、set_param、write_scenario、run_scenario、sweep、get_results、render_frames、calibrate_power、fit_measurements、compare_trace、send_to_bambu_studio。参数一律用 project.yaml 里的点路径，例如 power.sources.adapter.r_ohm、actuators.servo1.preset、mechanics.elements.rocker_detent.peak_force_n；firmware.press_angle_deg 这类写法指固件 fw_params 分区里的字段，改了不用重新编译。set_param 会写回 project.yaml，run_scenario 和 sweep 的 overrides 只对那一次运行生效。命令行有同名子命令（emcosim --help）。
 
@@ -71,7 +81,9 @@ project.yaml 的 printing.parts 列出可打印零件（开关机器人示例引
 
 ## 导入
 
-KiCad：读 .kicad_pcb（6/7/8 版格式）的元件、值、网表、板框和走线，按走线长度和线宽算每个网络的铜皮电阻和焊盘之间的最短路径电阻，按网络汇总电容；bind_pin 给了 net 时会检查网络存在，并报告经过两端器件（例如串联电阻）能到达的网络。立创 EasyEDA 请先在 EasyEDA 里导出 KiCad；如果手上只有 EasyEDA Pro 的 .epcb，可以连同它导出的 Specctra .dsn（和可选的 BOM）用 import_pcb(path, dsn=...) 走一个只保留焊盘、走线、元件值和板框的简化转换，示例的 pcb/carrier_v04.kicad_pcb 就是这样从 electronics/v04 转出来的。
+PCB 以 KiCad 为内核（v0.3）：板子文件统一转成 .kicad_pcb，检查和修改都调用 KiCad 本身。嘉立创EDA 专业版没有导出 KiCad 的功能，用它的“导出工程（.epro）”和 Protel 网表交给 board_import；KiCad 9 的 EasyEDA Pro 导入器会把贴片焊盘读成 1 µm 孔的通孔焊盘、漏掉部分焊盘网络和元件值，board_import 会按原网表修正这几处并报告修了多少。示例 pcb/v05/ 就是这样从 V0.5 板导入的，KiCad DRC 剩 1 个错误（C1 和 F1 的外形框重叠，需要对照实物确认）。
+
+旧的自带解析器：读 .kicad_pcb（6/7/8 版格式）的元件、值、网表、板框和走线，按走线长度和线宽算每个网络的铜皮电阻和焊盘之间的最短路径电阻，按网络汇总电容；bind_pin 给了 net 时会检查网络存在，并报告经过两端器件（例如串联电阻）能到达的网络。立创 EasyEDA 请先在 EasyEDA 里导出 KiCad；如果手上只有 EasyEDA Pro 的 .epcb，可以连同它导出的 Specctra .dsn（和可选的 BOM）用 import_pcb(path, dsn=...) 走一个只保留焊盘、走线、元件值和板框的简化转换，示例的 pcb/carrier_v04.kicad_pcb 就是这样从 electronics/v04 转出来的。
 
 STL/OBJ 按给定单位缩放成米，STEP 经 cascadio（OpenCASCADE）转网格；按密度或给定质量算惯量（网格不闭合时用凸包，会偏大），碰撞体默认用凸包，凹形零件要自己拆分或把 MJCF 作为基础模型导入。.xml 会被当作基础 MJCF。
 

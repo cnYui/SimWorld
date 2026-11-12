@@ -187,6 +187,7 @@ function onEvent(kind, data) {
     }
     case 'chat': chat.onEvent(data); break;
     case 'project_changed': store.loadProject().catch(toastError); break;
+    case 'files_changed': store.emit('files_changed'); break;
     case 'scenarios_changed': store.loadProject().then(() => store.emit('scenarios')).catch(toastError); break;
     case 'project_opened':
       store.seenRuns.clear(); store.newRuns.clear();

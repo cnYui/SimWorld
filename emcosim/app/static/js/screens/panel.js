@@ -2,7 +2,7 @@
 // 3D view + live readout + two charts (angles, contact force).
 import { get, post, authUrl } from '../api.js';
 import { store } from '../store.js';
-import { h, icon, clear, toast, toastError, fmtNum, cssVar } from '../ui.js';
+import { h, icon, clear, toast, toastError, fmtNum, cssVar, modal, copyText } from '../ui.js';
 import { TimeChart } from '../chart.js';
 
 const SIGS = ['source.charger.i', 'branch.f1.i', 'node.v5_servo.v', 'act.servo1.i_supply', 'act.servo1.pulse_us',
@@ -24,6 +24,7 @@ export function createPanel(ctx) {
         D.tabPcb = h('button', { role: 'tab', onclick: () => setTab('pcb') }, 'PCB 元件')),
       D.tests = h('div', { class: 'pn-tests', role: 'group', 'aria-label': '选择测试' }),
       h('div', { class: 'pn-tools' },
+        h('button', { class: 'btn ghost', onclick: () => showAiSetup(), title: '让你的 Claude Code 或 Codex 来改模型、改板子、跑测试' }, '连接 AI'),
         h('button', { class: 'btn ghost', onclick: () => ctx.setAdvanced(true), title: '参数表、扫参、打印、设置' }, '高级功能'))),
     D.banner = h('div', { class: 'pn-banner', hidden: true }),
     D.pcb = h('div', { class: 'pn-pcb', hidden: true },
@@ -32,6 +33,7 @@ export function createPanel(ctx) {
           h('span', { class: 'muted' }, '线越粗电流越大，变红表示电压掉得太低')),
         D.circuit = h('div', { class: 'pn-circuit' })),
       D.pcbPlaySlot = h('div'),
+      D.check = h('div', { class: 'pn-check' }),
       D.parts = h('div', { class: 'pn-parts-wrap' })),
     D.sim = h('div', { class: 'pn-sim' },
     h('div', { class: 'pn-body' },
@@ -106,13 +108,87 @@ export function createPanel(ctx) {
   store.on('job_progress', (d) => { if (pendingJob && d.id === pendingJob.id) { pendingJob.progress = d.progress; renderTests(); } });
   store.on('job', (j) => {
     if (!pendingJob || j.id !== pendingJob.id) return;
-    if (j.status === 'done' && j.result?.run_id) { pendingJob = null; store.loadRuns().catch(() => {}); openRun(j.result.run_id); }
+    if (j.status === 'done' && j.result?.run_id) { pendingJob = null; knownRuns?.add(j.result.run_id); store.loadRuns().catch(() => {}); openRun(j.result.run_id); }
     else if (j.status === 'failed') { pendingJob = null; setBanner('bad', `仿真失败：${j.error}`); }
     else if (j.status === 'cancelled') { pendingJob = null; setBanner('', ''); }
     renderTests();
   });
   store.on('project', () => { if (!el.hidden) renderTests(); });
-  store.on('runs', () => { if (!el.hidden) renderTests(); });
+  let knownRuns = null;
+  store.on('runs', () => {
+    const ids = store.runs.map((r) => r.run_id);
+    if (knownRuns && !pendingJob) {
+      // a run this page did not start: the AI ran it through MCP. Show it.
+      const fresh = store.runs.find((r) => !knownRuns.has(r.run_id) && !String(r.run_id).includes('-sweep'));
+      if (fresh && !el.hidden) {
+        selected = fresh.scenario;
+        openRun(fresh.run_id).then(() => {
+          const title = store.project?.scenario_info?.[fresh.scenario]?.title || fresh.scenario;
+          if (D.banner.className.includes('bad') || D.banner.className.includes('ok')) {
+            D.banner.textContent = `AI 刚跑了一次「${title}」。` + D.banner.textContent;
+          }
+        });
+      }
+    }
+    knownRuns = new Set(ids);
+    if (!el.hidden) renderTests();
+  });
+  store.on('files_changed', () => {
+    boardCheck = null;
+    if (tab === 'pcb') renderCheck();
+    toast('模型或板子文件刚被改过（可能是 AI 改的）。重新运行测试就能看到效果。', { timeout: 6000 });
+  });
+
+  // ------------------------------------------------------------ connect an AI agent (MCP)
+  async function showAiSetup() {
+    let s;
+    try { s = await get('ai_setup'); } catch (e) { toastError(e); return; }
+    const block = (title, text, hint) => h('div', { class: 'pn-ai-block' },
+      h('div', { class: 'pn-ai-title' }, h('strong', {}, title),
+        h('button', { class: 'btn sm', type: 'button', onclick: () => copyText(text) }, '复制')),
+      h('pre', { class: 'mono' }, text), hint ? h('div', { class: 'muted small' }, hint) : null);
+    modal({
+      title: '连接 Claude Code 或 Codex',
+      width: '720px',
+      body: h('div', { class: 'pn-ai' },
+        h('p', {}, '连上以后，你的 AI 助手可以直接在这个工程里改 3D 模型、改 PCB、跑 KiCad 检查、跑仿真测试。',
+          '它跑的每一次测试都会自动出现在这个页面上。'),
+        block('Claude Code：在终端里运行一次', s.claude_code),
+        block('Codex：把这段加到配置文件里', s.codex, `配置文件位置：${s.codex_config}`),
+        h('p', { class: 'muted small' }, '这个页面不保存你的 AI 账号，AI 用的是你自己电脑上的 Claude Code 或 Codex。')),
+      actions: [{ label: '好的', value: true, kind: 'primary' }],
+    });
+  }
+
+  // ------------------------------------------------------------ KiCad board check
+  let boardCheck = null, checking = false;
+  async function runCheck() {
+    checking = true; renderCheck();
+    try { boardCheck = await post('board/check', {}); }
+    catch (e) { boardCheck = { failed: e.message }; }
+    checking = false; renderCheck();
+  }
+  function renderCheck() {
+    const has = !!store.project?.data?.board?.kicad_pcb;
+    clear(D.check);
+    if (!has) return;
+    const head = h('div', { class: 'pn-check-head' },
+      h('strong', {}, '板子检查（KiCad DRC，按嘉立创工艺）'),
+      h('button', { class: 'btn sm', disabled: checking, onclick: runCheck }, checking ? '检查中…' : boardCheck ? '重新检查' : '检查'));
+    D.check.append(head);
+    if (!boardCheck) return;
+    if (boardCheck.failed) { D.check.append(h('div', { class: 'pn-banner bad' }, boardCheck.failed)); return; }
+    const c = boardCheck;
+    D.check.append(h('div', { class: 'pn-banner ' + (c.errors ? 'bad' : 'ok') },
+      c.errors ? `${c.errors} 个错误，${c.warnings} 个提醒，${c.unconnected} 处没连上` :
+        `没有错误（${c.warnings} 个提醒），${c.unconnected ? c.unconnected + ' 处没连上' : '所有网络都连上了'}`));
+    const rows = c.items.filter((i) => i.severity === 'error').concat(c.items.filter((i) => i.severity !== 'error')).slice(0, 8);
+    if (rows.length) {
+      D.check.append(h('ul', { class: 'pn-check-list' }, rows.map((i) => h('li', { class: i.severity },
+        h('span', { class: 'sev' }, i.severity === 'error' ? '错误' : '提醒'), ' ', i.description,
+        i.where?.length ? h('span', { class: 'muted small' }, '  ' + i.where.map((w) => w.item).join('；')) : null))));
+    }
+  }
 
   // ------------------------------------------------------------ load a run
   async function openRun(id) {
@@ -306,7 +382,7 @@ export function createPanel(ctx) {
     tab = t;
     D.tabSim.classList.toggle('active', t === 'sim'); D.tabPcb.classList.toggle('active', t === 'pcb');
     D.sim.hidden = t !== 'sim'; D.pcb.hidden = t !== 'pcb';
-    if (t === 'pcb') { D.pcbPlaySlot.after(D.play); renderPcb(); renderCircuit(); }
+    if (t === 'pcb') { D.pcbPlaySlot.after(D.play); renderPcb(); renderCircuit(); renderCheck(); }
     else { D.view.parentElement.after(D.play); main3d?.resize(); }
   }
 

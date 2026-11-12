@@ -8,6 +8,7 @@ results under runs/.
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 from typing import Any
 
@@ -169,6 +170,134 @@ def build_server(project_root):
         embeds the suggested per-part print settings (experimental)."""
         from . import printing
         return printing.send_parts(prj(), parts or None, with_settings, open_app=open_app)
+
+    # ------------------------------------------------------------- board (KiCad kernel)
+    def board_file(key='kicad_pcb'):
+        b = prj().data.get('board') or {}
+        if not b.get(key):
+            raise ValueError(f'project.yaml has no board.{key}; use board_import first')
+        return root / b[key]
+
+    @mcp.tool()
+    def board_status() -> dict:
+        """Which board files the project uses and whether KiCad and ngspice are available."""
+        import shutil
+        from . import eda
+        return {'board': prj().data.get('board'), 'kicad': eda.status(), 'ngspice': shutil.which('ngspice')}
+
+    @mcp.tool()
+    def board_import(path: str, netlist: str | None = None, name: str | None = None) -> dict:
+        """Bring a board in through KiCad's importers: .kicad_pcb as is, or EasyEDA Pro .epro (export it
+        from 嘉立创EDA: File > Export > project), Altium .PcbDoc, Eagle .brd. `netlist` is that EDA's
+        netlist export (EasyEDA: Protel 2.0 .net) and fills in pad nets the importer misses. Writes
+        pcb/<name>/<name>.kicad_pcb plus JLCPCB DRC rules and records it as board.kicad_pcb."""
+        from . import eda
+        p = prj()
+        src = Path(path).expanduser().resolve()
+        name = name or re.sub(r'[^A-Za-z0-9_-]+', '_', src.stem).strip('_').lower()
+        out_dir = root / 'pcb' / name
+        out_dir.mkdir(parents=True, exist_ok=True)
+        dst = out_dir / f'{name}.kicad_pcb'
+        if src.suffix.lower() == '.kicad_pcb':
+            import shutil
+            shutil.copy2(src, dst)
+            res = {'file': str(dst)}
+        else:
+            res = eda.import_board(src, dst, netlist=netlist)
+        entry = {'kicad_pcb': dst.relative_to(root).as_posix()}
+        if netlist:
+            nl = Path(netlist).expanduser().resolve()
+            entry['netlist'] = nl.relative_to(root).as_posix() if nl.is_relative_to(root) else str(nl)
+        p.data['board'] = {**(p.data.get('board') or {}), **entry}
+        p.save()
+        return {**res, 'board': p.data['board'], 'drc': eda.drc(dst, limit=15)}
+
+    @mcp.tool()
+    def board_drc(limit: int = 40) -> dict:
+        """KiCad design rule check of the project's board (JLCPCB limits when imported with them).
+        Returns counts and the first findings with positions in mm."""
+        from . import eda
+        return eda.drc(board_file(), limit=limit)
+
+    @mcp.tool()
+    def board_erc(limit: int = 40) -> dict:
+        """KiCad electrical rule check of the project's schematic (board.kicad_sch)."""
+        from . import eda
+        return eda.erc(board_file('kicad_sch'), limit=limit)
+
+    @mcp.tool()
+    def board_netlist() -> dict:
+        """Components (ref, value, LCSC part, manufacturer part) and nets of the board."""
+        from . import eda
+        b = prj().data.get('board') or {}
+        if b.get('kicad_sch'):
+            return eda.netlist(root / b['kicad_sch'])
+        if b.get('netlist'):
+            return eda.read_netlist(root / b['netlist'])
+        raise ValueError('board has neither kicad_sch nor netlist')
+
+    @mcp.tool()
+    def board_edit(ops: list[dict]) -> dict:
+        """Edit the board with KiCad and re-run DRC. ops, applied in order:
+        {"op": "move", "ref": "C1", "x_mm": 130, "y_mm": 108, "rot_deg": 90} |
+        {"op": "set_value", "ref": "R5", "value": "220"} |
+        {"op": "set_field", "ref": "R5", "field": "LCSC", "value": "C22962"} |
+        {"op": "track_width", "net": "V5_SERVO", "width_mm": 1.0} |
+        {"op": "netclass_width", "netclass": "Default", "width_mm": 0.3} |
+        {"op": "clearance", "mm": 0.15}.
+        The previous board is kept as <file>.bak-<time>."""
+        from . import eda
+        f = board_file()
+        res = eda.edit_pcb(f, ops)
+        return {**res, 'drc': eda.drc(f, limit=15)}
+
+    @mcp.tool()
+    def schematic_edit(ref: str, field: str, value: str) -> dict:
+        """Set a symbol field in the KiCad schematic (Value, LCSC, Footprint, Sim.Device, ...)."""
+        from . import eda
+        return eda.edit_schematic(board_file('kicad_sch'), ref, field, value)
+
+    @mcp.tool()
+    def board_export_3d(fmt: str = 'step') -> dict:
+        """Export the board with components as 3D (step, glb, wrl, stl) next to the board file."""
+        from . import eda
+        f = board_file()
+        return eda.export_3d(f, f.with_suffix('.' + fmt), fmt)
+
+    @mcp.tool()
+    def circuit_check(run_id: str | None = None) -> dict:
+        """Solve the board's power path with ngspice, using the real board netlist (every R and C, the
+        diode, LDO and fuse with simple models) and the servo / MCU currents of a run, then compare
+        node voltages with the co-simulation. Settings: circuit.* in project.yaml."""
+        from .electrical import board_spice
+        p = prj()
+        if not run_id:
+            from .results import RunStore
+            runs = RunStore(p.root).list()
+            if not runs:
+                raise ValueError('no runs yet; run_scenario first')
+            run_id = runs[0]['run_id']
+        res = board_spice.check(p, run_id)
+        res.pop('trace', None)
+        return res
+
+    # ---------------------------------------------------------------- mechanics (MuJoCo)
+    @mcp.tool()
+    def model_info(tag: str | None = None) -> dict:
+        """Named bodies, geoms, joints, sites and meshes of the MuJoCo model with sizes, positions,
+        masses, friction and joint ranges. tag limits it to one kind."""
+        from . import model_edit
+        return model_edit.info(prj(), tag)
+
+    @mcp.tool()
+    def model_edit(ops: list[dict]) -> dict:
+        """Change attributes of named MJCF elements, e.g.
+        [{"tag": "geom", "name": "arm_collision_0", "attr": "friction", "value": [0.6, 0.005, 0.0001]},
+         {"tag": "body", "name": "press_arm", "attr": "pos", "value": [0, 0.01, 0.02]}].
+        value null removes the attribute. MuJoCo must still compile the model, otherwise nothing is
+        saved. The previous file is kept as <file>.bak-<time>. Run a scenario afterwards."""
+        from . import model_edit as me
+        return me.edit(prj(), ops)
 
     return mcp
 
