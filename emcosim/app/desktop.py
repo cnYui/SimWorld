@@ -24,16 +24,19 @@ class JsApi:
     """Exposed to the page as window.pywebview.api."""
 
     def __init__(self):
-        self.window = None
+        # Underscore: pywebview exposes public attributes to JS and walks them
+        # recursively; a public window reference makes it crawl the native
+        # WinForms/WebView2 objects and the page never renders (black window).
+        self._window = None
 
     def pick_file(self, kind='any'):
         import webview
-        r = self.window.create_file_dialog(webview.FileDialog.OPEN, file_types=FILE_TYPES.get(kind, FILE_TYPES['any']))
+        r = self._window.create_file_dialog(webview.FileDialog.OPEN, file_types=FILE_TYPES.get(kind, FILE_TYPES['any']))
         return r[0] if r else None
 
     def pick_folder(self):
         import webview
-        r = self.window.create_file_dialog(webview.FileDialog.FOLDER)
+        r = self._window.create_file_dialog(webview.FileDialog.FOLDER)
         return r[0] if r else None
 
     def open_external(self, url):
@@ -68,7 +71,7 @@ def main(project_root=None):
     js = JsApi()
     win = webview.create_window(f'emcosim {__version__}', url, js_api=js, width=1440, height=900,
                                 min_size=(1100, 680), background_color='#1b1f24', text_select=True)
-    js.window = win
+    js._window = win
     icon = Path(__file__).parent / 'static' / 'icon.png'
     try:
         webview.start(private_mode=False, storage_path=str(_storage_dir()),

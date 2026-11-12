@@ -44,6 +44,8 @@ import os
 import queue
 import re
 import secrets
+import socket
+import sys
 import threading
 from functools import partial
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -465,10 +467,27 @@ def _bundled_examples():
     return out
 
 
+class _Server(ThreadingHTTPServer):
+    daemon_threads = True
+    # On Windows SO_REUSEADDR lets a second server bind a port that is already
+    # in use, and requests then go to whichever process Windows picks.
+    allow_reuse_address = sys.platform != 'win32'
+
+    def server_bind(self):
+        if sys.platform == 'win32' and hasattr(socket, 'SO_EXCLUSIVEADDRUSE'):
+            self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_EXCLUSIVEADDRUSE, 1)
+        super().server_bind()
+
+
 def make_server(app: App, host='127.0.0.1', port=0):
-    httpd = ThreadingHTTPServer((host, port), partial(Handler, app=app))
-    httpd.daemon_threads = True
-    return httpd
+    handler = partial(Handler, app=app)
+    try:
+        return _Server((host, port), handler)
+    except OSError:
+        if not port:
+            raise
+        print(f'port {port} is in use, picking a free one', file=sys.stderr)
+        return _Server((host, 0), handler)
 
 
 def serve(project_root=None, port=8765, host='127.0.0.1', open_browser=True):
