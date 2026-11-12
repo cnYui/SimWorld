@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>emcosim</title>
+<link rel="stylesheet" href="./styles.css">
+<script>
+  // apply the saved theme before first paint
+  try { const t = localStorage.getItem('emcosim.theme'); if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t; } catch (e) {}
+</script>
+<script type="importmap">{ "imports": { "three": "./vendor/three.module.min.js" } }</script>
+</head>
+<body>
+<div id="app" class="app">
+  <nav class="rail" id="rail" aria-label="主导航"></nav>
+  <main class="main" id="main"></main>
+  <div class="chat-wrap" id="chatWrap">
+    <div class="splitter" id="chatSplitter" role="separator" aria-orientation="vertical" aria-label="调整对话面板宽度" tabindex="0"></div>
+    <aside class="chat" id="chat" aria-label="AI 助手"></aside>
+  </div>
+  <footer class="statusbar" id="statusbar"></footer>
+</div>
+<div id="toasts" class="toasts" aria-live="polite"></div>
+<div id="fatal" class="fatal" hidden></div>
+<script type="module" src="./js/main.js"></script>
+</body>
+</html>

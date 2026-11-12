@@ -62,3 +62,61 @@ def test_servo_decodes_pulse_and_times_out():
     assert s.active and g > 0
     s.prepare(0.2, 0.0, 0.0, 5.0, 125e-6)
     assert not s.active            # no pulses for 200 ms
+
+
+def _hold(s, q, v=5.0, dt=125e-6, n=800):
+    taus = []
+    for k in range(n):
+        s.last_valid = k * dt                  # pulses keep coming
+        s.prepare(k * dt, q, 0.0, v, dt)
+        taus.append(s.finish(v))
+    return taus
+
+
+def test_transmission_and_speed_limit_off_by_default():
+    s = Servo('s', {'type': 'servo', 'joint': 'j', 'node': 'n', 'preset': 'sg90'})
+    assert s.trans is None and s.max_speed is None
+    s2 = Servo('s', {'type': 'servo', 'joint': 'j', 'node': 'n', 'preset': 'sg90', 'backlash_deg': 0,
+                     'output_stiffness_nm_per_rad': None, 'max_speed_dps': None})
+    s.target = s2.target = math.radians(10)
+    s.last_valid = s2.last_valid = 0.0
+    assert _hold(s, 0.0, n=50) == _hold(s2, 0.0, n=50)
+
+
+def test_backlash_gives_free_play_at_the_horn():
+    cfg = {'type': 'servo', 'joint': 'j', 'node': 'n', 'preset': 'sg90', 'backlash_deg': 4.0}
+    s = Servo('s', cfg)
+    s.target, s.last_valid = 0.0, 0.0
+    # horn held 1 deg off target: inside the +/-2 deg gap, the gear centres itself and
+    # the horn feels no torque
+    taus = _hold(s, math.radians(1.0))
+    assert max(abs(t) for t in taus[100:]) < 1e-9
+    assert abs(math.degrees(s.trans.theta)) < 0.5
+    # horn pushed 3 deg off: the gear reaches the flank and pushes back
+    s2 = Servo('s', cfg)
+    s2.target, s2.last_valid = 0.0, 0.0
+    taus = _hold(s2, math.radians(3.0))
+    assert taus[-1] < -0.01
+    assert abs(math.degrees(s2.trans.theta) - 1.0) < 1e-6      # gear locked on the flank
+
+
+def test_output_compliance_deflects_under_stall():
+    k = 5.0
+    s = Servo('s', {'type': 'servo', 'joint': 'j', 'node': 'n', 'preset': 'sg90',
+                    'output_stiffness_nm_per_rad': k})
+    s.target, s.last_valid = math.radians(30.0), 0.0
+    taus = _hold(s, 0.0, n=4000)                                 # horn blocked at 0
+    m = s.motor
+    stall = m.eta * m.N * m.ke * 5.0 / m.R
+    assert abs(taus[-1] - stall) / stall < 0.02
+    assert abs(s.trans.theta - stall / k) < 0.02 * stall / k     # gear wound up by tau / k
+
+
+def test_speed_limit_sets_move_time():
+    from emcosim.electrical.motors import merged
+    from emcosim.fit import bench_move
+    p = merged({'preset': 'sg90', 'max_speed_dps': 200.0})
+    t = bench_move(p, 90.0, 5.0)['time_s']
+    assert abs(t - 87.0 / 200.0) < 0.02
+    t_free = bench_move(merged({'preset': 'sg90'}), 90.0, 5.0)['time_s']
+    assert t_free < 0.25

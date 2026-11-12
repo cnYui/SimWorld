@@ -215,15 +215,22 @@ def _mcu_factory(project):
     return make
 
 
-def run_scenario(project: Project, scenario, overrides=None, tag=None, frame_every_ms=10):
+def run_scenario(project: Project, scenario, overrides=None, tag=None, frame_every_ms=10,
+                 progress=None, cancel=None):
+    """progress(fraction, t, signals) and cancel (threading.Event) are optional
+    hooks used by the desktop app; a cancelled run leaves no directory behind."""
     sc = project.scenario(scenario) if isinstance(scenario, str) else scenario
     all_overrides = dict(sc.get('overrides') or {})
     all_overrides.update(overrides or {})
     data = project.resolved(_alias(all_overrides))
     run_id = new_run_id(sc['name'] + (f'-{tag}' if tag else ''))
     rec = Recorder(project.root / 'runs' / run_id)
-    sim = Simulation(project, data, sc, _mcu_factory(project), frame_every_ms=frame_every_ms)
-    info = sim.run(rec)
+    try:
+        sim = Simulation(project, data, sc, _mcu_factory(project), frame_every_ms=frame_every_ms)
+        info = sim.run(rec, progress=progress, cancel=cancel)
+    except BaseException:
+        shutil.rmtree(rec.dir, ignore_errors=True)
+        raise
     t, cols = rec.columns()
     metrics = compute_metrics(t, cols, sim.mcu.events, sim.bod.events, sim.mech)
     checks = evaluate(sc.get('expect'), t, cols, metrics)
@@ -254,19 +261,26 @@ def summarize(meta):
             'timing': meta['timing']}
 
 
-def sweep(project: Project, scenario, params, metrics=None, extra_overrides=None):
+def sweep(project: Project, scenario, params, metrics=None, extra_overrides=None, progress=None,
+          cancel=None, on_row=None):
     """params: {path: [values...]} -> full grid. Returns one row per run."""
     keys = list(params)
     rows = []
-    for combo in itertools.product(*[params[k] for k in keys]):
+    combos = list(itertools.product(*[params[k] for k in keys]))
+    for i, combo in enumerate(combos):
         ov = dict(extra_overrides or {})
         ov.update(dict(zip(keys, combo)))
-        s = run_scenario(project, scenario, ov, tag='sweep', frame_every_ms=50)
+        sub = None
+        if progress is not None:
+            sub = (lambda f, t, sig, i=i: progress((i + f) / len(combos), t, sig))
+        s = run_scenario(project, scenario, ov, tag='sweep', frame_every_ms=50, progress=sub, cancel=cancel)
         row = {'run_id': s['run_id'], **dict(zip(keys, combo)), 'passed': s['passed']}
         for name in metrics or []:
             row[name] = s['metrics'].get(name)
         row['failed_checks'] = [c['check'] for c in s['checks'] if not c['pass']]
         rows.append(row)
+        if on_row is not None:
+            on_row(row)
     return {'scenario': scenario if isinstance(scenario, str) else scenario['name'], 'params': keys, 'rows': rows}
 
 
@@ -322,6 +336,88 @@ def render_frames(project: Project, run_id, times, width=640, height=480, camera
         paths.append(str(p))
     r.close()
     return {'run_id': run_id, 'frames': paths}
+
+
+def write_scenario(project: Project, name, scenario):
+    """Create or replace scenarios/<name>.yaml from a mapping or YAML text."""
+    import re
+    import yaml
+    if not re.fullmatch(r'[\w\-]+', name or ''):
+        raise ValueError('scenario names use letters, digits, _ and - only')
+    data = yaml.safe_load(scenario) if isinstance(scenario, str) else scenario
+    if not isinstance(data, dict):
+        raise ValueError('scenario must be a YAML mapping')
+    (project.root / 'scenarios').mkdir(exist_ok=True)
+    # Keep the user's text (and its comments) as written; only mappings are re-dumped.
+    text = scenario if isinstance(scenario, str) else dump_yaml(data)
+    (project.root / 'scenarios' / f'{name}.yaml').write_text(text, encoding='utf8')
+    return {'scenario': name, 'scenarios': project.scenarios()}
+
+
+def fit_measurements(project: Project, path, apply=False, allow_example=False):
+    """Fit servo / supply / switch parameters from a measurement sheet
+    (examples/switch_robot/measurements/template.yaml)."""
+    from . import fit
+    r = fit.fit_measurements(project, path, apply=apply, allow_example=allow_example)
+    r['text'] = fit.format_report(r)
+    return r
+
+
+def compare_trace(project: Project, trace_csv, signal, run_id=None, column=None, time_column=None,
+                  time_unit='s', t_offset=0.0, align=False, max_lag_s=0.5, window=None, scale=1.0):
+    """Error of a run's signal against a measured CSV trace (scope / logging meter)."""
+    from . import fit
+    return fit.compare_run(project, run_id, trace_csv, signal, column=column, time_column=time_column,
+                           time_unit=time_unit, t_offset=t_offset, align=align, max_lag_s=max_lag_s,
+                           window=window, scale=scale)
+
+
+def copy_project(src, dst):
+    """Copy a project (without runs/) to dst and make it self-contained: a base
+    MJCF whose meshdir points outside the project (the switch_robot example reuses
+    ../../../../simulation/assets) gets the referenced meshes copied next to it."""
+    import os
+    import xml.etree.ElementTree as ET
+    src, dst = Path(src).resolve(), Path(dst).resolve()
+    if (dst / 'project.yaml').exists():
+        return {'root': str(dst), 'copied': False}
+    shutil.copytree(src, dst, ignore=shutil.ignore_patterns('runs', '__pycache__', '*.pyc'))
+    prj = Project(dst)
+    mjcf = (prj.data.get('mechanics') or {}).get('mjcf')
+    if mjcf:
+        f_src, f_dst = src / mjcf, dst / mjcf
+        tree = ET.parse(f_src)
+        comp = tree.getroot().find('compiler')
+        mdir = comp.get('meshdir') if comp is not None else None
+        if mdir:
+            mesh_src = (f_src.parent / mdir).resolve()
+            if src not in mesh_src.parents and mesh_src != src:
+                out = f_dst.parent / 'assets'
+                out.mkdir(exist_ok=True)
+                for m in tree.getroot().iter('mesh'):
+                    if m.get('file'):
+                        shutil.copy2(mesh_src / m.get('file'), out / Path(m.get('file')).name)
+                comp.set('meshdir', 'assets')
+                tree.write(f_dst, encoding='unicode')
+    # Printable parts referenced outside the project (../../../mechanical/*.stl).
+    parts = ((prj.data.get('printing') or {}).get('parts') or {})
+    changed = False
+    for name, part in parts.items():
+        f = (src / part['file']).resolve()
+        if f.exists() and src not in f.parents:
+            (dst / 'print' / 'parts').mkdir(parents=True, exist_ok=True)
+            shutil.copy2(f, dst / 'print' / 'parts' / f.name)
+            part['file'] = f'print/parts/{f.name}'
+            changed = True
+    if changed:
+        prj.save()
+    return {'root': str(dst), 'copied': True}
+
+
+def delete_run(project: Project, run_id):
+    d = RunStore(project.root).dir(run_id)
+    shutil.rmtree(d)
+    return {'deleted': run_id}
 
 
 def project_overview(project: Project):

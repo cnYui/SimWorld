@@ -1,0 +1,487 @@
+"""Local HTTP API + static UI for the emcosim app.
+
+    emcosim app [--project DIR]            desktop window (pywebview)
+    emcosim serve [--project DIR]          same UI in the browser
+
+Binds to 127.0.0.1 only. Every request must carry the per-launch token (sent
+as the X-Emcosim-Token header, or ?token= for EventSource/asset URLs), so other
+local web pages cannot drive the app.
+
+JSON API (all under /api):
+  GET  app                       version, project root, recent projects, settings, qemu status
+  POST project/open {path}       open a project directory
+  POST project/new {path,name}   create and open an empty project
+  POST project/open_example {path[,dest]}  copy a bundled example to Documents/emcosim and open it
+  GET  project                   overview + full project.yaml data + scenario texts
+  POST param {path,value}        set_param (persists to project.yaml)
+  GET  scenario/<name>           {name, yaml}
+  PUT  scenario/<name> {yaml}    write_scenario
+  POST jobs/run {scenario, overrides}
+  POST jobs/sweep {scenario, params, metrics, overrides}
+  GET  jobs                      recent jobs
+  POST jobs/<id>/cancel
+  GET  runs                      run list
+  GET  run/<id>                  meta (+ signal names)
+  GET  run/<id>/signals?names=a,b&n=4000
+  GET  run/<id>/scene.json|scene.bin|frames.bin|uart.log
+  DELETE run/<id>
+  POST import/pcb|model|firmware {path, ...}
+  POST annotate/joint {...}, annotate/pin {...}
+  GET  pcb                       PCB summary (components, nets, board, copper)
+  GET  printing                  printable parts + whether Bambu Studio is installed
+  POST printing/send {names, with_settings, open}  export a 3MF and open it in Bambu Studio
+  GET  settings / POST settings {...} / POST settings/api_key {key}
+  GET  chat/status, POST chat/login, POST chat/logout
+  GET  chat, POST chat/new, GET chat/<id>, POST chat/<id>/send {text}, POST chat/<id>/stop
+  GET  events?token=             Server-Sent Events: job, job_progress, chat, project_changed,
+                                 scenarios_changed, runs_changed, auth_changed, auth_log
+"""
+from __future__ import annotations
+
+import json
+import mimetypes
+import os
+import queue
+import re
+import secrets
+import threading
+from functools import partial
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
+from urllib.parse import parse_qs, unquote, urlparse
+
+from .. import __version__, api
+from ..project import Project
+from ..results import RunStore
+from .chat import ChatManager
+from .events import EventBus, ProjectWatcher
+from .jobs import JobManager
+from .settings import Settings
+
+STATIC = Path(__file__).parent / 'static'
+RUN_FILES = {'scene.json': 'application/json', 'scene.bin': 'application/octet-stream',
+             'frames.bin': 'application/octet-stream', 'uart.log': 'text/plain; charset=utf-8'}
+
+
+class ApiError(Exception):
+    def __init__(self, msg, code=400):
+        super().__init__(msg)
+        self.code = code
+
+
+class App:
+    """State shared by all request handlers."""
+
+    def __init__(self, project_root=None, settings: Settings | None = None):
+        self.settings = settings or Settings()
+        self.bus = EventBus()
+        self.token = os.environ.get('EMCOSIM_APP_TOKEN') or secrets.token_urlsafe(24)
+        self._root = None
+        self._lock = threading.RLock()
+        self.downloads = {}
+        self.jobs = JobManager(self.bus, self.project)
+        self.chat = ChatManager(self.bus, self.settings, lambda: self._root)
+        self.watcher = ProjectWatcher(self.bus, lambda: self._root)
+        self.watcher.start()
+        if project_root:
+            self.open_project(project_root)
+        elif self.settings.data.get('recent_projects'):
+            for p in self.settings.data['recent_projects']:
+                if (Path(p) / 'project.yaml').exists():
+                    self.open_project(p)
+                    break
+
+    # -- project -----------------------------------------------------------
+    def open_project(self, root):
+        root = Path(root).expanduser().resolve()
+        if not (root / 'project.yaml').exists():
+            raise ApiError(f'{root} 里没有 project.yaml')
+        with self._lock:
+            self._root = root
+        self.settings.touch_project(root)
+        self.bus.publish('project_opened', {'root': str(root)})
+        return {'root': str(root)}
+
+    def project(self) -> Project:
+        if self._root is None:
+            raise ApiError('还没有打开工程', 409)
+        return Project(self._root)
+
+    @property
+    def root(self):
+        return self._root
+
+
+def _qemu_status():
+    try:
+        from ..mcu.qemu import find_qemu
+        exe, roms = find_qemu()
+        return {'found': True, 'path': exe, 'roms': roms}
+    except RuntimeError as e:
+        return {'found': False, 'error': str(e)}
+
+
+def _scenario_texts(project):
+    out = {}
+    d = project.root / 'scenarios'
+    for name in project.scenarios():
+        try:
+            out[name] = (d / f'{name}.yaml').read_text(encoding='utf8')
+        except OSError:
+            pass
+    return out
+
+
+class Handler(BaseHTTPRequestHandler):
+    server_version = 'emcosim'
+    protocol_version = 'HTTP/1.1'
+
+    def __init__(self, *args, app: App = None, **kw):
+        self.app = app
+        super().__init__(*args, **kw)
+
+    def log_message(self, *a):
+        pass
+
+    # -- plumbing ----------------------------------------------------------
+    def _send(self, body: bytes, ctype, code=200, extra=None):
+        self.send_response(code)
+        self.send_header('Content-Type', ctype)
+        self.send_header('Content-Length', str(len(body)))
+        self.send_header('Cache-Control', 'no-store')
+        for k, v in (extra or {}).items():
+            self.send_header(k, v)
+        self.end_headers()
+        if self.command != 'HEAD':
+            self.wfile.write(body)
+
+    def _json(self, obj, code=200):
+        self._send(json.dumps(obj, default=str, ensure_ascii=False).encode('utf8'),
+                   'application/json; charset=utf-8', code)
+
+    def _body(self):
+        n = int(self.headers.get('Content-Length') or 0)
+        if not n:
+            return {}
+        try:
+            return json.loads(self.rfile.read(n).decode('utf8'))
+        except ValueError:
+            raise ApiError('请求体不是合法 JSON')
+
+    def _authorized(self, query):
+        tok = self.headers.get('X-Emcosim-Token') or (query.get('token') or [''])[0]
+        return secrets.compare_digest(tok, self.app.token)
+
+    def do_GET(self):
+        self._dispatch('GET')
+
+    def do_HEAD(self):
+        self._dispatch('GET')
+
+    def do_POST(self):
+        self._dispatch('POST')
+
+    def do_PUT(self):
+        self._dispatch('PUT')
+
+    def do_DELETE(self):
+        self._dispatch('DELETE')
+
+    def _dispatch(self, method):
+        url = urlparse(self.path)
+        q = parse_qs(url.query)
+        parts = [unquote(p) for p in url.path.split('/') if p]
+        if len(parts) >= 2 and parts[0] == 'dl' and method == 'GET':
+            # one-time download links handed to Bambu Studio (bambustudio://open?file=...)
+            f = self.app.downloads.pop(parts[1], None)
+            if not f or not Path(f).is_file():
+                return self._json({'error': 'not found'}, 404)
+            return self._send(Path(f).read_bytes(), 'application/vnd.ms-package.3dmanufacturing-3dmodel+xml')
+        if not parts or parts[0] != 'api':
+            if method != 'GET':
+                return self._json({'error': 'not found'}, 404)
+            return self._static(url.path)
+        # The page itself is served without a token (the desktop shell and
+        # `emcosim serve` put the token in the URL fragment); every API call needs it.
+        if not self._authorized(q):
+            return self._json({'error': 'unauthorized'}, 401)
+        try:
+            if parts[1:] == ['events']:
+                return self._events()
+            out = self._route(method, parts[1:], q)
+            if out is not None:
+                self._json(out)
+        except ApiError as e:
+            self._json({'error': str(e)}, e.code)
+        except (FileNotFoundError, KeyError) as e:
+            self._json({'error': str(e).strip("'\"")}, 404)
+        except (ValueError, RuntimeError, TypeError) as e:
+            self._json({'error': f'{e}'}, 400)
+
+    def _static(self, path):
+        rel = path.lstrip('/') or 'index.html'
+        f = (STATIC / rel).resolve()
+        if not str(f).startswith(str(STATIC.resolve())) or not f.is_file():
+            f = STATIC / 'index.html'
+        ctype = mimetypes.guess_type(f.name)[0] or 'application/octet-stream'
+        if f.suffix == '.js':
+            ctype = 'text/javascript'
+        if ctype.startswith('text/') or ctype in ('application/json', 'text/javascript'):
+            ctype += '; charset=utf-8'
+        self._send(f.read_bytes(), ctype)
+
+    def _events(self):
+        sub = self.app.bus.subscribe()
+        self.send_response(200)
+        self.send_header('Content-Type', 'text/event-stream; charset=utf-8')
+        self.send_header('Cache-Control', 'no-store')
+        self.send_header('Connection', 'keep-alive')
+        self.end_headers()
+        try:
+            self.wfile.write(b'retry: 1500\n\n')
+            self.wfile.flush()
+            while True:
+                try:
+                    msg = sub.get(timeout=15)
+                    data = json.dumps(msg, default=str, ensure_ascii=False)
+                    self.wfile.write(f'event: {msg["kind"]}\ndata: {data}\n\n'.encode('utf8'))
+                except queue.Empty:
+                    self.wfile.write(b': ping\n\n')
+                self.wfile.flush()
+        except (BrokenPipeError, ConnectionResetError, ConnectionAbortedError, OSError):
+            pass
+        finally:
+            self.app.bus.unsubscribe(sub)
+            self.close_connection = True
+
+    # -- routes ------------------------------------------------------------
+    def _route(self, method, p, q):
+        app = self.app
+        b = self._body() if method in ('POST', 'PUT') else {}
+        head = p[0] if p else ''
+
+        if head == 'app' and method == 'GET':
+            return {'version': __version__, 'project': str(app.root) if app.root else None,
+                    'recent_projects': [r for r in app.settings.data.get('recent_projects', [])
+                                        if (Path(r) / 'project.yaml').exists()],
+                    'settings': app.settings.public(), 'qemu': _qemu_status(),
+                    'examples': [str(x) for x in _bundled_examples()]}
+
+        if head == 'project':
+            if p[1:] == ['open'] and method == 'POST':
+                return app.open_project(b['path'])
+            if p[1:] == ['open_example'] and method == 'POST':
+                # Examples ship read-only (Program Files); work on a copy in Documents.
+                src = Path(b['path'])
+                dst = Path(b.get('dest') or _documents_dir() / src.name)
+                return {**app.open_project(api.copy_project(src, dst)['root']), 'copied_to': str(dst)}
+            if p[1:] == ['new'] and method == 'POST':
+                prj = Project.create(b['path'], b.get('name'))
+                return app.open_project(prj.root)
+            if len(p) == 1 and method == 'GET':
+                prj = app.project()
+                ov = api.project_overview(prj)
+                ov['data'] = prj.data
+                ov['scenario_texts'] = _scenario_texts(prj)
+                ov['firmware_params'] = _fw_param_defaults()
+                ov['presets'] = _motor_presets()
+                return ov
+
+        if head == 'param' and method == 'POST':
+            return api.set_param(app.project(), b['path'], b['value'])
+
+        if head == 'scenario' and len(p) == 2:
+            prj = app.project()
+            if method == 'GET':
+                return {'name': p[1], 'yaml': (prj.root / 'scenarios' / f'{p[1]}.yaml').read_text(encoding='utf8')}
+            if method == 'PUT':
+                return api.write_scenario(prj, p[1], b['yaml'])
+            if method == 'DELETE':
+                (prj.root / 'scenarios' / f'{p[1]}.yaml').unlink()
+                return {'deleted': p[1]}
+
+        if head == 'jobs':
+            if p[1:] == ['run'] and method == 'POST':
+                app.project()
+                return app.jobs.submit('run', scenario=b['scenario'], overrides=b.get('overrides') or {})
+            if p[1:] == ['sweep'] and method == 'POST':
+                app.project()
+                if not b.get('params'):
+                    raise ApiError('扫参至少要一个参数')
+                return app.jobs.submit('sweep', scenario=b['scenario'], params=b['params'],
+                                       metrics=b.get('metrics') or [], overrides=b.get('overrides') or {})
+            if len(p) == 1 and method == 'GET':
+                return app.jobs.list()
+            if len(p) == 3 and p[2] == 'cancel' and method == 'POST':
+                return app.jobs.cancel(p[1])
+            if len(p) == 2 and method == 'GET':
+                return app.jobs.jobs[p[1]].public(live=True)
+
+        if head == 'runs' and method == 'GET':
+            return RunStore(app.project().root).list()
+
+        if head == 'run' and len(p) >= 2:
+            run_id = p[1]
+            if not re.fullmatch(r'[\w.\-]+', run_id):
+                raise ApiError('bad run id')
+            store = RunStore(app.project().root)
+            if method == 'DELETE' and len(p) == 2:
+                return api.delete_run(app.project(), run_id)
+            d = store.dir(run_id)
+            if len(p) == 2:
+                meta = store.meta(run_id)
+                meta.pop('resolved_project', None)
+                meta['signals'] = store.signal_names(run_id)
+                return meta
+            if p[2] == 'signals':
+                names = q.get('names', [''])[0].split(',') if q.get('names') else None
+                t0 = float(q['t0'][0]) if q.get('t0') else None
+                t1 = float(q['t1'][0]) if q.get('t1') else None
+                return store.signals(run_id, [n for n in names or [] if n] or None, t0, t1,
+                                     max_points=int(q.get('n', ['4000'])[0]))
+            if p[2] == 'resolved':
+                return store.meta(run_id).get('resolved_project')
+            if p[2] in RUN_FILES and (d / p[2]).exists():
+                self._send((d / p[2]).read_bytes(), RUN_FILES[p[2]])
+                return None
+            raise ApiError('not found', 404)
+
+        if head == 'import' and method == 'POST' and len(p) == 2:
+            prj = app.project()
+            kind = p[1]
+            if kind == 'pcb':
+                return api.import_pcb(prj, b['path'], dsn=b.get('dsn'), bom=b.get('bom'),
+                                      placement=b.get('placement'))
+            if kind == 'model':
+                return api.import_model(prj, b['path'], name=b.get('name'), parent=b.get('parent', 'world'),
+                                        pos=b.get('pos'), euler_deg=b.get('euler_deg'), units=b.get('units', 'mm'),
+                                        density=float(b.get('density', 1240.0)), mass_kg=b.get('mass_kg'),
+                                        collision=b.get('collision', 'hull'))
+            if kind == 'firmware':
+                return api.import_firmware(prj, b['path'], b.get('name', 'firmware'))
+
+        if head == 'annotate' and method == 'POST' and len(p) == 2:
+            prj = app.project()
+            if p[1] == 'joint':
+                b = dict(b)
+                return api.define_joint(prj, b.pop('name'), b.pop('body'), **b)
+            if p[1] == 'pin':
+                b = dict(b)
+                return api.bind_pin(prj, b.pop('pin'), **b)
+
+        if head == 'pcb' and method == 'GET':
+            prj = app.project()
+            pcb = prj.pcb()
+            if not pcb:
+                return {}
+            return pcb
+
+        if head == 'printing':
+            from .. import printing
+            prj = app.project()
+            if len(p) == 1 and method == 'GET':
+                return {'parts': printing.printable_parts(prj),
+                        'bambu': {'found': bool(printing.find_bambu_studio()), 'path': printing.find_bambu_studio(),
+                                  'url_handler': printing.url_handler_registered()}}
+            if p[1:] == ['send'] and method == 'POST':
+                port = self.server.server_address[1]
+
+                def url_for(path):
+                    key = secrets.token_urlsafe(16)
+                    app.downloads[key] = path
+                    return f'http://127.0.0.1:{port}/dl/{key}/{path.name}'
+                return printing.send_parts(prj, b.get('names') or None, bool(b.get('with_settings')),
+                                           download_url_for=url_for, open_app=b.get('open', True))
+
+        if head == 'settings':
+            if len(p) == 1 and method == 'GET':
+                return app.settings.public()
+            if len(p) == 1 and method == 'POST':
+                app.settings.update(**b)
+                return app.settings.public()
+            if p[1:] == ['api_key'] and method == 'POST':
+                app.settings.set_api_key(b.get('key'))
+                return app.settings.public()
+
+        if head == 'chat':
+            c = app.chat
+            if p[1:] == ['status']:
+                return c.status()
+            if p[1:] == ['login'] and method == 'POST':
+                return c.login(console=bool(b.get('console')))
+            if p[1:] == ['logout'] and method == 'POST':
+                return c.logout()
+            if len(p) == 1 and method == 'GET':
+                return c.list()
+            if p[1:] == ['new'] and method == 'POST':
+                return c.new()
+            if len(p) == 2 and method == 'GET':
+                return c.get(p[1])
+            if len(p) == 3 and p[2] == 'send' and method == 'POST':
+                text = (b.get('text') or '').strip()
+                if not text:
+                    raise ApiError('消息是空的')
+                return c.send(p[1], text)
+            if len(p) == 3 and p[2] == 'stop' and method == 'POST':
+                return c.stop(p[1])
+
+        raise ApiError(f'unknown endpoint {method} /api/{"/".join(p)}', 404)
+
+
+def _fw_param_defaults():
+    try:
+        from ..firmware import FW_PARAMS_DEFAULTS
+        return FW_PARAMS_DEFAULTS
+    except ImportError:
+        return {}
+
+
+def _motor_presets():
+    try:
+        from ..electrical.motors import PRESETS
+        return PRESETS
+    except ImportError:
+        return {}
+
+
+def _documents_dir():
+    docs = Path.home() / 'Documents'
+    d = (docs if docs.exists() else Path.home()) / 'emcosim'
+    d.mkdir(parents=True, exist_ok=True)
+    return d
+
+
+def _bundled_examples():
+    """Example projects shipped next to the package (source tree or installer)."""
+    here = Path(__file__).resolve()
+    cands = [here.parents[2] / 'examples', here.parents[1] / 'examples']
+    import sys
+    if getattr(sys, 'frozen', False):
+        cands.insert(0, Path(sys.executable).parent / 'examples')
+    out = []
+    for c in cands:
+        if c.is_dir():
+            out += [d for d in sorted(c.iterdir()) if (d / 'project.yaml').exists()]
+    return out
+
+
+def make_server(app: App, host='127.0.0.1', port=0):
+    httpd = ThreadingHTTPServer((host, port), partial(Handler, app=app))
+    httpd.daemon_threads = True
+    return httpd
+
+
+def serve(project_root=None, port=8765, host='127.0.0.1', open_browser=True):
+    import webbrowser
+    app = App(project_root)
+    httpd = make_server(app, host, port)
+    url = f'http://{host}:{httpd.server_address[1]}/#token={app.token}'
+    print(f'emcosim app: {url}', flush=True)
+    if open_browser:
+        threading.Timer(0.5, webbrowser.open, args=(url,)).start()
+    try:
+        httpd.serve_forever()
+    except KeyboardInterrupt:
+        pass
+    finally:
+        httpd.server_close()

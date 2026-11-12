@@ -181,16 +181,16 @@ index 84c0d1a..f6ca363 100644
  
 diff --git a/hw/xtensa/esp32_cosim.c b/hw/xtensa/esp32_cosim.c
 new file mode 100644
-index 0000000..31e8f9c
+index 0000000..9c46b45
 --- /dev/null
 +++ b/hw/xtensa/esp32_cosim.c
-@@ -0,0 +1,211 @@
+@@ -0,0 +1,218 @@
 +/*
 + * ESP32 lock-step co-simulation link.
 + *
 + * Every ESP32_COSIM_PERIOD_US microseconds of *virtual* time (default 1000)
 + * the emulator stops, sends one text line describing the pin outputs to an
-+ * external simulator over a UNIX socket, and blocks until it receives one line
++ * external simulator over a socket, and blocks until it receives one line
 + * with the pin inputs and the supply state.  Run QEMU with -icount so that
 + * virtual time is decoupled from wall-clock time; the external simulator then
 + * owns the shared clock.
@@ -216,9 +216,9 @@ index 0000000..31e8f9c
 +#include "qemu/timer.h"
 +#include "qemu/main-loop.h"
 +#include "sysemu/runstate.h"
++#include "qemu/sockets.h"
++#include "qapi/error.h"
 +#include "hw/xtensa/esp32.h"
-+#include <sys/socket.h>
-+#include <sys/un.h>
 +
 +#define LEDC_HS_SIG_OUT0_IDX 71
 +#define LEDC_LS_SIG_OUT0_IDX 79
@@ -243,7 +243,11 @@ index 0000000..31e8f9c
 +    error_report("esp32 cosim: %s; shutting down", what);
 +    qemu_system_shutdown_request(SHUTDOWN_CAUSE_HOST_ERROR);
 +    if (cosim.fd >= 0) {
++#ifdef _WIN32
++        closesocket(cosim.fd);
++#else
 +        close(cosim.fd);
++#endif
 +        cosim.fd = -1;
 +    }
 +}
@@ -251,7 +255,7 @@ index 0000000..31e8f9c
 +static bool cosim_send(const char *buf, size_t len)
 +{
 +    while (len) {
-+        ssize_t n = write(cosim.fd, buf, len);
++        ssize_t n = send(cosim.fd, buf, len, 0);
 +        if (n < 0 && errno == EINTR) {
 +            continue;
 +        }
@@ -282,8 +286,8 @@ index 0000000..31e8f9c
 +        if (cosim.rx_len == sizeof(cosim.rx)) {
 +            return false;
 +        }
-+        ssize_t r = read(cosim.fd, cosim.rx + cosim.rx_len,
-+                         sizeof(cosim.rx) - cosim.rx_len);
++        ssize_t r = recv(cosim.fd, cosim.rx + cosim.rx_len,
++                         sizeof(cosim.rx) - cosim.rx_len, 0);
 +        if (r < 0 && errno == EINTR) {
 +            continue;
 +        }
@@ -367,24 +371,27 @@ index 0000000..31e8f9c
 +
 +void esp32_cosim_init(Esp32SocState *s)
 +{
++    /* ESP32_COSIM_SOCKET is either "tcp:HOST:PORT" (works on every host,
++     * used on Windows) or a UNIX socket path. */
 +    const char *path = getenv("ESP32_COSIM_SOCKET");
 +    const char *period = getenv("ESP32_COSIM_PERIOD_US");
-+    struct sockaddr_un addr = { .sun_family = AF_UNIX };
++    Error *err = NULL;
 +
 +    cosim.fd = -1;
 +    if (!path || !*path) {
 +        return;
 +    }
-+    if (strlen(path) >= sizeof(addr.sun_path)) {
-+        error_report("esp32 cosim: socket path too long");
++    if (g_str_has_prefix(path, "tcp:")) {
++        cosim.fd = inet_connect(path + 4, &err);
++    } else {
++        cosim.fd = unix_connect(path, &err);
++    }
++    if (cosim.fd < 0) {
++        error_reportf_err(err, "esp32 cosim: cannot connect to %s: ", path);
 +        exit(1);
 +    }
-+    strcpy(addr.sun_path, path);
-+    cosim.fd = socket(AF_UNIX, SOCK_STREAM, 0);
-+    if (cosim.fd < 0 || connect(cosim.fd, (struct sockaddr *)&addr, sizeof(addr)) < 0) {
-+        error_report("esp32 cosim: cannot connect to %s: %s", path, strerror(errno));
-+        exit(1);
-+    }
++    socket_set_nodelay(cosim.fd);
++    qemu_socket_set_block(cosim.fd);
 +    cosim.soc = s;
 +    cosim.power_good = true;
 +    cosim.period_ns = (period ? atoll(period) : 1000) * 1000LL;
@@ -452,14 +459,15 @@ index 818b984..5a46a5e 100644
  
  #define LEDC_REG_GROUP(name, base) \
 diff --git a/include/hw/xtensa/esp32.h b/include/hw/xtensa/esp32.h
-index 4a84f5e..c882f1b 100644
+index 4a84f5e..ed01052 100644
 --- a/include/hw/xtensa/esp32.h
 +++ b/include/hw/xtensa/esp32.h
-@@ -59,3 +59,7 @@ typedef struct Esp32SocState {
+@@ -59,3 +59,8 @@ typedef struct Esp32SocState {
  
      uint32_t requested_reset;
  } Esp32SocState;
 +
 +/* Lock-step co-simulation link (hw/xtensa/esp32_cosim.c). Enabled when the
-+ * ESP32_COSIM_SOCKET environment variable names a UNIX socket. */
++ * ESP32_COSIM_SOCKET environment variable is set
++ * ("tcp:HOST:PORT" or a UNIX socket path). */
 +void esp32_cosim_init(Esp32SocState *s);

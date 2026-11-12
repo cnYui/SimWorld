@@ -1,0 +1,38 @@
+# fit_measurements(examples/switch_robot, measurements/example_sg90_usb.yaml), NOT applied.
+# The sheet holds INVENTED example values; these diffs only demonstrate the tool.
+measurements: measurements/example_sg90_usb.yaml  [EXAMPLE DATA, invented]
+changes (old -> new):
+  power.sources.usb.v: 5.0 -> 5.08 (+/- 0.02)  [+1.6 %]
+  power.sources.usb.r_ohm: 0.3 -> 0.7408 (+/- 0.053)  [+147 %]
+  power.sources.usb.i_limit_a: 0.5 -> 0.9 (+/- 0.0083)  [+80 %]
+  mechanics.joints.servo_axis.frictionloss: 0.0007 -> 0.02391 (+/- 0.0063)  [+3320 %]
+  mechanics.elements.rocker_detent.stable_deg: 3.5 -> 3.8 (+/- 0.25)  [+8.57 %]
+  mechanics.elements.rocker_detent.peak_force_n: 3.0 -> 1.869 (+/- 0.16)  [-37.7 %]
+  mechanics.initial_deg.rocker_axis: 3.5 -> 3.8  [+8.57 %]
+  actuators.servo1.i_ctrl_a: 0.006 -> 0.008 (+/- 0.003)  [+33.3 %]
+  actuators.servo1.r_ohm: 7.0 -> 7.544 (+/- 0.25)  [+7.77 %]
+  actuators.servo1.ke_v_s_rad: 0.00229 -> 0.002146 (+/- 0.00014)  [-6.29 %]
+  actuators.servo1.efficiency: 0.43 -> 0.4552 (+/- 0.04)  [+5.86 %]
+kept at prior:
+  actuators.servo1.gear_ratio: not observable from the terminals; only ke*gear_ratio matters (ke_v_s_rad is fitted with gear_ratio=250 kept)
+residuals (measured | model before | model after | z after):
+  supply.open circuit.v [V]: 5.08 +/- 0.02 | 5.0 | 5.08 | 0.00575
+  supply.resistor 10 ohm.v [V]: 4.73 +/- 0.03 | 4.854 | 4.73 | -0.00847
+  supply.resistor 10 ohm.i [A]: 0.474 +/- 0.01 | 0.4854 | 0.473 | -0.102
+  supply.servo stall.v [V]: 4.62 +/- 0.03 | -0.7 | 4.621 | 0.0278
+  supply.resistor 3.3 ohm.v [V]: 2.97 +/- 0.03 | 1.65 | 2.97 | -5.59e-05
+  supply.resistor 3.3 ohm.i [A]: 0.9 +/- 0.02 | 0.5 | 0.9 | 0.000123
+  servo.stall_current_a [A]: 0.62 +/- 0.02 | 0.6659 | 0.6203 | 0.0171
+  servo.stall_torque_nm [N*m]: 0.1496 +/- 0.007022 | 0.1625 | 0.1495 | -0.00137
+  servo.move_time_s@5.06V#1 [s]: 0.2 +/- 0.006 | 0.177 | 0.1977 | -0.376
+  servo.move_time_s@4.20V#2 [s]: 0.246 +/- 0.006 | 0.2132 | 0.2479 | 0.309
+  servo.sweep_current_a [A]: 0.06 +/- 0.015 | 0.009002 | 0.0574 | -0.173
+  servo.idle_current_a [A]: 0.008 +/- 0.003 | 0.006 | 0.008 | 0.0
+  switch.peak_torque_nm [N*m]: 0.04486 +/- 0.003759 | 0.072 | 0.04486 | 0.0
+  switch.peak_at_deg_from_rest [deg]: 1.7 +/- 0.5 | 1.479 | 1.605 | -0.189  (check only)
+check brownout under servo stall: {'check': 'brownout under servo stall', 'servo_node': 'usb5v', 'mcu_rail': 'ldo3v3', 'model_min_rail_v': 3.3, 'v_trip': 2.43, 'model_resets': False, 'observed_reset': False, 'consistent': True, 'note': ''}
+note: this sheet is labelled example_data: the numbers are invented, not measurements
+note: a speed-limited servo (max_speed_dps) explains the data equally well (chi2 0.698 vs 0.268); kept the motor-limited fit. A second move video at a clearly different supply voltage separates the two (a motor-limited servo slows down in proportion, a speed-limited one does not)
+note: friction_nm (no-load losses, from the sweep current) is the MuJoCo frictionloss of the servo joint; it lumps motor brush/bearing and gear drag at the output
+note: measured peak torque 44.9 mN*m at the pivot (381 g at 12.0 mm)
+note: the quartic bistable has a fixed shape (peak at 42 % of the travel to the centre); the peak position is a check, not a fitted parameter

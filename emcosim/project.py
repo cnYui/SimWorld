@@ -6,10 +6,14 @@ from __future__ import annotations
 import copy
 import hashlib
 import json
+import os
 import re
+import threading
 from pathlib import Path
 
 import yaml
+
+_SAVE_LOCK = threading.RLock()
 
 PROJECT_FILE = 'project.yaml'
 SCHEMA_VERSION = '0.1'
@@ -113,18 +117,23 @@ class Project:
             f.write_text(dump_yaml(data), encoding='utf8')
             for sub in ('scenarios', 'mechanics/meshes', 'pcb', 'firmware'):
                 (root / sub).mkdir(parents=True, exist_ok=True)
-            (root / '.gitignore').write_text('runs/\n')
+            (root / '.gitignore').write_text('runs/\nprint/*.3mf\n')
         return cls(root)
 
     def save(self):
-        self.file.write_text(dump_yaml(self.data), encoding='utf8')
+        # Atomic: the app, the MCP server and the user's editor may all touch this file.
+        tmp = self.file.with_name(self.file.name + '.tmp')
+        with _SAVE_LOCK:
+            tmp.write_text(dump_yaml(self.data), encoding='utf8')
+            os.replace(tmp, self.file)
 
     def get(self, path, default=KeyError):
         return get_path(self.data, path, default)
 
     def set(self, path, value):
-        set_path(self.data, path, value)
-        self.save()
+        with _SAVE_LOCK:
+            set_path(self.data, path, value)
+            self.save()
 
     def path(self, rel):
         return (self.root / rel).resolve()

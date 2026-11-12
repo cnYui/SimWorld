@@ -2,7 +2,7 @@
 # Build from the repository root (the switch-robot example reuses simulation/assets):
 #   docker build -f platform/Dockerfile -t emcosim .
 #   docker run --rm emcosim run toggle_nominal
-#   docker run --rm -p 8765:8765 emcosim view --host 0.0.0.0
+#   docker run --rm -p 8765:8765 -e EMCOSIM_APP_TOKEN=dev emcosim serve --host 0.0.0.0 --no-browser
 #   docker run --rm -i emcosim mcp                       # MCP over stdio
 # Your own project:  docker run --rm -v "$PWD:/work" -w /work emcosim run my_scenario
 
@@ -34,7 +34,7 @@ COPY platform /opt/emcosim/platform
 COPY simulation/assets /opt/emcosim/simulation/assets
 RUN --mount=type=secret,id=proxy_ca,required=false \
     if [ -s /run/secrets/proxy_ca ]; then export PIP_CERT=/run/secrets/proxy_ca; fi; \
-    pip install --no-cache-dir "/opt/emcosim/platform[step]"
+    pip install --no-cache-dir "/opt/emcosim/platform[step]" "anthropic>=2.8"
 WORKDIR /opt/emcosim/platform/examples/switch_robot
 EXPOSE 8765
 ENTRYPOINT ["emcosim"]

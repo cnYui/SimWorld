@@ -1,0 +1,3079 @@
+{
+ "loads": {
+  "run_id": "20261112-103919-820-stall_brownout",
+  "scenario": "stall_brownout",
+  "overrides": {
+   "mechanics.elements.rocker_detent.peak_force_n": 9.0
+  },
+  "press_force_peak_n": 8.91339603602538,
+  "press_force_peak_t_s": 1.0,
+  "press_force_p99_n": 4.535380204554713,
+  "servo_torque_peak_nm": 0.1732315390410278,
+  "servo_torque_peak_t_s": 1.012,
+  "servo_preset": "sg90",
+  "servo_stall_torque_nm": 0.1758392857142857,
+  "stall_supply_v": 5.0
+ },
+ "print_settings": {
+  "layer_height_mm": 0.2,
+  "nozzle_mm": 0.4,
+  "line_width_mm": null,
+  "walls": 3,
+  "top_bottom_layers": 4,
+  "infill_pct": 20,
+  "infill_pattern": "grid",
+  "nozzle_temp_c": null,
+  "ref_layer_height_mm": 0.2,
+  "ref_ratio": 0.5,
+  "interlayer_slope": 0.6,
+  "temp_slope_per_c": 0.005,
+  "notch_depth_frac": 0.12,
+  "notch_root_radius_mm": 0.05,
+  "notch_sensitivity": 0.3,
+  "line_width": 0.45,
+  "wall_thickness_mm": 1.35,
+  "top_bottom_thickness_mm": 0.8,
+  "min_inside_radius_mm": 0.2,
+  "printable": true,
+  "layer_notch_factor": 1.0,
+  "infill_stiffness_factor": 0.2,
+  "infill_strength_factor": 0.2
+ },
+ "matrix": {
+  "PLA|Z_as_exported|press": {
+   "min_sf": {
+    "in_plane": 9.088570713894354,
+    "interlayer_normal": 23.46313942008631,
+    "interlayer_shear": 11.699556100269216,
+    "interlayer_combined": 11.699556100269216
+   },
+   "at_mm": {
+    "in_plane": [
+     -0.069,
+     11.247,
+     -3.0
+    ],
+    "interlayer_normal": [
+     0.025,
+     10.653,
+     1.663
+    ],
+    "interlayer_shear": [
+     0.28,
+     11.962,
+     -0.094
+    ],
+    "interlayer_combined": [
+     0.28,
+     11.962,
+     -0.094
+    ]
+   },
+   "governing": "in_plane",
+   "max_deflection_mm": 0.09816937051206694,
+   "tip_deflection_mm": 0.08184805980464174,
+   "max_von_mises_mpa": 5.39727219638297,
+   "zones": {
+    "in_plane": {
+     "finger_root_+y": 20.780280426919326,
+     "finger_root_-y": 506890613.2649342
+    },
+    "interlayer_normal": {
+     "finger_root_+y": 204.71011487884252,
+     "finger_root_-y": 1000000000.0
+    },
+    "interlayer_shear": {
+     "finger_root_+y": 40.780681970371276,
+     "finger_root_-y": 570435341.3353945
+    },
+    "interlayer_combined": {
+     "finger_root_+y": 40.780681970371276,
+     "finger_root_-y": 570435341.3353945
+    }
+   },
+   "corners": {
+    "finger_root": {
+     "on_layer_boundary": true,
+     "edge_parallel_to_build": false,
+     "radius_formed_by": "layer staircase",
+     "min_reliable_radius_mm": 0.4
+    }
+   },
+   "mesh": {
+    "n_points": 2791,
+    "n_tets": 10889,
+    "dofs": 54687,
+    "shell_fraction_of_volume": 0.8134172911417922,
+    "volume_mm3": 1514.809146062767
+   },
+   "timing_s": {
+    "assemble": 1.23,
+    "solve": 4.54,
+    "total": 6.28,
+    "mesh": 0.47
+   },
+   "solver": "AMG-CG (pyamg, 61 it, rel.res 7.9e-11)"
+  },
+  "PLA|Z_as_exported|torque": {
+   "min_sf": {
+    "in_plane": 11.056918914807067,
+    "interlayer_normal": 28.544645601746645,
+    "interlayer_shear": 14.233375875275929,
+    "interlayer_combined": 14.233375875275929
+   },
+   "at_mm": {
+    "in_plane": [
+     -0.069,
+     11.247,
+     -3.0
+    ],
+    "interlayer_normal": [
+     0.025,
+     10.653,
+     1.663
+    ],
+    "interlayer_shear": [
+     0.28,
+     11.962,
+     -0.094
+    ],
+    "interlayer_combined": [
+     0.28,
+     11.962,
+     -0.094
+    ]
+   },
+   "governing": "in_plane",
+   "max_deflection_mm": 0.08069329916514754,
+   "tip_deflection_mm": 0.06727750154098269,
+   "max_von_mises_mpa": 4.436451998690084,
+   "zones": {
+    "in_plane": {
+     "finger_root_+y": 25.280749079313342,
+     "finger_root_-y": 616669943.9079388
+    },
+    "interlayer_normal": {
+     "finger_root_+y": 249.04500526084598,
+     "finger_root_-y": 1000000000.0
+    },
+    "interlayer_shear": {
+     "finger_root_+y": 49.6127177783059,
+     "finger_root_-y": 693976808.6244216
+    },
+    "interlayer_combined": {
+     "finger_root_+y": 49.6127177783059,
+     "finger_root_-y": 693976808.6244215
+    }
+   },
+   "corners": {
+    "finger_root": {
+     "on_layer_boundary": true,
+     "edge_parallel_to_build": false,
+     "radius_formed_by": "layer staircase",
+     "min_reliable_radius_mm": 0.4
+    }
+   },
+   "mesh": {
+    "n_points": 2791,
+    "n_tets": 10889,
+    "dofs": 54687,
+    "shell_fraction_of_volume": 0.8134172911417922,
+    "volume_mm3": 1514.809146062767
+   },
+   "timing_s": {
+    "assemble": 1.11,
+    "solve": 3.83,
+    "total": 5.35,
+    "mesh": 0.0
+   },
+   "solver": "AMG-CG (pyamg, 61 it, rel.res 7.9e-11)"
+  },
+  "PLA|X_on_side|press": {
+   "min_sf": {
+    "in_plane": 8.979894415053048,
+    "interlayer_normal": 55.60841800794614,
+    "interlayer_shear": 30.907820333593058,
+    "interlayer_combined": 30.128558755190696
+   },
+   "at_mm": {
+    "in_plane": [
+     -0.595,
+     10.789,
+     -3.0
+    ],
+    "interlayer_normal": [
+     0.148,
+     10.695,
+     -3.0
+    ],
+    "interlayer_shear": [
+     1.241,
+     11.357,
+     1.028
+    ],
+    "interlayer_combined": [
+     1.241,
+     11.357,
+     1.028
+    ]
+   },
+   "governing": "in_plane",
+   "max_deflection_mm": 0.09732130967925925,
+   "tip_deflection_mm": 0.08124747432632276,
+   "max_von_mises_mpa": 5.437549803233307,
+   "zones": {
+    "in_plane": {
+     "finger_root_+y": 21.363153921641636,
+     "finger_root_-y": 255208155.30478677
+    },
+    "interlayer_normal": {
+     "finger_root_+y": 42.195770597182,
+     "finger_root_-y": 1000000000.0
+    },
+    "interlayer_shear": {
+     "finger_root_+y": 34.200645886712415,
+     "finger_root_-y": 302648306.4789799
+    },
+    "interlayer_combined": {
+     "finger_root_+y": 26.917998985116878,
+     "finger_root_-y": 302440022.1421578
+    }
+   },
+   "corners": {
+    "finger_root": {
+     "on_layer_boundary": false,
+     "edge_parallel_to_build": true,
+     "radius_formed_by": "toolpath in the layer plane",
+     "min_reliable_radius_mm": 0.2
+    }
+   },
+   "mesh": {
+    "n_points": 2791,
+    "n_tets": 10889,
+    "dofs": 54687,
+    "shell_fraction_of_volume": 0.7270923949696364,
+    "volume_mm3": 1514.809146062767
+   },
+   "timing_s": {
+    "assemble": 1.36,
+    "solve": 4.34,
+    "total": 6.2,
+    "mesh": 0.0
+   },
+   "solver": "AMG-CG (pyamg, 61 it, rel.res 7.0e-11)"
+  },
+  "PLA|X_on_side|torque": {
+   "min_sf": {
+    "in_plane": 10.924706154210373,
+    "interlayer_normal": 67.65175606281235,
+    "interlayer_shear": 37.60165091090896,
+    "interlayer_combined": 36.6536215279475
+   },
+   "at_mm": {
+    "in_plane": [
+     -0.595,
+     10.789,
+     -3.0
+    ],
+    "interlayer_normal": [
+     0.148,
+     10.695,
+     -3.0
+    ],
+    "interlayer_shear": [
+     1.241,
+     11.357,
+     1.028
+    ],
+    "interlayer_combined": [
+     1.241,
+     11.357,
+     1.028
+    ]
+   },
+   "governing": "in_plane",
+   "max_deflection_mm": 0.07999620977607849,
+   "tip_deflection_mm": 0.06678383204465817,
+   "max_von_mises_mpa": 4.469559402365557,
+   "zones": {
+    "in_plane": {
+     "finger_root_+y": 25.989857823910327,
+     "finger_root_-y": 310479609.614643
+    },
+    "interlayer_normal": {
+     "finger_root_+y": 51.33427782313488,
+     "finger_root_-y": 1000000000.0
+    },
+    "interlayer_shear": {
+     "finger_root_+y": 41.6076168969831,
+     "finger_root_-y": 368194063.8744281
+    },
+    "interlayer_combined": {
+     "finger_root_+y": 32.74773795542809,
+     "finger_root_-y": 367940670.6292839
+    }
+   },
+   "corners": {
+    "finger_root": {
+     "on_layer_boundary": false,
+     "edge_parallel_to_build": true,
+     "radius_formed_by": "toolpath in the layer plane",
+     "min_reliable_radius_mm": 0.2
+    }
+   },
+   "mesh": {
+    "n_points": 2791,
+    "n_tets": 10889,
+    "dofs": 54687,
+    "shell_fraction_of_volume": 0.7270923949696364,
+    "volume_mm3": 1514.809146062767
+   },
+   "timing_s": {
+    "assemble": 1.2,
+    "solve": 4.35,
+    "total": 5.99,
+    "mesh": 0.0
+   },
+   "solver": "AMG-CG (pyamg, 61 it, rel.res 7.1e-11)"
+  },
+  "PLA|Y_upright|press": {
+   "min_sf": {
+    "in_plane": 34.73541093516415,
+    "interlayer_normal": 4.704993181060413,
+    "interlayer_shear": 11.655450161223646,
+    "interlayer_combined": 4.704071829258423
+   },
+   "at_mm": {
+    "in_plane": [
+     -0.174,
+     10.863,
+     1.271
+    ],
+    "interlayer_normal": [
+     -0.595,
+     10.789,
+     -3.0
+    ],
+    "interlayer_shear": [
+     0.194,
+     11.491,
+     0.191
+    ],
+    "interlayer_combined": [
+     -0.595,
+     10.789,
+     -3.0
+    ]
+   },
+   "governing": "interlayer_combined",
+   "max_deflection_mm": 0.10374899276114354,
+   "tip_deflection_mm": 0.08639878472753953,
+   "max_von_mises_mpa": 5.1945769484899165,
+   "zones": {
+    "in_plane": {
+     "finger_root_+y": 82.98197365402697,
+     "finger_root_-y": 1000000000.0
+    },
+    "interlayer_normal": {
+     "finger_root_+y": 11.231218475966486,
+     "finger_root_-y": 686982114.5801843
+    },
+    "interlayer_shear": {
+     "finger_root_+y": 36.78855004421751,
+     "finger_root_-y": 1758242010.9273155
+    },
+    "interlayer_combined": {
+     "finger_root_+y": 11.081695148812912,
+     "finger_root_-y": 670695333.4672238
+    }
+   },
+   "corners": {
+    "finger_root": {
+     "on_layer_boundary": true,
+     "edge_parallel_to_build": false,
+     "radius_formed_by": "layer staircase",
+     "min_reliable_radius_mm": 0.4
+    }
+   },
+   "mesh": {
+    "n_points": 2791,
+    "n_tets": 10889,
+    "dofs": 54687,
+    "shell_fraction_of_volume": 0.8412094403982541,
+    "volume_mm3": 1514.809146062767
+   },
+   "timing_s": {
+    "assemble": 1.17,
+    "solve": 4.15,
+    "total": 5.95,
+    "mesh": 0.0
+   },
+   "solver": "AMG-CG (pyamg, 60 it, rel.res 6.3e-11)"
+  },
+  "PLA|Y_upright|torque": {
+   "min_sf": {
+    "in_plane": 42.25819815612378,
+    "interlayer_normal": 5.7239724193732995,
+    "interlayer_shear": 14.179717736208778,
+    "interlayer_combined": 5.722851526717307
+   },
+   "at_mm": {
+    "in_plane": [
+     -0.174,
+     10.863,
+     1.271
+    ],
+    "interlayer_normal": [
+     -0.595,
+     10.789,
+     -3.0
+    ],
+    "interlayer_shear": [
+     0.194,
+     11.491,
+     0.191
+    ],
+    "interlayer_combined": [
+     -0.595,
+     10.789,
+     -3.0
+    ]
+   },
+   "governing": "interlayer_combined",
+   "max_deflection_mm": 0.08527963933423123,
+   "tip_deflection_mm": 0.07101810826677737,
+   "max_von_mises_mpa": 4.269840476243977,
+   "zones": {
+    "in_plane": {
+     "finger_root_+y": 100.95371241215416,
+     "finger_root_-y": 1000000000.0
+    },
+    "interlayer_normal": {
+     "finger_root_+y": 13.663608493884789,
+     "finger_root_-y": 835764564.5675255
+    },
+    "interlayer_shear": {
+     "finger_root_+y": 44.75599383432376,
+     "finger_root_-y": 2139031617.301527
+    },
+    "interlayer_combined": {
+     "finger_root_+y": 13.481702300241475,
+     "finger_root_-y": 815950513.7083967
+    }
+   },
+   "corners": {
+    "finger_root": {
+     "on_layer_boundary": true,
+     "edge_parallel_to_build": false,
+     "radius_formed_by": "layer staircase",
+     "min_reliable_radius_mm": 0.4
+    }
+   },
+   "mesh": {
+    "n_points": 2791,
+    "n_tets": 10889,
+    "dofs": 54687,
+    "shell_fraction_of_volume": 0.8412094403982541,
+    "volume_mm3": 1514.809146062767
+   },
+   "timing_s": {
+    "assemble": 1.38,
+    "solve": 3.83,
+    "total": 5.77,
+    "mesh": 0.0
+   },
+   "solver": "AMG-CG (pyamg, 60 it, rel.res 6.2e-11)"
+  },
+  "PETG|Z_as_exported|press": {
+   "min_sf": {
+    "in_plane": 8.180322843656947,
+    "interlayer_normal": 21.718406062904656,
+    "interlayer_shear": 10.492495602814676,
+    "interlayer_combined": 10.492495602814676
+   },
+   "at_mm": {
+    "in_plane": [
+     -0.069,
+     11.247,
+     -3.0
+    ],
+    "interlayer_normal": [
+     -0.174,
+     10.863,
+     1.271
+    ],
+    "interlayer_shear": [
+     0.28,
+     11.962,
+     -0.094
+    ],
+    "interlayer_combined": [
+     0.28,
+     11.962,
+     -0.094
+    ]
+   },
+   "governing": "in_plane",
+   "max_deflection_mm": 0.16064630729672527,
+   "tip_deflection_mm": 0.1339088859797491,
+   "max_von_mises_mpa": 5.379062997850555,
+   "zones": {
+    "in_plane": {
+     "finger_root_+y": 18.604915449978805,
+     "finger_root_-y": 397967639.5098543
+    },
+    "interlayer_normal": {
+     "finger_root_+y": 161.274872406891,
+     "finger_root_-y": 995413238.5025307
+    },
+    "interlayer_shear": {
+     "finger_root_+y": 35.94606477380775,
+     "finger_root_-y": 405864645.10632354
+    },
+    "interlayer_combined": {
+     "finger_root_+y": 35.94606477380775,
+     "finger_root_-y": 405864645.1063236
+    }
+   },
+   "corners": {
+    "finger_root": {
+     "on_layer_boundary": true,
+     "edge_parallel_to_build": false,
+     "radius_formed_by": "layer staircase",
+     "min_reliable_radius_mm": 0.4
+    }
+   },
+   "mesh": {
+    "n_points": 2791,
+    "n_tets": 10889,
+    "dofs": 54687,
+    "shell_fraction_of_volume": 0.8134172911417922,
+    "volume_mm3": 1514.809146062767
+   },
+   "timing_s": {
+    "assemble": 1.2,
+    "solve": 4.5,
+    "total": 6.13,
+    "mesh": 0.0
+   },
+   "solver": "AMG-CG (pyamg, 65 it, rel.res 8.3e-11)"
+  },
+  "PETG|Z_as_exported|torque": {
+   "min_sf": {
+    "in_plane": 9.951968161641208,
+    "interlayer_normal": 26.42204834583862,
+    "interlayer_shear": 12.76489744611291,
+    "interlayer_combined": 12.76489744611291
+   },
+   "at_mm": {
+    "in_plane": [
+     -0.069,
+     11.247,
+     -3.0
+    ],
+    "interlayer_normal": [
+     -0.174,
+     10.863,
+     1.271
+    ],
+    "interlayer_shear": [
+     0.28,
+     11.962,
+     -0.094
+    ],
+    "interlayer_combined": [
+     0.28,
+     11.962,
+     -0.094
+    ]
+   },
+   "governing": "in_plane",
+   "max_deflection_mm": 0.132048117114534,
+   "tip_deflection_mm": 0.11007048064833035,
+   "max_von_mises_mpa": 4.421484394250676,
+   "zones": {
+    "in_plane": {
+     "finger_root_+y": 22.63425658702486,
+     "finger_root_-y": 484157088.3659304
+    },
+    "interlayer_normal": {
+     "finger_root_+y": 196.2028181698133,
+     "finger_root_-y": 1000000000.0
+    },
+    "interlayer_shear": {
+     "finger_root_+y": 43.73104815082517,
+     "finger_root_-y": 493764377.91582674
+    },
+    "interlayer_combined": {
+     "finger_root_+y": 43.73104815082517,
+     "finger_root_-y": 493764377.9158268
+    }
+   },
+   "corners": {
+    "finger_root": {
+     "on_layer_boundary": true,
+     "edge_parallel_to_build": false,
+     "radius_formed_by": "layer staircase",
+     "min_reliable_radius_mm": 0.4
+    }
+   },
+   "mesh": {
+    "n_points": 2791,
+    "n_tets": 10889,
+    "dofs": 54687,
+    "shell_fraction_of_volume": 0.8134172911417922,
+    "volume_mm3": 1514.809146062767
+   },
+   "timing_s": {
+    "assemble": 1.12,
+    "solve": 4.51,
+    "total": 6.12,
+    "mesh": 0.0
+   },
+   "solver": "AMG-CG (pyamg, 65 it, rel.res 8.3e-11)"
+  },
+  "PETG|X_on_side|press": {
+   "min_sf": {
+    "in_plane": 8.058639732800733,
+    "interlayer_normal": 47.420100774144004,
+    "interlayer_shear": 27.580192343960427,
+    "interlayer_combined": 26.771039292146565
+   },
+   "at_mm": {
+    "in_plane": [
+     -0.595,
+     10.789,
+     -3.0
+    ],
+    "interlayer_normal": [
+     -0.174,
+     10.863,
+     1.271
+    ],
+    "interlayer_shear": [
+     1.241,
+     11.357,
+     1.028
+    ],
+    "interlayer_combined": [
+     1.241,
+     11.357,
+     1.028
+    ]
+   },
+   "governing": "in_plane",
+   "max_deflection_mm": 0.16133768312985192,
+   "tip_deflection_mm": 0.13469507029473968,
+   "max_von_mises_mpa": 5.433051892451448,
+   "zones": {
+    "in_plane": {
+     "finger_root_+y": 19.22562898453815,
+     "finger_root_-y": 204131514.2859795
+    },
+    "interlayer_normal": {
+     "finger_root_+y": 36.26478432830751,
+     "finger_root_-y": 834997632.8390257
+    },
+    "interlayer_shear": {
+     "finger_root_+y": 28.792710413942515,
+     "finger_root_-y": 229555657.50453562
+    },
+    "interlayer_combined": {
+     "finger_root_+y": 23.0677462497856,
+     "finger_root_-y": 229499738.63966188
+    }
+   },
+   "corners": {
+    "finger_root": {
+     "on_layer_boundary": false,
+     "edge_parallel_to_build": true,
+     "radius_formed_by": "toolpath in the layer plane",
+     "min_reliable_radius_mm": 0.2
+    }
+   },
+   "mesh": {
+    "n_points": 2791,
+    "n_tets": 10889,
+    "dofs": 54687,
+    "shell_fraction_of_volume": 0.7270923949696364,
+    "volume_mm3": 1514.809146062767
+   },
+   "timing_s": {
+    "assemble": 1.14,
+    "solve": 3.94,
+    "total": 5.57,
+    "mesh": 0.0
+   },
+   "solver": "AMG-CG (pyamg, 65 it, rel.res 7.6e-11)"
+  },
+  "PETG|X_on_side|torque": {
+   "min_sf": {
+    "in_plane": 9.803931651580399,
+    "interlayer_normal": 57.690062134021886,
+    "interlayer_shear": 33.55334518516481,
+    "interlayer_combined": 32.5689506125427
+   },
+   "at_mm": {
+    "in_plane": [
+     -0.595,
+     10.789,
+     -3.0
+    ],
+    "interlayer_normal": [
+     -0.174,
+     10.863,
+     1.271
+    ],
+    "interlayer_shear": [
+     1.241,
+     11.357,
+     1.028
+    ],
+    "interlayer_combined": [
+     1.241,
+     11.357,
+     1.028
+    ]
+   },
+   "governing": "in_plane",
+   "max_deflection_mm": 0.1326164145033127,
+   "tip_deflection_mm": 0.11071670875169015,
+   "max_von_mises_mpa": 4.465862207823064,
+   "zones": {
+    "in_plane": {
+     "finger_root_+y": 23.389400540608385,
+     "finger_root_-y": 248341095.4895017
+    },
+    "interlayer_normal": {
+     "finger_root_+y": 44.11879407722419,
+     "finger_root_-y": 1000000000.0
+    },
+    "interlayer_shear": {
+     "finger_root_+y": 35.02846315520908,
+     "finger_root_-y": 279271447.0228207
+    },
+    "interlayer_combined": {
+     "finger_root_+y": 28.063620547321275,
+     "finger_root_-y": 279203417.55635774
+    }
+   },
+   "corners": {
+    "finger_root": {
+     "on_layer_boundary": false,
+     "edge_parallel_to_build": true,
+     "radius_formed_by": "toolpath in the layer plane",
+     "min_reliable_radius_mm": 0.2
+    }
+   },
+   "mesh": {
+    "n_points": 2791,
+    "n_tets": 10889,
+    "dofs": 54687,
+    "shell_fraction_of_volume": 0.7270923949696364,
+    "volume_mm3": 1514.809146062767
+   },
+   "timing_s": {
+    "assemble": 1.26,
+    "solve": 5.85,
+    "total": 7.52,
+    "mesh": 0.0
+   },
+   "solver": "AMG-CG (pyamg, 65 it, rel.res 7.6e-11)"
+  },
+  "PETG|Y_upright|press": {
+   "min_sf": {
+    "in_plane": 29.881541405666617,
+    "interlayer_normal": 4.721501866097013,
+    "interlayer_shear": 10.431566640698794,
+    "interlayer_combined": 4.720327074991288
+   },
+   "at_mm": {
+    "in_plane": [
+     -0.174,
+     10.863,
+     1.271
+    ],
+    "interlayer_normal": [
+     -0.595,
+     10.789,
+     -3.0
+    ],
+    "interlayer_shear": [
+     0.194,
+     11.491,
+     0.191
+    ],
+    "interlayer_combined": [
+     -0.595,
+     10.789,
+     -3.0
+    ]
+   },
+   "governing": "interlayer_combined",
+   "max_deflection_mm": 0.16676351507679651,
+   "tip_deflection_mm": 0.13887925283186167,
+   "max_von_mises_mpa": 5.179324796275549,
+   "zones": {
+    "in_plane": {
+     "finger_root_+y": 64.80480365102972,
+     "finger_root_-y": 1000000000.0
+    },
+    "interlayer_normal": {
+     "finger_root_+y": 11.210957924343024,
+     "finger_root_-y": 549744787.0387818
+    },
+    "interlayer_shear": {
+     "finger_root_+y": 31.760027439803714,
+     "finger_root_-y": 1210221893.1094353
+    },
+    "interlayer_combined": {
+     "finger_root_+y": 10.9948010156617,
+     "finger_root_-y": 531389293.9614869
+    }
+   },
+   "corners": {
+    "finger_root": {
+     "on_layer_boundary": true,
+     "edge_parallel_to_build": false,
+     "radius_formed_by": "layer staircase",
+     "min_reliable_radius_mm": 0.4
+    }
+   },
+   "mesh": {
+    "n_points": 2791,
+    "n_tets": 10889,
+    "dofs": 54687,
+    "shell_fraction_of_volume": 0.8412094403982541,
+    "volume_mm3": 1514.809146062767
+   },
+   "timing_s": {
+    "assemble": 1.24,
+    "solve": 4.15,
+    "total": 5.87,
+    "mesh": 0.0
+   },
+   "solver": "AMG-CG (pyamg, 65 it, rel.res 7.7e-11)"
+  },
+  "PETG|Y_upright|torque": {
+   "min_sf": {
+    "in_plane": 36.35310664047665,
+    "interlayer_normal": 5.744056456502005,
+    "interlayer_shear": 12.690772854331406,
+    "interlayer_combined": 5.742627236176096
+   },
+   "at_mm": {
+    "in_plane": [
+     -0.174,
+     10.863,
+     1.271
+    ],
+    "interlayer_normal": [
+     -0.595,
+     10.789,
+     -3.0
+    ],
+    "interlayer_shear": [
+     0.194,
+     11.491,
+     0.191
+    ],
+    "interlayer_combined": [
+     -0.595,
+     10.789,
+     -3.0
+    ]
+   },
+   "governing": "interlayer_combined",
+   "max_deflection_mm": 0.13707634205801542,
+   "tip_deflection_mm": 0.1141560248185898,
+   "max_von_mises_mpa": 4.2573035059670605,
+   "zones": {
+    "in_plane": {
+     "finger_root_+y": 78.83983981808181,
+     "finger_root_-y": 1000000000.0
+    },
+    "interlayer_normal": {
+     "finger_root_+y": 13.638960033282872,
+     "finger_root_-y": 668805222.6194903
+    },
+    "interlayer_shear": {
+     "finger_root_+y": 38.63842392701342,
+     "finger_root_-y": 1472324498.856574
+    },
+    "interlayer_combined": {
+     "finger_root_+y": 13.375989156190684,
+     "finger_root_-y": 646474405.1580713
+    }
+   },
+   "corners": {
+    "finger_root": {
+     "on_layer_boundary": true,
+     "edge_parallel_to_build": false,
+     "radius_formed_by": "layer staircase",
+     "min_reliable_radius_mm": 0.4
+    }
+   },
+   "mesh": {
+    "n_points": 2791,
+    "n_tets": 10889,
+    "dofs": 54687,
+    "shell_fraction_of_volume": 0.8412094403982541,
+    "volume_mm3": 1514.809146062767
+   },
+   "timing_s": {
+    "assemble": 1.38,
+    "solve": 4.83,
+    "total": 6.69,
+    "mesh": 0.0
+   },
+   "solver": "AMG-CG (pyamg, 65 it, rel.res 7.7e-11)"
+  }
+ },
+ "config": {
+  "part_mesh": "../../../mechanical/PRINT_03_double_press_arm.stl",
+  "unit_scale": 1.0,
+  "transform": [
+   [
+    -1,
+    0,
+    0,
+    0
+   ],
+   [
+    0,
+    1,
+    0,
+    0
+   ],
+   [
+    0,
+    0,
+    -1,
+    3.0
+   ],
+   [
+    0,
+    0,
+    0,
+    1
+   ]
+  ],
+  "mesh_size_mm": 1.0,
+  "sweep_mesh_size_mm": 1.2,
+  "exclude_mm": 1.0,
+  "orientations": {
+   "Z_as_exported": [
+    "-z",
+    "bar 4x56 face on the bed, fingers up (current STL pose)"
+   ],
+   "X_on_side": [
+    "x",
+    "bar 6x56 side face on the bed (fingers lie flat)"
+   ],
+   "Y_upright": [
+    "y",
+    "standing on one bar end, bar length vertical"
+   ]
+  },
+  "materials": [
+   "PLA",
+   "PETG"
+  ],
+  "print_settings": {
+   "layer_height_mm": 0.2,
+   "nozzle_mm": 0.4,
+   "walls": 3,
+   "top_bottom_layers": 4,
+   "infill_pct": 20,
+   "infill_pattern": "grid"
+  },
+  "fixtures_horn": [
+   {
+    "name": "horn_holes",
+    "select": {
+     "any": [
+      {
+       "cylinder": {
+        "center": [
+         0,
+         0,
+         0
+        ],
+        "axis": "x",
+        "radius": 1.25,
+        "tol": 0.15,
+        "half_length": 2.1
+       }
+      },
+      {
+       "cylinder": {
+        "center": [
+         0,
+         9,
+         0
+        ],
+        "axis": "x",
+        "radius": 1.1,
+        "tol": 0.15,
+        "half_length": 2.1
+       }
+      },
+      {
+       "cylinder": {
+        "center": [
+         0,
+         -9,
+         0
+        ],
+        "axis": "x",
+        "radius": 1.1,
+        "tol": 0.15,
+        "half_length": 2.1
+       }
+      }
+     ]
+    }
+   }
+  ],
+  "tip_face": {
+   "box": {
+    "min": [
+     -2.1,
+     20.4,
+     -7.6
+    ],
+    "max": [
+     2.1,
+     27.6,
+     -7.4
+    ]
+   }
+  },
+  "probes": {
+   "tip": [
+    0,
+    24,
+    -7.5
+   ]
+  },
+  "singular_zones": [
+   {
+    "name": "finger_root_+y",
+    "p0": [
+     -2,
+     20.5,
+     -3
+    ],
+    "p1": [
+     2,
+     20.5,
+     -3
+    ],
+    "r_mm": 1.0
+   },
+   {
+    "name": "finger_root_-y",
+    "p0": [
+     -2,
+     -20.5,
+     -3
+    ],
+    "p1": [
+     2,
+     -20.5,
+     -3
+    ],
+    "r_mm": 1.0
+   }
+  ],
+  "corners": [
+   {
+    "name": "finger_root",
+    "edge_dir": "x",
+    "face_normals": [
+     [
+      0,
+      0,
+      -1
+     ],
+     [
+      0,
+      -1,
+      0
+     ]
+    ]
+   }
+  ],
+  "run": {
+   "scenario": "stall_brownout"
+  },
+  "tip_lever_mm": 24.0
+ },
+ "part": {
+  "mesh": "../../../mechanical/PRINT_03_double_press_arm.stl",
+  "source": "/home/user/switch-robot-diy/platform/examples/switch_robot/../../../mechanical/PRINT_03_double_press_arm.stl",
+  "surface_faces": 910,
+  "watertight": true,
+  "warnings": [],
+  "cached": true,
+  "n_points": 2791,
+  "n_tets": 10889,
+  "volume_mm3": 1514.809146062767,
+  "surface_volume_mm3": 1517.9102349438688,
+  "bounds": [
+   [
+    -2.0,
+    -28.0,
+    -7.5
+   ],
+   [
+    2.031,
+    28.0,
+    3.024
+   ]
+  ]
+ },
+ "fillet": {
+  "x": {
+   "material": "PLA",
+   "build_dir": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "geometry_mm": {
+    "L": 20.0,
+    "h": 4.0,
+    "b": 4.0,
+    "W": 6.0,
+    "H": 16.0,
+    "h_global": 1.0
+   },
+   "load_n": 10.0,
+   "print_settings": {
+    "layer_height_mm": 0.2,
+    "nozzle_mm": 0.4,
+    "line_width_mm": null,
+    "walls": 3,
+    "top_bottom_layers": 4,
+    "infill_pct": 20,
+    "infill_pattern": "grid",
+    "nozzle_temp_c": null,
+    "ref_layer_height_mm": 0.2,
+    "ref_ratio": 0.5,
+    "interlayer_slope": 0.6,
+    "temp_slope_per_c": 0.005,
+    "notch_depth_frac": 0.12,
+    "notch_root_radius_mm": 0.05,
+    "notch_sensitivity": 0.3,
+    "line_width": 0.45,
+    "wall_thickness_mm": 1.35,
+    "top_bottom_thickness_mm": 0.8,
+    "min_inside_radius_mm": 0.2,
+    "printable": true,
+    "layer_notch_factor": 1.0,
+    "infill_stiffness_factor": 0.2,
+    "infill_strength_factor": 0.2,
+    "interlayer_factor": 1.0
+   },
+   "sigma_nom_mpa": 18.75,
+   "rows": [
+    {
+     "r_mm": 0.2,
+     "h_corner_mm": 0.05,
+     "n_tets": 38376,
+     "sigma_nom_mpa": 18.75,
+     "sigma1_peak_mpa": 69.47335686419456,
+     "Kt": 3.7052456994237097,
+     "peak_at_mm": [
+      0.064,
+      1.235,
+      11.945
+     ],
+     "peak_dir": [
+      -0.728,
+      -0.019,
+      -0.685
+     ],
+     "cos_peak_dir_build": 0.7280386276624151,
+     "modes": {
+      "in_plane": {
+       "min_sf": 0.9337949492046352,
+       "at_mm": [
+        0.011,
+        2.087,
+        11.862
+       ]
+      },
+      "interlayer_normal": {
+       "min_sf": 0.43402875770285676,
+       "at_mm": [
+        0.143,
+        2.587,
+        11.991
+       ]
+      },
+      "interlayer_shear": {
+       "min_sf": 0.5949201175051461,
+       "at_mm": [
+        0.064,
+        1.798,
+        11.947
+       ]
+      },
+      "interlayer_combined": {
+       "min_sf": 0.3848288278310963,
+       "at_mm": [
+        0.112,
+        1.686,
+        11.979
+       ]
+      }
+     },
+     "flags": {
+      "on_layer_boundary": true,
+      "edge_parallel_to_build": false,
+      "radius_formed_by": "layer staircase",
+      "min_reliable_radius_mm": 0.4,
+      "layers_across_fillet": 1.0,
+      "radius_below_nozzle_limit": true,
+      "peak_stress_across_layers": true,
+      "worst_combination": true
+     },
+     "tip_deflection_mm": 0.8307512388783437,
+     "time_s": 92.97
+    },
+    {
+     "r_mm": 0.4,
+     "h_corner_mm": 0.1,
+     "n_tets": 21958,
+     "sigma_nom_mpa": 18.75,
+     "sigma1_peak_mpa": 50.598859098649406,
+     "Kt": 2.698605818594635,
+     "peak_at_mm": [
+      0.237,
+      2.475,
+      11.964
+     ],
+     "peak_dir": [
+      -0.907,
+      -0.004,
+      -0.42
+     ],
+     "cos_peak_dir_build": 0.9074337842535135,
+     "modes": {
+      "in_plane": {
+       "min_sf": 1.3133539196071786,
+       "at_mm": [
+        0.023,
+        2.025,
+        11.727
+       ]
+      },
+      "interlayer_normal": {
+       "min_sf": 0.5578714369068092,
+       "at_mm": [
+        0.288,
+        1.825,
+        11.983
+       ]
+      },
+      "interlayer_shear": {
+       "min_sf": 0.8335093378504019,
+       "at_mm": [
+        0.141,
+        1.75,
+        11.905
+       ]
+      },
+      "interlayer_combined": {
+       "min_sf": 0.5213804139611977,
+       "at_mm": [
+        0.237,
+        2.475,
+        11.964
+       ]
+      }
+     },
+     "flags": {
+      "on_layer_boundary": true,
+      "edge_parallel_to_build": false,
+      "radius_formed_by": "layer staircase",
+      "min_reliable_radius_mm": 0.4,
+      "layers_across_fillet": 2.0,
+      "radius_below_nozzle_limit": false,
+      "peak_stress_across_layers": true,
+      "worst_combination": true
+     },
+     "tip_deflection_mm": 0.8231820230141864,
+     "time_s": 46.94
+    },
+    {
+     "r_mm": 1.0,
+     "h_corner_mm": 0.25,
+     "n_tets": 10747,
+     "sigma_nom_mpa": 18.75,
+     "sigma1_peak_mpa": 34.16067890035407,
+     "Kt": 1.8219028746855506,
+     "peak_at_mm": [
+      0.594,
+      2.063,
+      11.912
+     ],
+     "peak_dir": [
+      -0.908,
+      0.002,
+      -0.418
+     ],
+     "cos_peak_dir_build": 0.9084292038539267,
+     "modes": {
+      "in_plane": {
+       "min_sf": 2.1080946970241747,
+       "at_mm": [
+        0.058,
+        2.563,
+        11.318
+       ]
+      },
+      "interlayer_normal": {
+       "min_sf": 0.8134272849993236,
+       "at_mm": [
+        0.72,
+        2.313,
+        11.958
+       ]
+      },
+      "interlayer_shear": {
+       "min_sf": 1.307799406970882,
+       "at_mm": [
+        0.354,
+        1.625,
+        11.763
+       ]
+      },
+      "interlayer_combined": {
+       "min_sf": 0.7688126674621171,
+       "at_mm": [
+        0.656,
+        2.125,
+        11.939
+       ]
+      }
+     },
+     "flags": {
+      "on_layer_boundary": true,
+      "edge_parallel_to_build": false,
+      "radius_formed_by": "layer staircase",
+      "min_reliable_radius_mm": 0.4,
+      "layers_across_fillet": 5.0,
+      "radius_below_nozzle_limit": false,
+      "peak_stress_across_layers": true,
+      "worst_combination": true
+     },
+     "tip_deflection_mm": 0.7984180065514327,
+     "time_s": 5.13
+    },
+    {
+     "r_mm": 2.0,
+     "h_corner_mm": 0.25,
+     "n_tets": 18269,
+     "sigma_nom_mpa": 18.75,
+     "sigma1_peak_mpa": 25.1279833372921,
+     "Kt": 1.3401591113222453,
+     "peak_at_mm": [
+      1.54,
+      2.067,
+      11.945
+     ],
+     "peak_dir": [
+      -0.973,
+      -0.004,
+      -0.232
+     ],
+     "cos_peak_dir_build": 0.9728035456175909,
+     "modes": {
+      "in_plane": {
+       "min_sf": 2.966013728291039,
+       "at_mm": [
+        0.076,
+        2.312,
+        10.534
+       ]
+      },
+      "interlayer_normal": {
+       "min_sf": 1.0426692136929905,
+       "at_mm": [
+        1.654,
+        2.351,
+        11.966
+       ]
+      },
+      "interlayer_shear": {
+       "min_sf": 1.8643660216311915,
+       "at_mm": [
+        0.705,
+        2.0,
+        11.524
+       ]
+      },
+      "interlayer_combined": {
+       "min_sf": 1.0081464900117794,
+       "at_mm": [
+        1.54,
+        2.067,
+        11.945
+       ]
+      }
+     },
+     "flags": {
+      "on_layer_boundary": true,
+      "edge_parallel_to_build": false,
+      "radius_formed_by": "layer staircase",
+      "min_reliable_radius_mm": 0.4,
+      "layers_across_fillet": 10.0,
+      "radius_below_nozzle_limit": false,
+      "peak_stress_across_layers": true,
+      "worst_combination": true
+     },
+     "tip_deflection_mm": 0.7538381678091859,
+     "time_s": 11.39
+    },
+    {
+     "r_mm": 3.0,
+     "h_corner_mm": 0.25,
+     "n_tets": 29027,
+     "sigma_nom_mpa": 18.75,
+     "sigma1_peak_mpa": 21.668055007604877,
+     "Kt": 1.1556296004055935,
+     "peak_at_mm": [
+      2.284,
+      2.31,
+      11.911
+     ],
+     "peak_dir": [
+      -0.972,
+      0.0,
+      -0.235
+     ],
+     "cos_peak_dir_build": 0.9719381657355202,
+     "modes": {
+      "in_plane": {
+       "min_sf": 3.4892997694336576,
+       "at_mm": [
+        0.051,
+        2.438,
+        9.538
+       ]
+      },
+      "interlayer_normal": {
+       "min_sf": 1.1891802104322957,
+       "at_mm": [
+        2.601,
+        1.869,
+        11.973
+       ]
+      },
+      "interlayer_shear": {
+       "min_sf": 2.339847489608468,
+       "at_mm": [
+        1.142,
+        1.938,
+        11.353
+       ]
+      },
+      "interlayer_combined": {
+       "min_sf": 1.1695485712188314,
+       "at_mm": [
+        2.284,
+        2.31,
+        11.911
+       ]
+      }
+     },
+     "flags": {
+      "on_layer_boundary": true,
+      "edge_parallel_to_build": false,
+      "radius_formed_by": "layer staircase",
+      "min_reliable_radius_mm": 0.4,
+      "layers_across_fillet": 15.0,
+      "radius_below_nozzle_limit": false,
+      "peak_stress_across_layers": true,
+      "worst_combination": true
+     },
+     "tip_deflection_mm": 0.7101471265990666,
+     "time_s": 22.65
+    }
+   ],
+   "convergence": [
+    {
+     "r_mm": 0.0,
+     "h_corner_mm": 0.4,
+     "n_tets": 6453,
+     "Kt": 2.619602481623031
+    },
+    {
+     "r_mm": 0.0,
+     "h_corner_mm": 0.2,
+     "n_tets": 10088,
+     "Kt": 4.100162228495623
+    },
+    {
+     "r_mm": 0.0,
+     "h_corner_mm": 0.1,
+     "n_tets": 16815,
+     "Kt": 5.8728236168203445
+    },
+    {
+     "r_mm": 0.0,
+     "h_corner_mm": 0.05,
+     "n_tets": 29968,
+     "Kt": 8.250265365247559
+    },
+    {
+     "r_mm": 1.0,
+     "h_corner_mm": 0.5,
+     "n_tets": 6188,
+     "Kt": 1.7612615098785243
+    },
+    {
+     "r_mm": 1.0,
+     "h_corner_mm": 0.25,
+     "n_tets": 10747,
+     "Kt": 1.8219028746906973
+    },
+    {
+     "r_mm": 1.0,
+     "h_corner_mm": 0.125,
+     "n_tets": 33267,
+     "Kt": 1.7586635357156197
+    }
+   ],
+   "time_s": 273.2
+  },
+  "z": {
+   "material": "PLA",
+   "build_dir": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "geometry_mm": {
+    "L": 20.0,
+    "h": 4.0,
+    "b": 4.0,
+    "W": 6.0,
+    "H": 16.0,
+    "h_global": 1.0
+   },
+   "load_n": 10.0,
+   "print_settings": {
+    "layer_height_mm": 0.2,
+    "nozzle_mm": 0.4,
+    "line_width_mm": null,
+    "walls": 3,
+    "top_bottom_layers": 4,
+    "infill_pct": 20,
+    "infill_pattern": "grid",
+    "nozzle_temp_c": null,
+    "ref_layer_height_mm": 0.2,
+    "ref_ratio": 0.5,
+    "interlayer_slope": 0.6,
+    "temp_slope_per_c": 0.005,
+    "notch_depth_frac": 0.12,
+    "notch_root_radius_mm": 0.05,
+    "notch_sensitivity": 0.3,
+    "line_width": 0.45,
+    "wall_thickness_mm": 1.35,
+    "top_bottom_thickness_mm": 0.8,
+    "min_inside_radius_mm": 0.2,
+    "printable": true,
+    "layer_notch_factor": 1.0,
+    "infill_stiffness_factor": 0.2,
+    "infill_strength_factor": 0.2,
+    "interlayer_factor": 1.0
+   },
+   "sigma_nom_mpa": 18.75,
+   "rows": [
+    {
+     "r_mm": 0.2,
+     "h_corner_mm": 0.05,
+     "n_tets": 38376,
+     "sigma_nom_mpa": 18.75,
+     "sigma1_peak_mpa": 71.900389941886,
+     "Kt": 3.8346874635672537,
+     "peak_at_mm": [
+      0.112,
+      1.686,
+      11.979
+     ],
+     "peak_dir": [
+      -0.898,
+      -0.02,
+      -0.439
+     ],
+     "cos_peak_dir_build": 0.438686627400869,
+     "modes": {
+      "in_plane": {
+       "min_sf": 0.8169924672554915,
+       "at_mm": [
+        0.143,
+        2.587,
+        11.991
+       ]
+      },
+      "interlayer_normal": {
+       "min_sf": 0.5212906372685513,
+       "at_mm": [
+        0.017,
+        1.974,
+        11.88
+       ]
+      },
+      "interlayer_shear": {
+       "min_sf": 0.6095356820183241,
+       "at_mm": [
+        0.065,
+        1.923,
+        11.947
+       ]
+      },
+      "interlayer_combined": {
+       "min_sf": 0.4463222221090777,
+       "at_mm": [
+        0.028,
+        2.387,
+        11.899
+       ]
+      }
+     },
+     "flags": {
+      "on_layer_boundary": true,
+      "edge_parallel_to_build": false,
+      "radius_formed_by": "layer staircase",
+      "min_reliable_radius_mm": 0.4,
+      "layers_across_fillet": 1.0,
+      "radius_below_nozzle_limit": true,
+      "peak_stress_across_layers": false,
+      "worst_combination": false
+     },
+     "tip_deflection_mm": 0.8145223171178716,
+     "time_s": 30.95
+    },
+    {
+     "r_mm": 0.4,
+     "h_corner_mm": 0.1,
+     "n_tets": 21958,
+     "sigma_nom_mpa": 18.75,
+     "sigma1_peak_mpa": 52.5824613981342,
+     "Kt": 2.804397941233824,
+     "peak_at_mm": [
+      0.237,
+      2.475,
+      11.964
+     ],
+     "peak_dir": [
+      -0.91,
+      -0.005,
+      -0.414
+     ],
+     "cos_peak_dir_build": 0.4141097656401416,
+     "modes": {
+      "in_plane": {
+       "min_sf": 1.0546897592483497,
+       "at_mm": [
+        0.288,
+        1.825,
+        11.983
+       ]
+      },
+      "interlayer_normal": {
+       "min_sf": 0.7306485286090929,
+       "at_mm": [
+        0.023,
+        2.025,
+        11.727
+       ]
+      },
+      "interlayer_shear": {
+       "min_sf": 0.8483323872480979,
+       "at_mm": [
+        0.141,
+        1.75,
+        11.905
+       ]
+      },
+      "interlayer_combined": {
+       "min_sf": 0.626065775422331,
+       "at_mm": [
+        0.059,
+        1.625,
+        11.805
+       ]
+      }
+     },
+     "flags": {
+      "on_layer_boundary": true,
+      "edge_parallel_to_build": false,
+      "radius_formed_by": "layer staircase",
+      "min_reliable_radius_mm": 0.4,
+      "layers_across_fillet": 2.0,
+      "radius_below_nozzle_limit": false,
+      "peak_stress_across_layers": false,
+      "worst_combination": false
+     },
+     "tip_deflection_mm": 0.8073683390059931,
+     "time_s": 16.24
+    },
+    {
+     "r_mm": 1.0,
+     "h_corner_mm": 0.25,
+     "n_tets": 10747,
+     "sigma_nom_mpa": 18.75,
+     "sigma1_peak_mpa": 35.02300981949997,
+     "Kt": 1.8678938570399983,
+     "peak_at_mm": [
+      0.594,
+      2.063,
+      11.912
+     ],
+     "peak_dir": [
+      -0.911,
+      0.002,
+      -0.412
+     ],
+     "cos_peak_dir_build": 0.4121307320139623,
+     "modes": {
+      "in_plane": {
+       "min_sf": 1.5602018930266113,
+       "at_mm": [
+        0.785,
+        1.75,
+        11.977
+       ]
+      },
+      "interlayer_normal": {
+       "min_sf": 1.1525379361666717,
+       "at_mm": [
+        0.058,
+        2.563,
+        11.318
+       ]
+      },
+      "interlayer_shear": {
+       "min_sf": 1.3357338760138155,
+       "at_mm": [
+        0.354,
+        1.625,
+        11.763
+       ]
+      },
+      "interlayer_combined": {
+       "min_sf": 1.0021285117968561,
+       "at_mm": [
+        0.149,
+        2.312,
+        11.513
+       ]
+      }
+     },
+     "flags": {
+      "on_layer_boundary": true,
+      "edge_parallel_to_build": false,
+      "radius_formed_by": "layer staircase",
+      "min_reliable_radius_mm": 0.4,
+      "layers_across_fillet": 5.0,
+      "radius_below_nozzle_limit": false,
+      "peak_stress_across_layers": false,
+      "worst_combination": false
+     },
+     "tip_deflection_mm": 0.784014981565269,
+     "time_s": 5.26
+    },
+    {
+     "r_mm": 2.0,
+     "h_corner_mm": 0.25,
+     "n_tets": 18269,
+     "sigma_nom_mpa": 18.75,
+     "sigma1_peak_mpa": 25.943151391667833,
+     "Kt": 1.383634740888951,
+     "peak_at_mm": [
+      1.54,
+      2.067,
+      11.945
+     ],
+     "peak_dir": [
+      -0.973,
+      -0.005,
+      -0.23
+     ],
+     "cos_peak_dir_build": 0.23013472113858163,
+     "modes": {
+      "in_plane": {
+       "min_sf": 2.0171080267191503,
+       "at_mm": [
+        1.654,
+        2.351,
+        11.966
+       ]
+      },
+      "interlayer_normal": {
+       "min_sf": 1.5831287912653822,
+       "at_mm": [
+        0.076,
+        2.312,
+        10.534
+       ]
+      },
+      "interlayer_shear": {
+       "min_sf": 1.9099025620015044,
+       "at_mm": [
+        0.793,
+        2.312,
+        11.591
+       ]
+      },
+      "interlayer_combined": {
+       "min_sf": 1.4697765015841149,
+       "at_mm": [
+        0.185,
+        2.125,
+        10.84
+       ]
+      }
+     },
+     "flags": {
+      "on_layer_boundary": true,
+      "edge_parallel_to_build": false,
+      "radius_formed_by": "layer staircase",
+      "min_reliable_radius_mm": 0.4,
+      "layers_across_fillet": 10.0,
+      "radius_below_nozzle_limit": false,
+      "peak_stress_across_layers": false,
+      "worst_combination": false
+     },
+     "tip_deflection_mm": 0.7416190947034655,
+     "time_s": 11.71
+    },
+    {
+     "r_mm": 3.0,
+     "h_corner_mm": 0.25,
+     "n_tets": 29027,
+     "sigma_nom_mpa": 18.75,
+     "sigma1_peak_mpa": 22.20567390369777,
+     "Kt": 1.1843026081972146,
+     "peak_at_mm": [
+      2.284,
+      2.31,
+      11.911
+     ],
+     "peak_dir": [
+      -0.972,
+      0.001,
+      -0.234
+     ],
+     "cos_peak_dir_build": 0.2337533355608882,
+     "modes": {
+      "in_plane": {
+       "min_sf": 2.3127685262972157,
+       "at_mm": [
+        2.601,
+        1.869,
+        11.973
+       ]
+      },
+      "interlayer_normal": {
+       "min_sf": 1.8238568816678093,
+       "at_mm": [
+        0.051,
+        2.438,
+        9.538
+       ]
+      },
+      "interlayer_shear": {
+       "min_sf": 2.389050706801699,
+       "at_mm": [
+        1.316,
+        2.188,
+        11.481
+       ]
+      },
+      "interlayer_combined": {
+       "min_sf": 1.7726876175303086,
+       "at_mm": [
+        0.07,
+        2.0,
+        9.645
+       ]
+      }
+     },
+     "flags": {
+      "on_layer_boundary": true,
+      "edge_parallel_to_build": false,
+      "radius_formed_by": "layer staircase",
+      "min_reliable_radius_mm": 0.4,
+      "layers_across_fillet": 15.0,
+      "radius_below_nozzle_limit": false,
+      "peak_stress_across_layers": false,
+      "worst_combination": false
+     },
+     "tip_deflection_mm": 0.7007924647258251,
+     "time_s": 24.23
+    }
+   ],
+   "convergence": [],
+   "time_s": 90.7
+  },
+  "y": {
+   "material": "PLA",
+   "build_dir": [
+    0.0,
+    1.0,
+    0.0
+   ],
+   "geometry_mm": {
+    "L": 20.0,
+    "h": 4.0,
+    "b": 4.0,
+    "W": 6.0,
+    "H": 16.0,
+    "h_global": 1.0
+   },
+   "load_n": 10.0,
+   "print_settings": {
+    "layer_height_mm": 0.2,
+    "nozzle_mm": 0.4,
+    "line_width_mm": null,
+    "walls": 3,
+    "top_bottom_layers": 4,
+    "infill_pct": 20,
+    "infill_pattern": "grid",
+    "nozzle_temp_c": null,
+    "ref_layer_height_mm": 0.2,
+    "ref_ratio": 0.5,
+    "interlayer_slope": 0.6,
+    "temp_slope_per_c": 0.005,
+    "notch_depth_frac": 0.12,
+    "notch_root_radius_mm": 0.05,
+    "notch_sensitivity": 0.3,
+    "line_width": 0.45,
+    "wall_thickness_mm": 1.35,
+    "top_bottom_thickness_mm": 0.8,
+    "min_inside_radius_mm": 0.2,
+    "printable": true,
+    "layer_notch_factor": 1.0,
+    "infill_stiffness_factor": 0.2,
+    "infill_strength_factor": 0.2,
+    "interlayer_factor": 1.0
+   },
+   "sigma_nom_mpa": 18.75,
+   "rows": [
+    {
+     "r_mm": 0.2,
+     "h_corner_mm": 0.05,
+     "n_tets": 38376,
+     "sigma_nom_mpa": 18.75,
+     "sigma1_peak_mpa": 71.24368073497979,
+     "Kt": 3.7996629725322553,
+     "peak_at_mm": [
+      0.112,
+      1.686,
+      11.979
+     ],
+     "peak_dir": [
+      -0.894,
+      -0.018,
+      -0.447
+     ],
+     "cos_peak_dir_build": 0.017612520117117926,
+     "modes": {
+      "in_plane": {
+       "min_sf": 0.7019827692483765,
+       "at_mm": [
+        0.112,
+        1.686,
+        11.979
+       ]
+      },
+      "interlayer_normal": {
+       "min_sf": 1.4790418436336592,
+       "at_mm": [
+        0.112,
+        1.686,
+        11.979
+       ]
+      },
+      "interlayer_shear": {
+       "min_sf": 5.789007424281729,
+       "at_mm": [
+        0.009,
+        3.863,
+        11.856
+       ]
+      },
+      "interlayer_combined": {
+       "min_sf": 1.4748392852774694,
+       "at_mm": [
+        0.112,
+        1.686,
+        11.979
+       ]
+      }
+     },
+     "flags": {
+      "on_layer_boundary": false,
+      "edge_parallel_to_build": true,
+      "radius_formed_by": "toolpath in the layer plane",
+      "min_reliable_radius_mm": 0.2,
+      "radius_below_nozzle_limit": false,
+      "peak_stress_across_layers": false,
+      "worst_combination": false
+     },
+     "tip_deflection_mm": 0.7655866210972884,
+     "time_s": 32.9
+    },
+    {
+     "r_mm": 0.4,
+     "h_corner_mm": 0.1,
+     "n_tets": 21958,
+     "sigma_nom_mpa": 18.75,
+     "sigma1_peak_mpa": 52.01441491789394,
+     "Kt": 2.7741021289543433,
+     "peak_at_mm": [
+      0.237,
+      2.475,
+      11.964
+     ],
+     "peak_dir": [
+      -0.907,
+      -0.004,
+      -0.421
+     ],
+     "cos_peak_dir_build": 0.003615365618069567,
+     "modes": {
+      "in_plane": {
+       "min_sf": 0.9612819683944078,
+       "at_mm": [
+        0.237,
+        2.475,
+        11.964
+       ]
+      },
+      "interlayer_normal": {
+       "min_sf": 2.3372034669686466,
+       "at_mm": [
+        0.237,
+        2.475,
+        11.964
+       ]
+      },
+      "interlayer_shear": {
+       "min_sf": 8.040448869621505,
+       "at_mm": [
+        0.004,
+        3.871,
+        11.641
+       ]
+      },
+      "interlayer_combined": {
+       "min_sf": 2.3368468408287866,
+       "at_mm": [
+        0.237,
+        2.475,
+        11.964
+       ]
+      }
+     },
+     "flags": {
+      "on_layer_boundary": false,
+      "edge_parallel_to_build": true,
+      "radius_formed_by": "toolpath in the layer plane",
+      "min_reliable_radius_mm": 0.2,
+      "radius_below_nozzle_limit": false,
+      "peak_stress_across_layers": false,
+      "worst_combination": false
+     },
+     "tip_deflection_mm": 0.7586742247864047,
+     "time_s": 17.54
+    },
+    {
+     "r_mm": 1.0,
+     "h_corner_mm": 0.25,
+     "n_tets": 10747,
+     "sigma_nom_mpa": 18.75,
+     "sigma1_peak_mpa": 34.90667296982626,
+     "Kt": 1.8616892250574006,
+     "peak_at_mm": [
+      0.594,
+      2.063,
+      11.912
+     ],
+     "peak_dir": [
+      -0.908,
+      0.002,
+      -0.419
+     ],
+     "cos_peak_dir_build": 0.002170660714105851,
+     "modes": {
+      "in_plane": {
+       "min_sf": 1.4323965862630517,
+       "at_mm": [
+        0.594,
+        2.063,
+        11.912
+       ]
+      },
+      "interlayer_normal": {
+       "min_sf": 4.63659568041494,
+       "at_mm": [
+        0.594,
+        2.063,
+        11.912
+       ]
+      },
+      "interlayer_shear": {
+       "min_sf": 13.030645301643933,
+       "at_mm": [
+        0.011,
+        0.318,
+        11.105
+       ]
+      },
+      "interlayer_combined": {
+       "min_sf": 4.6360843506342695,
+       "at_mm": [
+        0.594,
+        2.063,
+        11.912
+       ]
+      }
+     },
+     "flags": {
+      "on_layer_boundary": false,
+      "edge_parallel_to_build": true,
+      "radius_formed_by": "toolpath in the layer plane",
+      "min_reliable_radius_mm": 0.2,
+      "radius_below_nozzle_limit": false,
+      "peak_stress_across_layers": false,
+      "worst_combination": false
+     },
+     "tip_deflection_mm": 0.7361369941402217,
+     "time_s": 5.27
+    },
+    {
+     "r_mm": 2.0,
+     "h_corner_mm": 0.25,
+     "n_tets": 18269,
+     "sigma_nom_mpa": 18.75,
+     "sigma1_peak_mpa": 25.38015427150212,
+     "Kt": 1.3536082278134465,
+     "peak_at_mm": [
+      1.54,
+      2.067,
+      11.945
+     ],
+     "peak_dir": [
+      -0.973,
+      -0.004,
+      -0.232
+     ],
+     "cos_peak_dir_build": 0.0037640790024364604,
+     "modes": {
+      "in_plane": {
+       "min_sf": 1.9700685137433998,
+       "at_mm": [
+        1.54,
+        2.067,
+        11.945
+       ]
+      },
+      "interlayer_normal": {
+       "min_sf": 10.632803730354903,
+       "at_mm": [
+        1.54,
+        2.067,
+        11.945
+       ]
+      },
+      "interlayer_shear": {
+       "min_sf": 33.5567534739697,
+       "at_mm": [
+        0.144,
+        0.436,
+        10.739
+       ]
+      },
+      "interlayer_combined": {
+       "min_sf": 10.621211839918873,
+       "at_mm": [
+        1.54,
+        2.067,
+        11.945
+       ]
+      }
+     },
+     "flags": {
+      "on_layer_boundary": false,
+      "edge_parallel_to_build": true,
+      "radius_formed_by": "toolpath in the layer plane",
+      "min_reliable_radius_mm": 0.2,
+      "radius_below_nozzle_limit": false,
+      "peak_stress_across_layers": false,
+      "worst_combination": false
+     },
+     "tip_deflection_mm": 0.6954579424836224,
+     "time_s": 12.13
+    },
+    {
+     "r_mm": 3.0,
+     "h_corner_mm": 0.25,
+     "n_tets": 29027,
+     "sigma_nom_mpa": 18.75,
+     "sigma1_peak_mpa": 21.823505762404103,
+     "Kt": 1.163920307328219,
+     "peak_at_mm": [
+      2.284,
+      2.31,
+      11.911
+     ],
+     "peak_dir": [
+      -0.972,
+      0.001,
+      -0.236
+     ],
+     "cos_peak_dir_build": 0.0005020742104804219,
+     "modes": {
+      "in_plane": {
+       "min_sf": 2.291108141591662,
+       "at_mm": [
+        2.284,
+        2.31,
+        11.911
+       ]
+      },
+      "interlayer_normal": {
+       "min_sf": 16.527505935219825,
+       "at_mm": [
+        2.284,
+        2.31,
+        11.911
+       ]
+      },
+      "interlayer_shear": {
+       "min_sf": 44.78612483932956,
+       "at_mm": [
+        1.32,
+        3.563,
+        11.483
+       ]
+      },
+      "interlayer_combined": {
+       "min_sf": 16.52440127018291,
+       "at_mm": [
+        2.284,
+        2.31,
+        11.911
+       ]
+      }
+     },
+     "flags": {
+      "on_layer_boundary": false,
+      "edge_parallel_to_build": true,
+      "radius_formed_by": "toolpath in the layer plane",
+      "min_reliable_radius_mm": 0.2,
+      "radius_below_nozzle_limit": false,
+      "peak_stress_across_layers": false,
+      "worst_combination": false
+     },
+     "tip_deflection_mm": 0.6559952504538592,
+     "time_s": 23.54
+    }
+   ],
+   "convergence": [],
+   "time_s": 93.6
+  },
+  "x_PETG": {
+   "material": "PETG",
+   "build_dir": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "geometry_mm": {
+    "L": 20.0,
+    "h": 4.0,
+    "b": 4.0,
+    "W": 6.0,
+    "H": 16.0,
+    "h_global": 1.0
+   },
+   "load_n": 10.0,
+   "print_settings": {
+    "layer_height_mm": 0.2,
+    "nozzle_mm": 0.4,
+    "line_width_mm": null,
+    "walls": 3,
+    "top_bottom_layers": 4,
+    "infill_pct": 20,
+    "infill_pattern": "grid",
+    "nozzle_temp_c": null,
+    "ref_layer_height_mm": 0.2,
+    "ref_ratio": 0.5,
+    "interlayer_slope": 0.6,
+    "temp_slope_per_c": 0.005,
+    "notch_depth_frac": 0.12,
+    "notch_root_radius_mm": 0.05,
+    "notch_sensitivity": 0.3,
+    "line_width": 0.45,
+    "wall_thickness_mm": 1.35,
+    "top_bottom_thickness_mm": 0.8,
+    "min_inside_radius_mm": 0.2,
+    "printable": true,
+    "layer_notch_factor": 1.0,
+    "infill_stiffness_factor": 0.2,
+    "infill_strength_factor": 0.2,
+    "interlayer_factor": 1.0
+   },
+   "sigma_nom_mpa": 18.75,
+   "rows": [
+    {
+     "r_mm": 0.2,
+     "h_corner_mm": 0.05,
+     "n_tets": 38376,
+     "sigma_nom_mpa": 18.75,
+     "sigma1_peak_mpa": 72.76224995740415,
+     "Kt": 3.8806533310615547,
+     "peak_at_mm": [
+      0.064,
+      1.235,
+      11.945
+     ],
+     "peak_dir": [
+      -0.729,
+      -0.022,
+      -0.685
+     ],
+     "cos_peak_dir_build": 0.7285045306820843,
+     "modes": {
+      "in_plane": {
+       "min_sf": 0.8300244697512537,
+       "at_mm": [
+        0.017,
+        1.974,
+        11.88
+       ]
+      },
+      "interlayer_normal": {
+       "min_sf": 0.42574051403269675,
+       "at_mm": [
+        0.143,
+        2.587,
+        11.991
+       ]
+      },
+      "interlayer_shear": {
+       "min_sf": 0.5141027290960681,
+       "at_mm": [
+        0.064,
+        1.798,
+        11.947
+       ]
+      },
+      "interlayer_combined": {
+       "min_sf": 0.36154323964506313,
+       "at_mm": [
+        0.112,
+        1.686,
+        11.979
+       ]
+      }
+     },
+     "flags": {
+      "on_layer_boundary": true,
+      "edge_parallel_to_build": false,
+      "radius_formed_by": "layer staircase",
+      "min_reliable_radius_mm": 0.4,
+      "layers_across_fillet": 1.0,
+      "radius_below_nozzle_limit": true,
+      "peak_stress_across_layers": true,
+      "worst_combination": true
+     },
+     "tip_deflection_mm": 1.3415799701816464,
+     "time_s": 37.44
+    },
+    {
+     "r_mm": 0.4,
+     "h_corner_mm": 0.1,
+     "n_tets": 21958,
+     "sigma_nom_mpa": 18.75,
+     "sigma1_peak_mpa": 52.18711318406447,
+     "Kt": 2.7833127031501053,
+     "peak_at_mm": [
+      0.237,
+      2.475,
+      11.964
+     ],
+     "peak_dir": [
+      -0.906,
+      -0.005,
+      -0.424
+     ],
+     "cos_peak_dir_build": 0.9057654600779369,
+     "modes": {
+      "in_plane": {
+       "min_sf": 1.1691431366877192,
+       "at_mm": [
+        0.023,
+        2.025,
+        11.727
+       ]
+      },
+      "interlayer_normal": {
+       "min_sf": 0.5475644749970925,
+       "at_mm": [
+        0.288,
+        1.825,
+        11.983
+       ]
+      },
+      "interlayer_shear": {
+       "min_sf": 0.7213942919659161,
+       "at_mm": [
+        0.141,
+        1.75,
+        11.905
+       ]
+      },
+      "interlayer_combined": {
+       "min_sf": 0.4931903347034019,
+       "at_mm": [
+        0.237,
+        2.475,
+        11.964
+       ]
+      }
+     },
+     "flags": {
+      "on_layer_boundary": true,
+      "edge_parallel_to_build": false,
+      "radius_formed_by": "layer staircase",
+      "min_reliable_radius_mm": 0.4,
+      "layers_across_fillet": 2.0,
+      "radius_below_nozzle_limit": false,
+      "peak_stress_across_layers": true,
+      "worst_combination": true
+     },
+     "tip_deflection_mm": 1.329390314526961,
+     "time_s": 52.81
+    },
+    {
+     "r_mm": 1.0,
+     "h_corner_mm": 0.25,
+     "n_tets": 10747,
+     "sigma_nom_mpa": 18.75,
+     "sigma1_peak_mpa": 35.13455373515445,
+     "Kt": 1.8738428658749038,
+     "peak_at_mm": [
+      0.594,
+      2.063,
+      11.912
+     ],
+     "peak_dir": [
+      -0.906,
+      0.003,
+      -0.422
+     ],
+     "cos_peak_dir_build": 0.9064901058315071,
+     "modes": {
+      "in_plane": {
+       "min_sf": 1.8795333522754558,
+       "at_mm": [
+        0.058,
+        2.563,
+        11.318
+       ]
+      },
+      "interlayer_normal": {
+       "min_sf": 0.8037903924560426,
+       "at_mm": [
+        0.72,
+        2.313,
+        11.958
+       ]
+      },
+      "interlayer_shear": {
+       "min_sf": 1.1344963048784247,
+       "at_mm": [
+        0.354,
+        1.625,
+        11.763
+       ]
+      },
+      "interlayer_combined": {
+       "min_sf": 0.7330681073520019,
+       "at_mm": [
+        0.594,
+        2.063,
+        11.912
+       ]
+      }
+     },
+     "flags": {
+      "on_layer_boundary": true,
+      "edge_parallel_to_build": false,
+      "radius_formed_by": "layer staircase",
+      "min_reliable_radius_mm": 0.4,
+      "layers_across_fillet": 5.0,
+      "radius_below_nozzle_limit": false,
+      "peak_stress_across_layers": true,
+      "worst_combination": true
+     },
+     "tip_deflection_mm": 1.2894593064070243,
+     "time_s": 6.59
+    },
+    {
+     "r_mm": 2.0,
+     "h_corner_mm": 0.25,
+     "n_tets": 18269,
+     "sigma_nom_mpa": 18.75,
+     "sigma1_peak_mpa": 25.31195424751404,
+     "Kt": 1.3499708932007488,
+     "peak_at_mm": [
+      1.352,
+      1.811,
+      11.89
+     ],
+     "peak_dir": [
+      -0.948,
+      0.002,
+      -0.319
+     ],
+     "cos_peak_dir_build": 0.9475992235378423,
+     "modes": {
+      "in_plane": {
+       "min_sf": 2.6747091847119395,
+       "at_mm": [
+        0.076,
+        2.312,
+        10.534
+       ]
+      },
+      "interlayer_normal": {
+       "min_sf": 1.041275388327454,
+       "at_mm": [
+        1.654,
+        2.351,
+        11.966
+       ]
+      },
+      "interlayer_shear": {
+       "min_sf": 1.622079083858493,
+       "at_mm": [
+        0.705,
+        2.0,
+        11.524
+       ]
+      },
+      "interlayer_combined": {
+       "min_sf": 0.9938459746920708,
+       "at_mm": [
+        1.54,
+        2.067,
+        11.945
+       ]
+      }
+     },
+     "flags": {
+      "on_layer_boundary": true,
+      "edge_parallel_to_build": false,
+      "radius_formed_by": "layer staircase",
+      "min_reliable_radius_mm": 0.4,
+      "layers_across_fillet": 10.0,
+      "radius_below_nozzle_limit": false,
+      "peak_stress_across_layers": true,
+      "worst_combination": true
+     },
+     "tip_deflection_mm": 1.2173821353496916,
+     "time_s": 13.94
+    },
+    {
+     "r_mm": 3.0,
+     "h_corner_mm": 0.25,
+     "n_tets": 29027,
+     "sigma_nom_mpa": 18.75,
+     "sigma1_peak_mpa": 21.744074699325097,
+     "Kt": 1.1596839839640052,
+     "peak_at_mm": [
+      2.284,
+      2.31,
+      11.911
+     ],
+     "peak_dir": [
+      -0.972,
+      0.0,
+      -0.236
+     ],
+     "cos_peak_dir_build": 0.9717371779052146,
+     "modes": {
+      "in_plane": {
+       "min_sf": 3.1678303489900004,
+       "at_mm": [
+        0.051,
+        2.438,
+        9.538
+       ]
+      },
+      "interlayer_normal": {
+       "min_sf": 1.1918210977167496,
+       "at_mm": [
+        2.601,
+        1.869,
+        11.973
+       ]
+      },
+      "interlayer_shear": {
+       "min_sf": 2.043401911983989,
+       "at_mm": [
+        1.057,
+        2.125,
+        11.286
+       ]
+      },
+      "interlayer_combined": {
+       "min_sf": 1.154632120656833,
+       "at_mm": [
+        2.284,
+        2.31,
+        11.911
+       ]
+      }
+     },
+     "flags": {
+      "on_layer_boundary": true,
+      "edge_parallel_to_build": false,
+      "radius_formed_by": "layer staircase",
+      "min_reliable_radius_mm": 0.4,
+      "layers_across_fillet": 15.0,
+      "radius_below_nozzle_limit": false,
+      "peak_stress_across_layers": true,
+      "worst_combination": true
+     },
+     "tip_deflection_mm": 1.1468054270909038,
+     "time_s": 74.1
+    }
+   ],
+   "convergence": [],
+   "time_s": 187.0
+  }
+ },
+ "sweep": {
+  "PLA": {
+   "orientation": "Z_as_exported",
+   "case": "press",
+   "rows": [
+    {
+     "layer_height_mm": 0.12,
+     "nozzle_mm": 0.2,
+     "walls": 3,
+     "printable": true,
+     "interlayer_factor": 0.9400000000000001,
+     "notch_factor": 0.9338144227496504,
+     "wall_mm": 0.675,
+     "min_sf": {
+      "in_plane": 6.60819203827171,
+      "interlayer_normal": 9.896765365086917,
+      "interlayer_shear": 5.650065035314703,
+      "interlayer_combined": 5.650065035314703
+     },
+     "governing": "interlayer_shear",
+     "tip_deflection_mm": 0.11448133777629053,
+     "shell_fraction": 0.4741385899113583
+    },
+    {
+     "layer_height_mm": 0.2,
+     "nozzle_mm": 0.2,
+     "walls": 3,
+     "printable": false,
+     "interlayer_factor": 0.7,
+     "notch_factor": 1.0,
+     "wall_mm": 0.675,
+     "min_sf": {
+      "in_plane": 7.703815387725381,
+      "interlayer_normal": 8.319713901546432,
+      "interlayer_shear": 4.634760892438987,
+      "interlayer_combined": 4.634760892438987
+     },
+     "governing": "interlayer_shear",
+     "tip_deflection_mm": 0.10082086791273463,
+     "shell_fraction": 0.5365712533233514
+    },
+    {
+     "layer_height_mm": 0.28,
+     "nozzle_mm": 0.2,
+     "walls": 3,
+     "printable": false,
+     "interlayer_factor": 0.5,
+     "notch_factor": 1.0537980242330844,
+     "wall_mm": 0.675,
+     "min_sf": {
+      "in_plane": 8.480516116958087,
+      "interlayer_normal": 5.17177236224781,
+      "interlayer_shear": 3.888013874498706,
+      "interlayer_combined": 3.888013874498706
+     },
+     "governing": "interlayer_shear",
+     "tip_deflection_mm": 0.08987512970927314,
+     "shell_fraction": 0.6190711956278024
+    },
+    {
+     "layer_height_mm": 0.12,
+     "nozzle_mm": 0.4,
+     "walls": 3,
+     "printable": true,
+     "interlayer_factor": 1.12,
+     "notch_factor": 0.9338144227496504,
+     "wall_mm": 1.35,
+     "min_sf": {
+      "in_plane": 7.9295627507190165,
+      "interlayer_normal": 27.451647904897282,
+      "interlayer_shear": 15.89914514411509,
+      "interlayer_combined": 15.87049221860817
+     },
+     "governing": "in_plane",
+     "tip_deflection_mm": 0.08509591084488811,
+     "shell_fraction": 0.8014381430389302
+    },
+    {
+     "layer_height_mm": 0.2,
+     "nozzle_mm": 0.4,
+     "walls": 3,
+     "printable": true,
+     "interlayer_factor": 1.0,
+     "notch_factor": 1.0,
+     "wall_mm": 1.35,
+     "min_sf": {
+      "in_plane": 9.096538504816131,
+      "interlayer_normal": 24.72147141601323,
+      "interlayer_shear": 14.525034232733748,
+      "interlayer_combined": 14.483998736577007
+     },
+     "governing": "in_plane",
+     "tip_deflection_mm": 0.08211213841804772,
+     "shell_fraction": 0.8192721867950037
+    },
+    {
+     "layer_height_mm": 0.28,
+     "nozzle_mm": 0.4,
+     "walls": 3,
+     "printable": true,
+     "interlayer_factor": 0.88,
+     "notch_factor": 1.0537980242330844,
+     "wall_mm": 1.35,
+     "min_sf": {
+      "in_plane": 9.59316879117142,
+      "interlayer_normal": 25.2718388112608,
+      "interlayer_shear": 13.431249977841507,
+      "interlayer_combined": 13.388369617219894
+     },
+     "governing": "in_plane",
+     "tip_deflection_mm": 0.07943962334058909,
+     "shell_fraction": 0.8429387948261486
+    },
+    {
+     "layer_height_mm": 0.12,
+     "nozzle_mm": 0.6,
+     "walls": 3,
+     "printable": true,
+     "interlayer_factor": 1.15,
+     "notch_factor": 0.9338144227496504,
+     "wall_mm": 2.025,
+     "min_sf": {
+      "in_plane": 10.07956316272668,
+      "interlayer_normal": 38.17154120191599,
+      "interlayer_shear": 23.808229452105536,
+      "interlayer_combined": 23.80583039489519
+     },
+     "governing": "in_plane",
+     "tip_deflection_mm": 0.07405118177830024,
+     "shell_fraction": 1.0
+    },
+    {
+     "layer_height_mm": 0.2,
+     "nozzle_mm": 0.6,
+     "walls": 3,
+     "printable": true,
+     "interlayer_factor": 1.1,
+     "notch_factor": 1.0,
+     "wall_mm": 2.025,
+     "min_sf": {
+      "in_plane": 10.079563162719198,
+      "interlayer_normal": 36.5119089757235,
+      "interlayer_shear": 22.77308904113237,
+      "interlayer_combined": 22.770794290757262
+     },
+     "governing": "in_plane",
+     "tip_deflection_mm": 0.07405118177835332,
+     "shell_fraction": 1.0
+    },
+    {
+     "layer_height_mm": 0.28,
+     "nozzle_mm": 0.6,
+     "walls": 3,
+     "printable": true,
+     "interlayer_factor": 1.02,
+     "notch_factor": 1.0537980242330844,
+     "wall_mm": 2.025,
+     "min_sf": {
+      "in_plane": 10.079563162711839,
+      "interlayer_normal": 33.856497413837566,
+      "interlayer_shear": 21.116864383584797,
+      "interlayer_combined": 21.114736524146057
+     },
+     "governing": "in_plane",
+     "tip_deflection_mm": 0.07405118177840445,
+     "shell_fraction": 1.0
+    },
+    {
+     "layer_height_mm": 0.2,
+     "nozzle_mm": 0.4,
+     "walls": 2,
+     "printable": true,
+     "interlayer_factor": 1.0,
+     "notch_factor": 1.0,
+     "wall_mm": 0.9,
+     "min_sf": {
+      "in_plane": 8.162936859538659,
+      "interlayer_normal": 14.220881713972439,
+      "interlayer_shear": 7.711305128859734,
+      "interlayer_combined": 7.711305128859734
+     },
+     "governing": "interlayer_shear",
+     "tip_deflection_mm": 0.09382154892500694,
+     "shell_fraction": 0.6322706807122028
+    },
+    {
+     "layer_height_mm": 0.2,
+     "nozzle_mm": 0.4,
+     "walls": 4,
+     "printable": true,
+     "interlayer_factor": 1.0,
+     "notch_factor": 1.0,
+     "wall_mm": 1.8,
+     "min_sf": {
+      "in_plane": 9.70397279997712,
+      "interlayer_normal": 33.28653506419342,
+      "interlayer_shear": 20.015667598894478,
+      "interlayer_combined": 20.012689790993463
+     },
+     "governing": "in_plane",
+     "tip_deflection_mm": 0.07607742746117863,
+     "shell_fraction": 0.9472518043846205
+    }
+   ]
+  },
+  "PETG": {
+   "orientation": "Z_as_exported",
+   "case": "press",
+   "rows": [
+    {
+     "layer_height_mm": 0.12,
+     "nozzle_mm": 0.2,
+     "walls": 3,
+     "printable": true,
+     "interlayer_factor": 0.9400000000000001,
+     "notch_factor": 0.9338144227496504,
+     "wall_mm": 0.675,
+     "min_sf": {
+      "in_plane": 6.0014269175288515,
+      "interlayer_normal": 10.140835216455745,
+      "interlayer_shear": 5.021122745698127,
+      "interlayer_combined": 5.021122745698127
+     },
+     "governing": "interlayer_shear",
+     "tip_deflection_mm": 0.18710629711665147,
+     "shell_fraction": 0.4741385899113583
+    },
+    {
+     "layer_height_mm": 0.2,
+     "nozzle_mm": 0.2,
+     "walls": 3,
+     "printable": false,
+     "interlayer_factor": 0.7,
+     "notch_factor": 1.0,
+     "wall_mm": 0.675,
+     "min_sf": {
+      "in_plane": 6.956903344788026,
+      "interlayer_normal": 8.211443039806118,
+      "interlayer_shear": 4.136002765095782,
+      "interlayer_combined": 4.136002765095782
+     },
+     "governing": "interlayer_shear",
+     "tip_deflection_mm": 0.1646934569272195,
+     "shell_fraction": 0.5365712533233514
+    },
+    {
+     "layer_height_mm": 0.28,
+     "nozzle_mm": 0.2,
+     "walls": 3,
+     "printable": false,
+     "interlayer_factor": 0.5,
+     "notch_factor": 1.0537980242330844,
+     "wall_mm": 0.675,
+     "min_sf": {
+      "in_plane": 7.664065270888871,
+      "interlayer_normal": 4.9583808345938305,
+      "interlayer_shear": 3.514547842161205,
+      "interlayer_combined": 3.5145478421612046
+     },
+     "governing": "interlayer_combined",
+     "tip_deflection_mm": 0.1467559422916254,
+     "shell_fraction": 0.6190711956278024
+    },
+    {
+     "layer_height_mm": 0.12,
+     "nozzle_mm": 0.4,
+     "walls": 3,
+     "printable": true,
+     "interlayer_factor": 1.12,
+     "notch_factor": 0.9338144227496504,
+     "wall_mm": 1.35,
+     "min_sf": {
+      "in_plane": 7.074244298989012,
+      "interlayer_normal": 26.05723375701729,
+      "interlayer_shear": 14.210720943839,
+      "interlayer_combined": 14.190102172344444
+     },
+     "governing": "in_plane",
+     "tip_deflection_mm": 0.13922797030985926,
+     "shell_fraction": 0.8014381430389302
+    },
+    {
+     "layer_height_mm": 0.2,
+     "nozzle_mm": 0.4,
+     "walls": 3,
+     "printable": true,
+     "interlayer_factor": 1.0,
+     "notch_factor": 1.0,
+     "wall_mm": 1.35,
+     "min_sf": {
+      "in_plane": 8.187689254260738,
+      "interlayer_normal": 23.641229355268436,
+      "interlayer_shear": 13.003778594086386,
+      "interlayer_combined": 12.972291940565833
+     },
+     "governing": "in_plane",
+     "tip_deflection_mm": 0.13433668361282447,
+     "shell_fraction": 0.8192721867950037
+    },
+    {
+     "layer_height_mm": 0.28,
+     "nozzle_mm": 0.4,
+     "walls": 3,
+     "printable": true,
+     "interlayer_factor": 0.88,
+     "notch_factor": 1.0537980242330844,
+     "wall_mm": 1.35,
+     "min_sf": {
+      "in_plane": 8.671459942984933,
+      "interlayer_normal": 24.14815707541218,
+      "interlayer_shear": 12.07326960267157,
+      "interlayer_combined": 12.0400574203563
+     },
+     "governing": "in_plane",
+     "tip_deflection_mm": 0.1299443985023107,
+     "shell_fraction": 0.8429387948261486
+    },
+    {
+     "layer_height_mm": 0.12,
+     "nozzle_mm": 0.6,
+     "walls": 3,
+     "printable": true,
+     "interlayer_factor": 1.15,
+     "notch_factor": 0.9338144227496504,
+     "wall_mm": 2.025,
+     "min_sf": {
+      "in_plane": 9.09172314748178,
+      "interlayer_normal": 38.88020525495252,
+      "interlayer_shear": 21.28206178682037,
+      "interlayer_combined": 21.279977424069248
+     },
+     "governing": "in_plane",
+     "tip_deflection_mm": 0.12123573443305584,
+     "shell_fraction": 1.0
+    },
+    {
+     "layer_height_mm": 0.2,
+     "nozzle_mm": 0.6,
+     "walls": 3,
+     "printable": true,
+     "interlayer_factor": 1.1,
+     "notch_factor": 1.0,
+     "wall_mm": 2.025,
+     "min_sf": {
+      "in_plane": 9.091723147482343,
+      "interlayer_normal": 37.18976154817294,
+      "interlayer_shear": 20.35675475260999,
+      "interlayer_combined": 20.35476101432637
+     },
+     "governing": "in_plane",
+     "tip_deflection_mm": 0.12123573443306743,
+     "shell_fraction": 1.0
+    },
+    {
+     "layer_height_mm": 0.28,
+     "nozzle_mm": 0.6,
+     "walls": 3,
+     "printable": true,
+     "interlayer_factor": 1.02,
+     "notch_factor": 1.0537980242330844,
+     "wall_mm": 2.025,
+     "min_sf": {
+      "in_plane": 9.091723147491503,
+      "interlayer_normal": 34.48505161743806,
+      "interlayer_shear": 18.87626349789044,
+      "interlayer_combined": 18.87441475875468
+     },
+     "governing": "in_plane",
+     "tip_deflection_mm": 0.12123573443294051,
+     "shell_fraction": 1.0
+    },
+    {
+     "layer_height_mm": 0.2,
+     "nozzle_mm": 0.4,
+     "walls": 2,
+     "printable": true,
+     "interlayer_factor": 1.0,
+     "notch_factor": 1.0,
+     "wall_mm": 0.9,
+     "min_sf": {
+      "in_plane": 7.363469878371688,
+      "interlayer_normal": 14.330080335140769,
+      "interlayer_shear": 6.8909806046621735,
+      "interlayer_combined": 6.8909806046621735
+     },
+     "governing": "interlayer_shear",
+     "tip_deflection_mm": 0.1533643029185457,
+     "shell_fraction": 0.6322706807122028
+    },
+    {
+     "layer_height_mm": 0.2,
+     "nozzle_mm": 0.4,
+     "walls": 4,
+     "printable": true,
+     "interlayer_factor": 1.0,
+     "notch_factor": 1.0,
+     "wall_mm": 1.8,
+     "min_sf": {
+      "in_plane": 8.741918122550933,
+      "interlayer_normal": 33.46976207108124,
+      "interlayer_shear": 17.892324812559416,
+      "interlayer_combined": 17.888905691305155
+     },
+     "governing": "in_plane",
+     "tip_deflection_mm": 0.12452741909875334,
+     "shell_fraction": 0.9472518043846205
+    }
+   ]
+  }
+ },
+ "elapsed_s": 805.3
+}

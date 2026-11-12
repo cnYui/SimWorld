@@ -86,4 +86,22 @@ prj.data['actuators']['servo1']['note'] = ('bench wiring: servo + on the dev boa
                                            'with the ESP32); the PCB routes it from J1 via F1 (node v5_servo)')
 api.bind_pin(prj, 'GPIO0', input='button1', active='low')
 prj.save()
+# 7. Printable parts (mechanical/PRINT_*.stl, exported in print orientation) for
+#    "send to Bambu Studio". Settings are suggestions, not tested prints.
+prj.data['printing'] = {'parts': {
+    'press_arm': {'file': '../../../mechanical/PRINT_03_double_press_arm.stl', 'label': '按压臂', 'material': 'PETG',
+                  'settings': {'layer_height': 0.16, 'wall_loops': 4, 'sparse_infill_density': '40%'},
+                  'note': 'bar flat on the bed, fingers up, no supports (mechanical/README.md); '
+                          'settings are suggestions pending the strength check'},
+    'frame': {'file': '../../../mechanical/PRINT_01_86_adjustable_frame.stl', 'label': '86 盒框', 'material': 'PLA',
+              'settings': {'layer_height': 0.2, 'wall_loops': 3, 'sparse_infill_density': '20%'}},
+    'servo_cradle': {'file': '../../../mechanical/PRINT_02_strap_servo_cradle.stl', 'label': '舵机支架',
+                     'material': 'PETG', 'settings': {'layer_height': 0.2, 'wall_loops': 3,
+                                                      'sparse_infill_density': '25%'}},
+    'gateway_case': {'file': '../../../mechanical/PRINT_04_gateway_case.stl', 'label': '网关盒', 'material': 'PLA',
+                     'settings': {'layer_height': 0.2, 'wall_loops': 2, 'sparse_infill_density': '15%'}},
+    'gateway_lid': {'file': '../../../mechanical/PRINT_05_gateway_lid.stl', 'label': '网关盒盖', 'material': 'PLA',
+                    'settings': {'layer_height': 0.2, 'wall_loops': 2, 'sparse_infill_density': '15%'}},
+}}
+prj.save()
 print('project.yaml rebuilt;', pcb['components'], 'components,', len(pcb['nets']), 'nets')

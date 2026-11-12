@@ -2,7 +2,7 @@
 # Build Espressif's QEMU fork with the emcosim co-simulation patch.
 # QEMU is GPL-2.0; the patch in this directory is GPL-2.0-or-later like the files it
 # modifies. The resulting binary runs as a separate process: emcosim (Apache-2.0)
-# talks to it only through a UNIX socket and its serial console.
+# talks to it only through a socket and its serial console.
 #
 # Needs: git, gcc, ninja, python3, pkg-config, libglib2.0-dev, libpixman-1-dev,
 #        libgcrypt20-dev, libslirp-dev, flex, bison

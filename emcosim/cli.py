@@ -4,6 +4,7 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+from pathlib import Path
 
 import yaml
 
@@ -89,9 +90,25 @@ def main(argv=None):
     s.add_argument('source')
     s.add_argument('--i-step', type=float, default=0.7)
     s.add_argument('--apply', action='store_true')
-    s = sub.add_parser('view', help='open the web viewer')
+    s = sub.add_parser('serve', aliases=['view'], help='open the app UI in the browser')
     s.add_argument('--port', type=int, default=8765)
     s.add_argument('--host', default='127.0.0.1')
+    s.add_argument('--no-browser', action='store_true')
+    sub.add_parser('app', help='open the desktop app window')
+    s = sub.add_parser('fit', help='fit model parameters from a measurement sheet')
+    s.add_argument('sheet')
+    s.add_argument('--apply', action='store_true')
+    s = sub.add_parser('compare', help='compare a run signal with a measured CSV trace')
+    s.add_argument('csv')
+    s.add_argument('signal')
+    s.add_argument('--run')
+    s.add_argument('--column')
+    s.add_argument('--time-unit', default='s')
+    s.add_argument('--align', action='store_true')
+    s = sub.add_parser('print', help='export printable parts as 3MF and open them in Bambu Studio')
+    s.add_argument('parts', nargs='*', help='part names from printing.parts (default: all)')
+    s.add_argument('--with-settings', action='store_true', help='embed suggested per-object print settings')
+    s.add_argument('--no-open', action='store_true', help='only write the 3MF')
     sub.add_parser('mcp', help='run the MCP server on stdio')
 
     a = ap.parse_args(argv)
@@ -101,9 +118,13 @@ def main(argv=None):
     if a.cmd == 'mcp':
         from .mcp_server import main as mcp_main
         return mcp_main(a.project)
-    if a.cmd == 'view':
-        from .viewer.server import serve
-        return serve(Project(a.project).root, a.port, a.host)
+    if a.cmd in ('serve', 'view'):
+        from .app.server import serve
+        root = a.project if (Path(a.project) / 'project.yaml').exists() else None
+        return serve(root, a.port, a.host, open_browser=not a.no_browser)
+    if a.cmd == 'app':
+        from .app.desktop import main as desktop_main
+        return desktop_main(a.project if (Path(a.project) / 'project.yaml').exists() else None)
     p = Project(a.project)
     if a.cmd == 'import-pcb':
         return _print(api.import_pcb(p, a.path, dsn=a.dsn, bom=a.bom))
@@ -133,6 +154,16 @@ def main(argv=None):
         return _print(api.get_results(p, a.run_id, a.signals))
     if a.cmd == 'render':
         return _print(api.render_frames(p, a.run_id, a.times))
+    if a.cmd == 'fit':
+        r = api.fit_measurements(p, a.sheet, apply=a.apply)
+        print(r['text'])
+        return 0
+    if a.cmd == 'compare':
+        return _print(api.compare_trace(p, a.csv, a.signal, run_id=a.run, column=a.column,
+                                        time_unit=a.time_unit, align=a.align))
+    if a.cmd == 'print':
+        from . import printing
+        return _print(printing.send_parts(p, a.parts or None, a.with_settings, open_app=not a.no_open))
     if a.cmd == 'calibrate':
         from . import calibrate
         r = calibrate.calibrate(p.data['power'], a.node, a.source, a.i_step, apply_to=p if a.apply else None)

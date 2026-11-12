@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "emcosim"
-version = "0.1.0"
+version = "0.2.0"
 description = "Electronics + physics co-simulation: ESP32 firmware in QEMU, equivalent power/motor models, MuJoCo mechanics, MCP tools for AI agents"
 readme = "README.md"
 license = { text = "Apache-2.0" }
@@ -21,16 +21,22 @@ dependencies = [
 
 [project.optional-dependencies]
 step = ["cascadio>=0.0.13"]
+app = ["pywebview>=5", "anthropic>=2.8"]   # desktop window; Claude API-key chat backend
 dev = ["pytest>=8", "gmsh>=4.11"]
+# 3D-printed part strength check (emcosim.strength): FEA basis, OCC/tet meshing, plots
+strength = ["scikit-fem>=9", "gmsh>=4.11", "pytetwild>=0.2", "pyamg>=5", "matplotlib>=3.7"]
 
 [project.scripts]
 emcosim = "emcosim.cli:main"
+
+[project.gui-scripts]
+emcosim-app = "emcosim.app.desktop:main"
 
 [tool.setuptools.packages.find]
 include = ["emcosim*"]
 
 [tool.setuptools.package-data]
-"emcosim.viewer" = ["static/*", "static/vendor/*"]
+"emcosim.app" = ["static/*", "static/**/*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

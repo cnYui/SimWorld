@@ -100,11 +100,7 @@ def build_server(project_root):
         {path: value}, events [{t, press: button1, hold_s} | {t, set: power.sources.X.v, value}],
         expect [{metric|event|signal, eq|lt|gt|le|ge|ne: value, at|window|stat}],
         mcu_backend: scripted with pin_script for firmware-free runs."""
-        data = load_yaml_text(scenario_yaml)
-        p = prj()
-        (p.root / 'scenarios').mkdir(exist_ok=True)
-        (p.root / 'scenarios' / f'{name}.yaml').write_text(dump_yaml(data), encoding='utf8')
-        return {'scenario': name, 'scenarios': p.scenarios()}
+        return api.write_scenario(prj(), name, load_yaml_text(scenario_yaml))
 
     @mcp.tool()
     def run_scenario(name: str, overrides: dict | None = None) -> dict:
@@ -146,6 +142,33 @@ def build_server(project_root):
         r = cal.calibrate(p.data['power'], node, source, i_step=i_step_a, apply_to=p if apply else None)
         r.pop('netlist', None)
         return r
+
+    @mcp.tool()
+    def fit_measurements(path: str, apply: bool = False) -> dict:
+        """Fit servo (R, Ke, gear efficiency, idle current, friction, speed limit, backlash/stiffness),
+        supply (v, r_ohm, i_limit_a) and bistable switch (peak_force_n, stable_deg) parameters from a
+        measurement sheet (measurements/template.yaml). Returns fitted values ± 1σ, residuals before/after,
+        changes old→new, and parameters kept at their prior (with the reason). apply=True writes
+        project.yaml."""
+        return api.fit_measurements(prj(), path, apply=apply)
+
+    @mcp.tool()
+    def compare_trace(trace_csv: str, signal: str, run_id: str | None = None, column: str | None = None,
+                      time_unit: str = 's', t_offset: float = 0.0, align: bool = True,
+                      scale: float = 1.0) -> dict:
+        """RMS/max/mean error of a run's signal against a measured CSV trace; align searches the
+        time offset."""
+        return api.compare_trace(prj(), trace_csv, signal, run_id=run_id, column=column, time_unit=time_unit,
+                                 t_offset=t_offset, align=align, scale=scale)
+
+    @mcp.tool()
+    def send_to_bambu_studio(parts: list[str] | None = None, with_settings: bool = False,
+                             open_app: bool = True) -> dict:
+        """Export printable parts (printing.parts in project.yaml, e.g. press_arm, frame,
+        servo_cradle) into one 3MF and open it in Bambu Studio on this computer. with_settings
+        embeds the suggested per-part print settings (experimental)."""
+        from . import printing
+        return printing.send_parts(prj(), parts or None, with_settings, open_app=open_app)
 
     return mcp
 

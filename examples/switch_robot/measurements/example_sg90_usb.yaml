@@ -1,0 +1,69 @@
+# EXAMPLE ONLY. All numbers below are INVENTED to show the format and the fit;
+# they are NOT measurements of any real servo, port or switch. Do not apply
+# this sheet to a project (fit_measurements refuses unless allow_example=True).
+meta:
+  example_data: true
+  date: null
+  who: example (invented values)
+  notes: plausible SG90-class servo on a PC USB 2.0 port, 86-type rocker switch
+
+targets:
+  actuator: servo1
+  source: usb
+  element: rocker_detent
+
+servo:
+  idle_current_a: {value: 0.008, unc: 0.003}
+  stall:
+    current_a: {value: 0.62, unc: 0.02}
+    v_servo_v: {value: 4.62, unc: 0.03}
+    v_meter_v: {value: 4.80, unc: 0.03}
+    torque:
+      force_g: {value: 610, unc: 15}
+      lever_m: {value: 0.025, unc: 0.001}
+  moves:
+    - label: USB port
+      angle_deg: {value: 90, unc: 1}
+      time_s: {value: 0.200, unc: 0.006}
+      fps: 240
+      v_servo_v: {value: 5.06, unc: 0.03}
+      start_threshold_deg: 1.0
+      end_threshold_deg: 2.0
+    - label: same port through a 2.2 ohm series resistor
+      angle_deg: {value: 90, unc: 1}
+      time_s: {value: 0.246, unc: 0.006}
+      fps: 240
+      v_servo_v: {value: 4.20, unc: 0.03}
+  sweep:
+    current_a: {value: 0.06, unc: 0.015}
+    angle_deg: 90
+    period_s: 1.0
+    v_servo_v: {value: 5.06, unc: 0.03}
+
+supply:
+  open_circuit_v: {value: 5.08, unc: 0.02}
+  current_limit_seen: true
+  points:
+    - label: resistor 10 ohm
+      r_load_ohm: 10.0
+      current_a: {value: 0.474, unc: 0.01}
+      voltage_v: {value: 4.73, unc: 0.03}
+    - label: servo stall
+      current_a: {value: 0.62, unc: 0.02}
+      voltage_v: {value: 4.62, unc: 0.03}
+    - label: resistor 3.3 ohm
+      r_load_ohm: 3.3
+      current_a: {value: 0.90, unc: 0.02}
+      voltage_v: {value: 2.97, unc: 0.03}
+
+switch:
+  force_peak_g_trials: [372, 391, 380, 386, 377]
+  scale_resolution_g: 1
+  press_lever_m: {value: 0.012, unc: 0.001}
+  travel_deg: {value: 7.6, unc: 0.5}
+  peak_at_deg_from_rest: {value: 1.7, unc: 0.5}
+
+brownout:
+  esp32_reset: false
+  servo_node: usb5v
+  condition: servo red wire on the dev board 5V pin, horn held for 3 s, ESP32 kept running

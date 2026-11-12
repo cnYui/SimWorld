@@ -5,6 +5,31 @@ the same DC motor). All quantities SI; joint-side angles in radians.
 Average-value models: PWM switching inside the servo or driver is not resolved,
 the drive is represented by its duty-weighted voltage. Good for the 0.1 ms ..
 seconds range the co-simulator targets, not for EMI or ripple questions.
+
+Optional servo parameters (all off by default, so existing projects are unchanged):
+
+  max_speed_dps                position-loop speed limit: the set-point the loop
+                               follows moves towards the commanded angle at most
+                               this fast [deg/s] (digital servos, slow-move firmware
+                               in the servo). None/0 = off.
+  backlash_deg                 total free play between the gear train and the horn
+                               [deg]. Inside the gap the motor turns only the gear
+                               train (gear_inertia_kg_m2) and the horn gets no torque.
+                               0 = off.
+  output_stiffness_nm_per_rad  torsional stiffness between the output gear and the
+                               horn (shaft, spline, plastic horn). None/0 = rigid.
+  output_damping_nms_per_rad   damping across that spring; default
+                               0.2 * 2 * sqrt(k * gear_inertia).
+  gear_inertia_kg_m2           inertia on the motor side of the backlash/spring,
+                               referred to the output (rotor * N^2 + gears). Only used
+                               when backlash or compliance is on; default 3e-6, the
+                               servo_axis armature in the switch_robot MJCF -- when you
+                               enable either effect, move that armature here (set the
+                               joint armature to ~0) so it is not counted twice.
+
+With backlash or compliance on, the position sensor (potentiometer) is on the
+gear side: the loop holds the gear angle and the horn can wander inside the
+backlash, which is what a worn or plastic-gear hobby servo does.
 """
 from __future__ import annotations
 
@@ -39,6 +64,10 @@ PRESETS = {
         'efficiency': 0.6, 'v_diode': 0.4,
     },
 }
+
+
+TRANSMISSION_KEYS = ('backlash_deg', 'output_stiffness_nm_per_rad', 'output_damping_nms_per_rad',
+                     'gear_inertia_kg_m2')
 
 
 def merged(cfg):
@@ -87,6 +116,86 @@ class DCMotor:
         return self.eta * self.N * self.ke * self.i
 
 
+class Transmission:
+    """Gear-train output -> horn coupling with backlash (dead zone of total width
+    backlash_deg) and/or finite torsional stiffness. The gear side is a small
+    inertia driven by the motor torque; the horn is the MuJoCo joint. step()
+    returns the torque applied to the joint for one mechanics sub-step.
+
+    Rigid (no stiffness) with backlash: inside the gap the gear moves on its own;
+    when it reaches either flank it locks to the horn, passes the motor torque and
+    hands over its relative momentum as a one-step impulse. With a stiffness the
+    flanks are a spring + damper; the gear side is integrated with internal
+    sub-steps (semi-implicit Euler) so stiff settings stay stable on the gear side.
+    The horn side is coupled explicitly at the mechanics step: keep
+    k < J_horn / dt^2 (about 190 N*m/rad for 3e-6 kg*m^2 at 0.125 ms)."""
+
+    def __init__(self, p):
+        self.half_gap = math.radians(float(p.get('backlash_deg') or 0.0)) / 2
+        k = p.get('output_stiffness_nm_per_rad')
+        self.k = float(k) if k and math.isfinite(float(k)) and float(k) > 0 else None
+        self.J = float(p.get('gear_inertia_kg_m2') or 3e-6)
+        c = p.get('output_damping_nms_per_rad')
+        self.c = float(c) if c is not None else (0.4 * math.sqrt(self.k * self.J) if self.k else 0.0)
+        self.theta = None          # gear-side angle [rad]
+        self.omega = 0.0
+        self.side = 0              # rigid mode: +1/-1 when locked on a flank, 0 in the gap
+        self.tau_out = 0.0
+
+    @staticmethod
+    def enabled(p):
+        k = p.get('output_stiffness_nm_per_rad')
+        return bool(p.get('backlash_deg')) or bool(k and math.isfinite(float(k)) and float(k) > 0)
+
+    def sync(self, q, qd):
+        if self.theta is None:
+            self.theta, self.omega = q, qd
+            self.side = 0
+
+    def _dead(self, d):
+        h = self.half_gap
+        return d - h if d > h else (d + h if d < -h else 0.0)
+
+    def step(self, tau_m, q, qd, dt):
+        self.sync(q, qd)
+        if self.k is None:
+            return self._step_rigid(tau_m, q, qd, dt)
+        n = max(1, int(math.ceil(dt * math.sqrt(self.k / self.J) / 0.2)))
+        h = dt / n
+        acc = 0.0
+        for j in range(n):
+            qj = q + qd * h * j
+            d = self.theta - qj
+            dz = self._dead(d)
+            tau_c = self.k * dz + (self.c * (self.omega - qd) if dz != 0.0 else 0.0)
+            self.omega += (tau_m - tau_c) / self.J * h
+            self.theta += self.omega * h
+            acc += tau_c
+        self.tau_out = acc / n
+        return self.tau_out
+
+    def _step_rigid(self, tau_m, q, qd, dt):
+        h = self.half_gap
+        if self.side and tau_m * self.side > 0:
+            # pushing on the flank: gear and horn move together
+            self.theta, self.omega = q + self.side * h, qd
+            self.tau_out = tau_m
+            return tau_m
+        self.side = 0
+        self.omega += tau_m / self.J * dt
+        self.theta += self.omega * dt
+        d = self.theta - q
+        tau = 0.0
+        if abs(d) >= h:
+            side = 1 if d > 0 else -1
+            closing = (self.omega - qd) * side
+            if closing > 0:
+                tau = self.J * closing * side / dt      # impact impulse spread over one step
+            self.theta, self.omega, self.side = q + side * h, qd, side
+        self.tau_out = tau
+        return tau
+
+
 class Servo:
     """Hobby servo: decodes pulse width, runs a P+D position loop on the joint
     angle (its potentiometer), drives the motor from its supply node."""
@@ -105,6 +214,10 @@ class Servo:
         self.duty_cmd = 0.0
         self.i_supply = 0.0
         self.active = False
+        self.trans = Transmission(self.p) if Transmission.enabled(self.p) else None
+        vmax = self.p.get('max_speed_dps')
+        self.max_speed = math.radians(float(vmax)) if vmax else None
+        self.ref = None            # rate-limited set-point (max_speed_dps)
 
     def set_signal(self, t, sig):
         """sig: dict(freq=Hz, duty=0..1) or None (pin low / undriven)."""
@@ -126,11 +239,24 @@ class Servo:
         have_signal = t - self.last_valid <= p['signal_timeout_s']
         self.powered = v_prev >= p['v_logic_min']
         self.active = have_signal and self.powered
-        self._qd, self._dt = qd, dt
+        self._q, self._qd, self._dt = q, qd, dt
+        if self.trans is not None:
+            # the potentiometer and the motor sit on the gear side of the play/spring
+            self.trans.sync(q, qd)
+            q, qd = self.trans.theta, self.trans.omega
+        self._qd_motor = qd
         if not self.active:
             self.duty_cmd = 0.0
+            self.ref = None
             return (p['i_ctrl_a'] if self.powered else 0.0), 0.0
-        err = self.target - q
+        target = self.target
+        if self.max_speed:
+            if self.ref is None:
+                self.ref = q
+            step = self.max_speed * dt
+            self.ref += max(-step, min(step, target - self.ref))
+            target = self.ref
+        err = target - q
         dead = math.radians(p['deadband_deg'])
         err = math.copysign(max(0.0, abs(err) - dead), err)
         u = max(-1.0, min(1.0, p['kp_per_rad'] * err - p['kd_s_per_rad'] * qd))
@@ -144,16 +270,22 @@ class Servo:
             tau = self.motor.finish(self.duty_cmd * v_supply)
             self.i_supply = self.duty_cmd * self.motor.i + p['i_ctrl_a']
         else:
-            tau = self.motor.coast(self._qd, self._dt)
+            tau = self.motor.coast(self._qd_motor, self._dt)
             self.i_supply = p['i_ctrl_a'] if self.powered else 0.0
+        if self.trans is not None:
+            tau = self.trans.step(tau, self._q, self._qd, self._dt)
         return tau
 
     def signals(self):
-        return {f'act.{self.name}.i_motor': self.motor.i, f'act.{self.name}.i_supply': self.i_supply,
-                f'act.{self.name}.torque': self.motor.torque(),
-                f'act.{self.name}.target_deg': math.degrees(self.target),
-                f'act.{self.name}.pulse_us': self.pulse_us, f'act.{self.name}.drive': self.duty_cmd,
-                f'act.{self.name}.active': float(self.active)}
+        out = {f'act.{self.name}.i_motor': self.motor.i, f'act.{self.name}.i_supply': self.i_supply,
+               f'act.{self.name}.torque': self.motor.torque(),
+               f'act.{self.name}.target_deg': math.degrees(self.target),
+               f'act.{self.name}.pulse_us': self.pulse_us, f'act.{self.name}.drive': self.duty_cmd,
+               f'act.{self.name}.active': float(self.active)}
+        if self.trans is not None:
+            out[f'act.{self.name}.gear_deg'] = math.degrees(self.trans.theta or 0.0)
+            out[f'act.{self.name}.horn_torque'] = self.trans.tau_out
+        return out
 
 
 class DCMotorActuator:

@@ -28,6 +28,10 @@ from .project import get_path, pin_number
 RUNTIME_SETTABLE = ('power.sources.',)
 
 
+class RunCancelled(Exception):
+    """Raised inside Simulation.run when the caller's cancel event is set."""
+
+
 class Inputs:
     """External inputs wired to MCU pins: buttons (active low/high)."""
 
@@ -107,7 +111,15 @@ class Simulation:
             self.power.set_source(name, **{kw: e['value']})
         log.append({'t': e['t'], 'event': 'scenario', 'detail': {k: v for k, v in e.items() if k != 't'}})
 
-    def run(self, recorder):
+    def run(self, recorder, progress=None, cancel=None, progress_every_ms=20):
+        """progress(fraction, t, signals) is called every progress_every_ms of
+        simulated time; setting the threading.Event `cancel` stops the run."""
+        try:
+            return self._run(recorder, progress, cancel, progress_every_ms)
+        finally:
+            self.mcu.close()
+
+    def _run(self, recorder, progress, cancel, progress_every_ms):
         duration = float(self.scenario.get('duration_s', 3.0))
         n = int(round(duration * 1000 / self.step_ms))
         dt_m = self.mech.dt
@@ -123,6 +135,7 @@ class Simulation:
         body_ids = self.mech.visual_bodies()
         recorder.begin(self, body_ids)
         wall0 = time.perf_counter()
+        every = max(1, int(round(progress_every_ms / self.step_ms)))
         for k in range(n + 1):
             t = k * self.step_ms * 1e-3
             while ev_i < len(self.events) and self.events[ev_i]['t'] <= t + 1e-9:
@@ -181,8 +194,12 @@ class Simulation:
             frame = k % self.frame_every == 0
             recorder.sample(t, sig, self.mech.poses(body_ids) if frame else None,
                             self.mech.data.qpos.copy() if frame else None)
+            if k % every == 0 or k == n:
+                if cancel is not None and cancel.is_set():
+                    raise RunCancelled()
+                if progress is not None:
+                    progress(k / n if n else 1.0, t, sig)
         wall = time.perf_counter() - wall0
-        self.mcu.close()
         return {'log': log, 'wall_s': wall, 'sim_s': duration, 'substeps': sub, 'dt_mech_s': dt_m}
 
     def _mcu_rail_v(self):

@@ -6,3 +6,9 @@ qemu/out/
 firmware/*/build/
 firmware/*/sdkconfig
 firmware/*/sdkconfig.old
+build/
+dist/
+packaging/windows/MicrosoftEdgeWebview2Setup.exe
+qemu/src-win/
+qemu/out-win/
+__tracked_surface.stl

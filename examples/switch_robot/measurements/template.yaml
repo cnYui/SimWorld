@@ -1,0 +1,77 @@
+# emcosim measurement sheet (fill in, then: fit_measurements(path) / emcosim fit <path>)
+# Every measured quantity is {value: <number>, unc: <1-sigma uncertainty, same unit>}.
+# Leave value: null for anything you did not measure; the fit keeps the prior for
+# parameters that the filled-in values do not determine and says so.
+# See HOWTO.md (Chinese) for how to measure each item with household tools.
+meta:
+  example_data: false          # true = invented numbers (fit refuses to apply them)
+  date: null
+  who: null
+  notes: null
+
+targets:                       # which objects in project.yaml these measurements describe
+  actuator: servo1             # actuators.<name>
+  source: usb                  # power.sources.<name> the servo was powered from
+  element: rocker_detent       # mechanics.elements.<name> (bistable switch)
+
+servo:
+  idle_current_a: {value: null, unc: 0.003}     # A, pulses on, holding still, no load
+  stall:                                        # horn blocked by hand, commanded away
+    current_a: {value: null, unc: 0.02}         # A, USB meter / multimeter in series
+    v_servo_v: {value: null, unc: 0.03}         # V, at the servo connector during the stall
+    v_meter_v: {value: null, unc: 0.03}         # V, USB meter display during the stall (info only)
+    torque:                                     # optional: horn arm pushing on a kitchen scale
+      force_g: {value: null, unc: 5}            # g, scale reading while stalled
+      lever_m: {value: null, unc: 0.001}        # m, shaft centre to the contact point on the scale
+  moves:                                        # unloaded steps, phone slow-motion video
+    - label: normal supply
+      angle_deg: {value: 90, unc: 1}            # deg, commanded step (e.g. 1000 -> 2000 us)
+      time_s: {value: null, unc: 0.006}         # s, first visible motion -> arrival (frames / fps)
+      fps: 240
+      v_servo_v: {value: null, unc: 0.03}       # V, at the servo connector just before the move
+      start_threshold_deg: 1.0                  # what counted as "first motion" in the video
+      end_threshold_deg: 2.0                    # what counted as "arrived"
+      # load_inertia_kg_m2: 3.2e-6              # only if something heavier than the horn is attached
+    - label: lower supply (optional, e.g. through a 2.2 ohm series resistor)
+      angle_deg: {value: 90, unc: 1}
+      time_s: {value: null, unc: 0.006}
+      fps: 240
+      v_servo_v: {value: null, unc: 0.03}
+  backlash_deg: {value: null, unc: 0.5}         # deg, free play of the horn (wiggle by hand, signal on)
+  compliance:                                   # optional: horn twist under load beyond the play
+    force_g: {value: null, unc: 5}              # g, scale reading pressing on the horn arm
+    lever_m: {value: null, unc: 0.001}          # m, shaft centre to the contact point
+    deflection_deg: {value: null, unc: 0.5}     # deg, extra twist from "play taken up" to that force
+  sweep:                                        # optional: continuous unloaded back-and-forth
+    current_a: {value: null, unc: 0.02}         # A, mean shown by the USB meter
+    angle_deg: 90                               # deg, sweep amplitude (peak to peak)
+    period_s: null                              # s, full back-and-forth period
+    v_servo_v: {value: null, unc: 0.03}
+
+supply:                                         # the port/adapter named in targets.source
+  open_circuit_v: {value: null, unc: 0.02}      # V, nothing connected (or only the meter)
+  current_limit_seen: null                      # true / false / null (unknown)
+  points:                                       # loaded points; add as many as you have
+    - label: resistor 10 ohm
+      r_load_ohm: 10.0                          # known load resistor (ohm) ...
+      current_a: {value: null, unc: 0.02}       # A
+      voltage_v: {value: null, unc: 0.03}       # V, at the load end of the cable
+    - label: servo stall
+      # no r_load_ohm: the measured current is used as the load
+      current_a: {value: null, unc: 0.02}
+      voltage_v: {value: null, unc: 0.03}       # V, at the servo connector
+
+switch:
+  force_peak_g: {value: null, unc: 5}           # g, peak scale reading just before it snaps
+  # force_peak_g_trials: [ ]                    # or several readings (g); mean and spread are used
+  scale_resolution_g: 1
+  press_lever_m: {value: null, unc: 0.001}      # m, rocker pivot to the point you pressed
+  travel_deg: {value: null, unc: 0.5}           # deg, rocker angle end to end (phone level app) ...
+  # travel_mm: {value: null, unc: 0.2}          # ... or the height change at travel_lever_m
+  # travel_lever_m: {value: null, unc: 0.001}
+  peak_at_deg_from_rest: {value: null, unc: 0.5}  # optional check: angle from rest where force peaked
+
+brownout:                                       # optional observation
+  esp32_reset: null                             # true / false: did the ESP32 reset during the stall?
+  servo_node: usb5v                             # project node the servo was on during that test
+  condition: null                               # free text, e.g. "servo on dev board 5V pin, stalled 3 s"

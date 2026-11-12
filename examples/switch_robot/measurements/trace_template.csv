@@ -1,0 +1,3 @@
+# measured trace for compare_run(): first column time, then one or more signals.
+# Export from a scope (CSV) or a logging multimeter; time unit is given to compare_run (s/ms/us).
+t_s,v_usb5v
