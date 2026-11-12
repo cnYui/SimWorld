@@ -18,45 +18,41 @@ mcu:
     size_bytes: 266240
     params: {}
 power:
+  # Carrier V0.5 (electronics/v05): USB-C VBUS -> D1 SS34 -> VIN5; VIN5 -> F1 -> V5_SERVO
+  # (C1 470 uF + C2) -> J3 servo; VIN5 -> AMS1117-3.3 (U4) -> 3V3 -> ESP32 module.
+  # Powered by a USB-C phone charger in the wall socket below the switch.
   nodes:
-    vin:
-      c_f: 0.0
+    vin5:
+      c_f: 3.0e-05
       net: VIN5
-      note: J1 pin 1
+      note: C3 + C4 (10 uF) + USB-C VBUS decoupling
     v5_servo:
       c_f: 0.0004701
       net: V5_SERVO
-      note: C1+C2 from PCB
-    usb5v:
-      c_f: 1.0e-05
-      note: MCU dev board USB 5 V (separately powered, README J2)
+      note: C1 470 uF + C2 100 nF
   sources:
-    adapter:
-      node: vin
-      v: 5.0
-      r_ohm: 0.25
-      note: 'assumed: 5 V 2 A adapter + 1 m 22 AWG lead, round trip'
-    usb:
-      node: usb5v
-      v: 5.0
+    charger:
+      node: vin5
+      v: 4.75
       r_ohm: 0.3
-      i_limit_a: 0.5
-      note: 'assumed: PC USB 2.0 port (500 mA limit) + cable'
+      i_limit_a: 2.0
+      note: 'assumed: 5.1 V 2 A USB charger, 1 m USB-C cable (0.2 ohm round trip), SS34 drop
+        modelled as a fixed 0.35 V + 0.1 ohm (forward bias only; it blocks back-feed into USB)'
   branches:
     f1:
-      from: vin
+      from: vin5
       to: v5_servo
       r_ohm: 0.1729
       note: RUEF110 cold resistance 0.15 ohm (assumed) + PCB copper 0.0229 ohm
   regulators:
     ldo3v3:
       type: ldo
-      input: usb5v
+      input: vin5
       v_out: 3.3
       dropout_v: 1.1
-      c_out_f: 2.2e-05
+      c_out_f: 2.0e-05
       i_q_a: 0.005
-      note: AMS1117-3.3 class on the dev board (assumed)
+      note: U4 AMS1117-3.3, C5 10 uF + module decoupling
 mechanics:
   timestep_s: 0.000125
   parts: {}
@@ -101,10 +97,10 @@ actuators:
   servo1:
     type: servo
     joint: servo_axis
-    node: usb5v
+    node: v5_servo
     preset: sg90
-    note: 'bench wiring: servo + on the dev board 5V pin (shares the USB port with the ESP32); the PCB
-      routes it from J1 via F1 (node v5_servo)'
+    note: 'V0.5: J3 pin 2 (5 V after F1). The bench wiring (servo on the dev board 5V pin) is
+      reproduced by the stall_brownout scenario overrides'
 inputs:
   button1:
     type: button

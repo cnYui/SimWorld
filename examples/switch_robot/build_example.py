@@ -104,4 +104,31 @@ prj.data['printing'] = {'parts': {
                     'settings': {'layer_height': 0.2, 'wall_loops': 2, 'sparse_infill_density': '15%'}},
 }}
 prj.save()
+# 8. The board people actually order is the V0.5 carrier (electronics/v05, ESP32-C3 on
+#    board, USB-C input), powered by a USB-C phone charger in the wall socket. Steps 5-6
+#    above keep the V0.4 numbers for the PCB import; the default network is V0.5. The
+#    stall_brownout scenario overrides it back to the bench wiring to reproduce the fault.
+prj.data['power'] = {
+    'nodes': {
+        'vin5': {'c_f': 30e-6, 'net': 'VIN5', 'note': 'C3 + C4 (10 uF) + USB-C VBUS decoupling'},
+        'v5_servo': {'c_f': c_servo, 'net': 'V5_SERVO', 'note': 'C1 470 uF + C2 100 nF'},
+    },
+    'sources': {
+        'charger': {'node': 'vin5', 'v': 4.75, 'r_ohm': 0.3, 'i_limit_a': 2.0,
+                    'note': 'assumed: 5.1 V 2 A USB charger, 1 m USB-C cable (0.2 ohm round trip), SS34 drop '
+                            'modelled as a fixed 0.35 V + 0.1 ohm (forward bias only; it blocks back-feed into USB)'},
+    },
+    'branches': {
+        'f1': {'from': 'vin5', 'to': 'v5_servo', 'r_ohm': round(0.15 + cu_in + cu_servo + cu_gnd, 4),
+               'note': f'RUEF110 cold resistance 0.15 ohm (assumed) + PCB copper {cu_in + cu_servo + cu_gnd:.4f} ohm'},
+    },
+    'regulators': {
+        'ldo3v3': {'type': 'ldo', 'input': 'vin5', 'v_out': 3.3, 'dropout_v': 1.1, 'c_out_f': 20e-6,
+                   'i_q_a': 0.005, 'note': 'U4 AMS1117-3.3, C5 10 uF + module decoupling'},
+    },
+}
+prj.data['actuators']['servo1']['node'] = 'v5_servo'
+prj.data['actuators']['servo1']['note'] = ('V0.5: J3 pin 2 (5 V after F1). The bench wiring (servo on the dev board '
+                                           '5V pin) is reproduced by the stall_brownout scenario overrides')
+prj.save()
 print('project.yaml rebuilt;', pcb['components'], 'components,', len(pcb['nets']), 'nets')

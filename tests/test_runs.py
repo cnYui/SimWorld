@@ -34,6 +34,6 @@ def test_fix_by_moving_servo_supply():
 @needs_ngspice
 def test_calibration_reduces_error():
     from emcosim import calibrate
-    r = calibrate.calibrate(Project(EXAMPLE).data['power'], 'v5_servo', 'adapter', 0.7)
+    r = calibrate.calibrate(Project(EXAMPLE).data['power'], 'v5_servo', 'charger', 0.7)
     assert r['max_error_after_v'] < r['max_error_before_v']
     assert r['max_error_after_v'] < 0.01

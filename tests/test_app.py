@@ -71,9 +71,9 @@ def test_api_requires_token(client):
 def test_project_param_and_scenario_roundtrip(client, project):
     code, prj = client('GET', 'project')
     assert code == 200 and 'servo_sweep_scripted' in prj['scenario_texts']
-    code, r = client('POST', 'param', {'path': 'actuators.servo1.node', 'value': 'v5_servo'})
-    assert code == 200 and r['old'] == 'usb5v'
-    assert 'node: v5_servo' in (project / 'project.yaml').read_text()
+    code, r = client('POST', 'param', {'path': 'actuators.servo1.node', 'value': 'vin5'})
+    assert code == 200 and r['old'] == 'v5_servo'
+    assert 'node: vin5' in (project / 'project.yaml').read_text()
     code, r = client('PUT', 'scenario/quick', {'yaml': 'duration_s: 0.2\nmcu_backend: scripted\n'})
     assert code == 200 and 'quick' in r['scenarios']
     code, r = client('PUT', 'scenario/bad%20name', {'yaml': 'x: 1'})
@@ -109,11 +109,11 @@ def test_run_job_progress_and_cancel(client):
 
 def test_sweep_job_rows(client):
     code, job = client('POST', 'jobs/sweep', {'scenario': 'servo_sweep_scripted',
-                                              'params': {'actuators.servo1.node': ['usb5v', 'v5_servo']},
-                                              'metrics': ['node.usb5v.min_v']})
+                                              'params': {'actuators.servo1.node': ['v5_servo', 'vin5']},
+                                              'metrics': ['node.vin5.min_v']})
     j = wait_job(client.app, job['id'])
     assert j.status == 'done', j.error
-    assert [r['actuators.servo1.node'] for r in j.rows] == ['usb5v', 'v5_servo']
+    assert [r['actuators.servo1.node'] for r in j.rows] == ['v5_servo', 'vin5']
 
 
 @pytest.mark.skipif(sys.platform == 'win32', reason='DPAPI path tested on Windows CI only via the app')

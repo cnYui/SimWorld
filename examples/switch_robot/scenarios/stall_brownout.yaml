@@ -1,5 +1,5 @@
 # Fault reproduction ("舵机堵转导致电压过低、ESP32 重启").
-# Bench wiring (see actuators.servo1.note): the servo's red wire is on the dev
+# Bench wiring (overrides below, not the V0.5 board): the servo's red wire is on the dev
 # board's 5V pin, so the servo and the ESP32 share the PC's USB port (500 mA
 # limit). A stiff 9 N switch stalls the servo; the stall current hits the port's
 # current limit, the 5 V rail collapses, the dev-board LDO drops out and the
@@ -9,6 +9,11 @@ description: Servo stalls on a stiff 9 N switch; ESP32 shares the servo's 5 V su
 duration_s: 3.0
 overrides:
   mechanics.elements.rocker_detent.peak_force_n: 9.0
+  # Bench wiring instead of the V0.5 board: dev board on a PC USB port, servo on its 5V pin.
+  power.nodes.usb5v: {c_f: 1.0e-05, note: MCU dev board USB 5 V}
+  power.sources.usb: {node: usb5v, v: 5.0, r_ohm: 0.3, i_limit_a: 0.5, note: 'assumed: PC USB 2.0 port (500 mA limit) + cable'}
+  power.regulators.ldo3v3.input: usb5v
+  actuators.servo1.node: usb5v
 events:
   - {t: 0.8, press: button1, hold_s: 0.1}
 expect:

@@ -6,7 +6,7 @@ import { h, icon, clear, toast, toastError, fmtNum, cssVar } from '../ui.js';
 import { TimeChart } from '../chart.js';
 
 const SIGS = ['joint.servo_axis.deg', 'joint.rocker_axis.deg', 'probe.press.force_n', 'act.servo1.torque',
-  'act.servo1.target_deg', 'mcu.rail_v', 'mcu.powered', 'mcu.resets'];
+  'act.servo1.target_deg', 'mcu.rail_v', 'mcu.powered', 'mcu.resets', 'node.vin5.v', 'node.usb5v.v'];
 
 export function createPanel(ctx) {
   const el = h('section', { class: 'screen panel' });
@@ -110,7 +110,9 @@ export function createPanel(ctx) {
     stop();
     runId = id;
     try {
-      [meta, sig] = await Promise.all([get(`run/${id}`), get(`run/${id}/signals?names=${encodeURIComponent(SIGS.join(','))}&n=4000`)]);
+      meta = await get(`run/${id}`);
+      const want = SIGS.filter((n) => (meta.signals || []).includes(n));
+      sig = await get(`run/${id}/signals?names=${encodeURIComponent(want.join(','))}&n=4000`);
     } catch (e) { setBanner('bad', `打不开结果：${e.message}`); return; }
     if (runId !== id) return;
     dur = sig.t?.length ? sig.t[sig.t.length - 1] : (meta.timing?.sim_s || 0);
@@ -202,6 +204,7 @@ export function createPanel(ctx) {
     if (!runId) { clear(D.readout).append(h('div', { class: 'muted' }, '在上面选一个测试，会自动开始仿真并回放。')); return; }
     const rocker = at('joint.rocker_axis.deg', tNow), arm = at('joint.servo_axis.deg', tNow);
     const f = at('probe.press.force_n', tNow), tq = at('act.servo1.torque', tNow), tgt = at('act.servo1.target_deg', tNow);
+    const v5 = sig['node.usb5v.v'] ? at('node.usb5v.v', tNow) : at('node.vin5.v', tNow);
     const rail = at('mcu.rail_v', tNow), powered = at('mcu.powered', tNow), resets = at('mcu.resets', tNow);
     const on = rocker !== null && rocker < 0;
     const lim = forceLimit();
@@ -213,6 +216,7 @@ export function createPanel(ctx) {
         kv('接触力', `${f === null ? '–' : f.toFixed(2)} N`, lim !== null && f > lim ? 'bad' : ''),
         kv('舵机力矩', `${n(tq, 3)} N·m`),
         kv('动作', tgt === null ? '–' : Math.abs(tgt) > 1 ? '按压' : '退回'),
+        v5 !== null ? kv('5V 电源', `${v5.toFixed(2)} V`, v5 < 4.3 ? 'bad' : '') : null,
         rail !== null ? kv('单片机供电', `${rail.toFixed(2)} V`, powered === 0 ? 'bad' : '') : null),
       powered === 0 ? h('div', { class: 'pn-warn' }, '单片机掉电了：舵机电流把供电电压拉了下去。') :
         resets > 0 ? h('div', { class: 'pn-warn' }, `单片机已经重启 ${resets} 次。`) : null,

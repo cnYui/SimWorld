@@ -1,0 +1,13 @@
+# Same stiff 9 N switch as stall_brownout, but wired as the V0.5 board intends:
+# USB-C charger -> VIN5, servo on J3 behind F1, ESP32 on the AMS1117 from VIN5.
+# The servo still stalls, but the 2 A charger holds VIN5 up and the ESP32 keeps running.
+title: 堵转：换成 V0.5 板子供电（真实固件）
+description: Servo stalls on a stiff 9 N switch, powered by the V0.5 board from a USB-C charger
+duration_s: 3.0
+overrides:
+  mechanics.elements.rocker_detent.peak_force_n: 9.0
+events:
+  - {t: 0.8, press: button1, hold_s: 0.1}
+expect:
+  - {metric: mcu.resets, eq: 0, note: 舵机堵转时单片机没有重启}
+  - {metric: node.vin5.min_v, gt: 4.3, note: 5V 主路电压没有明显跌落}

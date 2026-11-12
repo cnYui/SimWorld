@@ -118,6 +118,33 @@
         <geom name="rocker_collision" type="mesh" mesh="rocker_original" rgba=".5 .5 .5 0" group="3" contype="1" conaffinity="1" />
         <site name="rocker_center" size=".001" rgba=".2 .4 .9 1" />
       </body>
+      <!-- External wiring and power (visual only, approximate routing). V0.5 is powered from a
+           USB-C charger in a wall socket below; the servo lead runs from the servo to J3. -->
+      <geom name="servo_lead_0_0" type="capsule" fromto="0.0570 -0.0100 0.0228 0.0660 -0.0100 0.0148" size="0.0006" rgba=".36 .20 .10 1" group="1" contype="0" conaffinity="0" />
+      <geom name="servo_lead_0_1" type="capsule" fromto="0.0660 -0.0100 0.0148 0.0720 -0.0160 0.0098" size="0.0006" rgba=".36 .20 .10 1" group="1" contype="0" conaffinity="0" />
+      <geom name="servo_lead_0_2" type="capsule" fromto="0.0720 -0.0160 0.0098 0.0800 -0.0200 0.0098" size="0.0006" rgba=".36 .20 .10 1" group="1" contype="0" conaffinity="0" />
+      <geom name="servo_lead_0_3" type="capsule" fromto="0.0800 -0.0200 0.0098 0.0900 -0.0220 0.0118" size="0.0006" rgba=".36 .20 .10 1" group="1" contype="0" conaffinity="0" />
+      <geom name="servo_lead_1_0" type="capsule" fromto="0.0570 -0.0100 0.0240 0.0660 -0.0100 0.0160" size="0.0006" rgba=".80 .10 .08 1" group="1" contype="0" conaffinity="0" />
+      <geom name="servo_lead_1_1" type="capsule" fromto="0.0660 -0.0100 0.0160 0.0720 -0.0160 0.0110" size="0.0006" rgba=".80 .10 .08 1" group="1" contype="0" conaffinity="0" />
+      <geom name="servo_lead_1_2" type="capsule" fromto="0.0720 -0.0160 0.0110 0.0800 -0.0200 0.0110" size="0.0006" rgba=".80 .10 .08 1" group="1" contype="0" conaffinity="0" />
+      <geom name="servo_lead_1_3" type="capsule" fromto="0.0800 -0.0200 0.0110 0.0900 -0.0220 0.0130" size="0.0006" rgba=".80 .10 .08 1" group="1" contype="0" conaffinity="0" />
+      <geom name="servo_lead_2_0" type="capsule" fromto="0.0570 -0.0100 0.0252 0.0660 -0.0100 0.0172" size="0.0006" rgba=".95 .55 .10 1" group="1" contype="0" conaffinity="0" />
+      <geom name="servo_lead_2_1" type="capsule" fromto="0.0660 -0.0100 0.0172 0.0720 -0.0160 0.0122" size="0.0006" rgba=".95 .55 .10 1" group="1" contype="0" conaffinity="0" />
+      <geom name="servo_lead_2_2" type="capsule" fromto="0.0720 -0.0160 0.0122 0.0800 -0.0200 0.0122" size="0.0006" rgba=".95 .55 .10 1" group="1" contype="0" conaffinity="0" />
+      <geom name="servo_lead_2_3" type="capsule" fromto="0.0800 -0.0200 0.0122 0.0900 -0.0220 0.0142" size="0.0006" rgba=".95 .55 .10 1" group="1" contype="0" conaffinity="0" />
+      <geom name="j3_plug" type="box" pos="0.0905 -0.022 0.013" size="0.0012 0.0025 0.0038" rgba=".1 .1 .1 1" group="1" contype="0" conaffinity="0" />
+      <geom name="socket_plate" type="box" pos="0.114 -0.135 0.0025" size="0.043 0.043 0.0045" rgba=".95 .95 .93 1" group="1" contype="0" conaffinity="0" />
+      <geom name="socket_slot_0" type="box" pos="0.104 -0.15 0.0072" size="0.0012 0.004 0.0003" rgba=".2 .2 .2 1" group="1" contype="0" conaffinity="0" />
+      <geom name="socket_slot_1" type="box" pos="0.124 -0.15 0.0072" size="0.0012 0.004 0.0003" rgba=".2 .2 .2 1" group="1" contype="0" conaffinity="0" />
+      <geom name="charger" type="box" pos="0.114 -0.122 0.022" size="0.014 0.014 0.015" rgba=".97 .97 .97 1" group="1" contype="0" conaffinity="0" />
+      <geom name="charger_usb" type="box" pos="0.114 -0.108 0.022" size="0.0045 0.0006 0.0018" rgba=".15 .15 .15 1" group="1" contype="0" conaffinity="0" />
+      <geom name="usb_cable_0" type="capsule" fromto="0.1140 -0.1068 0.0220 0.1140 -0.0980 0.0270" size="0.0016" rgba=".12 .12 .13 1" group="1" contype="0" conaffinity="0" />
+      <geom name="usb_cable_1" type="capsule" fromto="0.1140 -0.0980 0.0270 0.1280 -0.0860 0.0360" size="0.0016" rgba=".12 .12 .13 1" group="1" contype="0" conaffinity="0" />
+      <geom name="usb_cable_2" type="capsule" fromto="0.1280 -0.0860 0.0360 0.1320 -0.0680 0.0320" size="0.0016" rgba=".12 .12 .13 1" group="1" contype="0" conaffinity="0" />
+      <geom name="usb_cable_3" type="capsule" fromto="0.1320 -0.0680 0.0320 0.1220 -0.0520 0.0220" size="0.0016" rgba=".12 .12 .13 1" group="1" contype="0" conaffinity="0" />
+      <geom name="usb_cable_4" type="capsule" fromto="0.1220 -0.0520 0.0220 0.1140 -0.0440 0.0170" size="0.0016" rgba=".12 .12 .13 1" group="1" contype="0" conaffinity="0" />
+      <geom name="usb_cable_5" type="capsule" fromto="0.1140 -0.0440 0.0170 0.1140 -0.0340 0.0160" size="0.0016" rgba=".12 .12 .13 1" group="1" contype="0" conaffinity="0" />
+      <geom name="usb_plug" type="box" pos="0.114 -0.036 0.016" size="0.0045 0.004 0.0016" rgba=".6 .6 .62 1" group="1" contype="0" conaffinity="0" />
       <geom name="case_visual" type="mesh" mesh="case_v03" rgba=".66 .73 .76 .55" group="1" contype="0" conaffinity="0" />
       <geom name="lid_visual" type="mesh" mesh="lid_v03_closed" rgba=".71 .78 .80 .10" group="1" contype="0" conaffinity="0" />
       <geom name="pcb_visual_0" type="mesh" mesh="pcb_mesh_0" rgba="0 0 0 1" group="1" contype="0" conaffinity="0" />
