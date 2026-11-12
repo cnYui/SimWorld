@@ -93,7 +93,8 @@ else {
 }
 
 Say 'Check'
-& $venvPy -c @"
+# piped through stdin: Windows PowerShell 5.1 strips double quotes from native-command arguments
+@'
 from emcosim import eda
 from emcosim.toolpaths import find_ngspice
 from emcosim.mcu.qemu import find_qemu
@@ -103,5 +104,5 @@ except RuntimeError:
     q = None
 for name, v in (('KiCad', eda.find_cli()), ('ngspice', find_ngspice()), ('QEMU', q)):
     print(f'{name:8s} {v or "NOT FOUND"}')
-"@
+'@ | & $venvPy -
 Write-Host "`nDone. Start the app: scripts\start.cmd  (opens in your browser)"
