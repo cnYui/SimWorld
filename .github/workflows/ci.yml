@@ -1,0 +1,18 @@
+# Tests on Linux with ngspice; KiCad and QEMU tests are skipped here (see release.yml for QEMU).
+name: ci
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: sudo apt-get update && sudo apt-get install -y --no-install-recommends ngspice
+      - run: pip install -e ".[step,dev]"
+      - run: pytest -q

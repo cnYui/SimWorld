@@ -1,0 +1,71 @@
+# On a version tag (v*): build the patched QEMU for Linux x86_64 and Windows x64 and attach
+# them to the GitHub release. scripts/setup.sh and scripts/setup.ps1 download these.
+# QEMU is GPL-2.0; the matching source is Espressif's tag in qemu/build.sh plus qemu/*.patch.
+name: release
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  qemu-linux:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends git build-essential ninja-build python3 python3-venv \
+            pkg-config libglib2.0-dev libpixman-1-dev libgcrypt20-dev libslirp-dev flex bison
+      - run: qemu/build.sh "$PWD/qemu-out"
+      - run: |
+          cp qemu/README.md qemu/0001-*.patch qemu-out/
+          tar -czf qemu-esp32-cosim-linux-x86_64.tar.gz -C qemu-out .
+      - uses: actions/upload-artifact@v4
+        with:
+          name: qemu-linux
+          path: qemu-esp32-cosim-linux-x86_64.tar.gz
+
+  qemu-windows:
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: msys2 {0}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+          update: true
+          install: >-
+            git make bison flex diffutils zip
+            mingw-w64-x86_64-gcc mingw-w64-x86_64-glib2 mingw-w64-x86_64-pixman
+            mingw-w64-x86_64-libgcrypt mingw-w64-x86_64-ninja
+            mingw-w64-x86_64-meson mingw-w64-x86_64-python mingw-w64-x86_64-python-distlib mingw-w64-x86_64-python-setuptools mingw-w64-x86_64-pkgconf
+      - run: qemu/build-windows.sh "$(cygpath -u "$GITHUB_WORKSPACE")/qemu-win"
+      - run: |
+          cp qemu/README.md qemu/0001-*.patch qemu-win/
+          cd qemu-win && zip -qr ../qemu-esp32-cosim-windows-x64.zip .
+      - uses: actions/upload-artifact@v4
+        with:
+          name: qemu-windows
+          path: qemu-esp32-cosim-windows-x64.zip
+
+  release:
+    needs: [qemu-linux, qemu-windows]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: assets
+          merge-multiple: true
+      - env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          if gh release view "$TAG" -R "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release upload "$TAG" assets/* --clobber -R "$GITHUB_REPOSITORY"
+          else
+            gh release create "$TAG" assets/* -R "$GITHUB_REPOSITORY" --title "SimWorld $TAG" \
+              --notes "Patched QEMU for ESP32 firmware co-simulation, downloaded by scripts/setup. QEMU is GPL-2.0: source = Espressif tag in qemu/build.sh + qemu/0001-*.patch."
+          fi

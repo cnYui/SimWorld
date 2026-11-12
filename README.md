@@ -1,51 +1,49 @@
-# emcosim：电子 + 物理联合仿真平台
+# SimWorld：电子 + 物理联合仿真
 
-把 PCB（KiCad）、3D 模型（STL/STEP）和 ESP32 固件放进同一个仿真里：固件在 Espressif 的 QEMU 里真实运行，引脚输出驱动舵机/直流电机的电气模型，电机力矩进 MuJoCo，电源用等效电路模型，四层按同一个虚拟时钟每 1 ms 交换一次。工程是文本（YAML + MJCF），可以 diff；自带 MCP 服务，AI 可以导入、标注、跑场景、改参数、再跑。主体 Apache-2.0，QEMU 部分见 qemu/README.md（GPL，独立进程）。
+把 PCB 和 3D 模型放进同一个场景，跑真实的电路和物理测试：ESP32 固件在 QEMU 里真实运行，引脚输出驱动舵机/直流电机的电气模型，电机力矩进 MuJoCo，电源用等效电路模型，按同一个虚拟时钟每 1 ms 交换一次；板子用 KiCad 做 DRC/ERC，用 ngspice 按真实网表复核电源。平台本身不带 AI，通过 MCP 把这些能力开放给你自己的 Claude Code 或 Codex，让它改模型、改 PCB、查嘉立创元件，直到测试通过。界面在浏览器里。
 
-第一个示例是本仓库的开关机器人（examples/switch_robot），能复现“舵机堵转 → 5 V 掉压 → ESP32 欠压重启”，并通过 MCP 跑完一轮“测试 → AI 调参 → 重测”，记录在 examples/switch_robot/DEMO.md。
+自带示例是一个按墙上开关的舵机机器人（examples/switch_robot，带 V0.5 控制板），能复现“舵机堵转 → 5 V 掉压 → ESP32 欠压重启”，记录在 examples/switch_robot/DEMO.md。所有电机、电源、开关参数默认值都是按公开规格估的假设值，没有实物标定。
 
-本平台的所有电机、电源、开关参数默认值都是按公开规格估的假设值，没有实物标定；仿真结论只能说明“在这些参数下会怎样”。
-
-## Windows 应用
-
-v0.3 起默认在浏览器里打开：双击 emcosim 会开一个小命令行窗口（关掉它就退出）并在默认浏览器里打开面板。v0.2 的桌面版：一个窗口里看工程（PCB、机构、固件、引脚绑定、电源网络）、改参数、编辑和运行场景（带进度和实时曲线、可取消）、回放结果（3D + 曲线 + 串口）、对比两次运行、扫参，右侧是 AI 聊天面板。安装包由 GitHub Actions 的 emcosim-windows 工作流构建（Actions 页面 → 最新一次运行 → Artifacts → emcosim-windows-installer），里面带了打过补丁的 Windows 版 QEMU 和开关机器人示例，装好即可运行固件联合仿真，不需要 Docker 或 WSL。第一次打开示例时会把它复制到“文档\emcosim”下，运行结果写在那里。
-
-聊天面板的做法和 ChatCut 一样：不自己接 Claude 账号，而是调用你电脑上安装的 Claude Code，并把 emcosim 的工具（get_project、set_param、run_scenario、sweep 等）通过 MCP 挂给它。登录用的是 Claude Code 自己的登录（设置页的“登录 Claude”按钮会运行 claude auth login），费用计入你自己的 Claude 套餐，本软件不保存 Claude 账号凭证；Anthropic 的条款不允许第三方软件自己提供 claude.ai 登录。没有装 Claude Code 时，可以在设置里填 Anthropic API Key（Windows 上用 DPAPI 加密保存），直接调用 Claude API，默认模型 claude-opus-5-5。AI 改的参数会写回 project.yaml，它启动的运行会自动出现在结果页。
-
-不装安装包也能用同一个界面：pip install -e "platform[step,app]" 之后，emcosim app 打开桌面窗口，emcosim serve 在浏览器里打开（地址里带一次性令牌，只监听 127.0.0.1）。
+代码里的包名和命令仍叫 emcosim。主体 Apache-2.0；QEMU 补丁是 GPL，KiCad、ngspice、QEMU 都作为独立程序运行，由安装脚本下载，不在本仓库里（见 NOTICE）。
 
 ## 快速开始
 
-Docker（QEMU、ngspice、OpenGL 都装好了），在仓库根目录：
+Windows 10/11：
 
-    docker build -f platform/Dockerfile -t emcosim .
-    docker run --rm emcosim run toggle_nominal          # 按两次键，开关先开后关
-    docker run --rm emcosim run stall_brownout          # 9 N 硬开关，ESP32 欠压重启
+    git clone https://github.com/cnYui/SimWorld.git
+    cd SimWorld
+    scripts\setup.cmd        # 建 .venv、装依赖；用 winget 装 KiCad；ngspice 和打过补丁的 QEMU 下载到 tools\
+    scripts\start.cmd        # 在浏览器里打开 SimWorld
+
+Linux / macOS：
+
+    git clone https://github.com/cnYui/SimWorld.git && cd SimWorld
+    scripts/setup.sh          # 同上；KiCad、ngspice 用 apt/dnf/brew 装，QEMU 下载预编译版，没有合适的就从源码编译
+    scripts/start.sh
+
+QEMU 预编译版来自本仓库的 Release（打 v* 标签时由 .github/workflows/release.yml 编译）。只想快速看看也可以不装 QEMU：标着“快速”的测试用脚本代替固件，照样能跑。
+
+Docker（QEMU、ngspice 都装好了）：
+
+    docker build -t emcosim .
     docker run --rm -p 8765:8765 -e EMCOSIM_APP_TOKEN=local emcosim serve --host 0.0.0.0 --no-browser
     # 浏览器打开 http://127.0.0.1:8765/#token=local
 
-pip：
-
-    pip install -e "platform[step]"          # step 可选，STEP 导入需要 cascadio
-    platform/qemu/build.sh                   # 编译打过补丁的 QEMU，按提示设置 EMCOSIM_QEMU / EMCOSIM_QEMU_ROMS
-    cd platform/examples/switch_robot
-    emcosim run toggle_nominal
-    emcosim serve      # 或 emcosim app（桌面窗口，需要 pywebview）
-
-不装 QEMU 也能跑 mcu_backend: scripted 的场景（例如 servo_sweep_scripted），这时引脚波形由场景文件直接给出，用来快速扫机械和电气参数。ngspice 只在离线标定时需要（apt install ngspice）。
-
 ## 接到 AI（MCP）
 
-平台本身不带 AI。用你自己的 Claude Code 或 Codex 连上它的 MCP 服务，就能让 AI 改模型、改 PCB、跑检查和测试，面板会自动显示 AI 跑出来的结果。面板右上角“连接 AI”会给出这台电脑上可以直接复制的命令。
+页面右下角“连接 AI”有两个按钮：复制给 Claude Code、复制给 Codex。把复制的话发给你的 AI，它会自己把 SimWorld 的 MCP 服务配好。连上后它操作的就是浏览器里开着的那个页面：可以直接说“打开示例工程”“打开 D:\xxx 这个工程”“新建一个工程”（open_example、open_project、new_project，页面会跟着切过去），也可以让它改模型、改 PCB、跑测试，跑的每次测试都会出现在页面上。没打开工程时也能连。
+
+手动配置：
 
     # Claude Code
-    claude mcp add emcosim -- emcosim --project /path/to/platform/examples/switch_robot mcp
-    # Docker：claude mcp add emcosim -- docker run --rm -i emcosim mcp
+    claude mcp add -s user emcosim -- <SimWorld 目录>/.venv/bin/python -m emcosim mcp
 
     # Codex：~/.codex/config.toml
     [mcp_servers.emcosim]
-    command = "emcosim"
-    args = ["--project", "/path/to/platform/examples/switch_robot", "mcp"]
+    command = "<SimWorld 目录>/.venv/bin/python"
+    args = ["-m", "emcosim", "mcp"]
+
+（Windows 上 python 在 .venv\Scripts\python.exe。）MCP 服务通过 %APPDATA%\emcosim\live.json（Linux 是 ~/.config/emcosim/live.json）找到正在运行的页面。
 
 内核工具（v0.3）：board_import（经 KiCad 的导入器读 .kicad_pcb、嘉立创EDA 导出的 .epro、Altium、Eagle，加上原 EDA 的网表补齐焊盘网络）、board_drc / board_erc（KiCad 的 DRC/ERC，导入时写入嘉立创两层板工艺规则）、board_netlist、board_edit（用 KiCad 自己的板子模型移元件、改值、改字段、改线宽和间距，每次留 .bak 备份并自动重跑 DRC）、schematic_edit、board_export_3d、circuit_check（用板子的真实网表和 ngspice 重算一次运行的电源路径，和联合仿真对比）、model_info / model_edit（按名字改 MuJoCo 模型的属性，改完必须能被 MuJoCo 编译，否则不保存）。元件查询（内置）：parts_search、part_info、parts_alternatives、board_parts_status 查嘉立创在库元件、实时库存和价格、可替换料，数据来自开源的 PCB Parts MCP（github.com/Averyy/jlcpcb-mcp，MIT 许可，作者公开运行在 pcbparts.dev/mcp）；emcosim 作为它的客户端把这几个工具并进自己的 MCP，用户只需要连一个服务。上游项目实时查询用的是绕过网站反爬的 HTTP 客户端，emcosim 不在本机运行那一部分；EMCOSIM_PARTS_MCP 可以指向自己部署的实例。面板 PCB 页的“现在库存”列也走这条路。需要本机装好 KiCad 9（kicad.org/download，Windows 默认路径会自动找到，或设 EMCOSIM_KICAD_CLI）和 ngspice。
 
@@ -67,7 +65,7 @@ pip：
 
 ## 发送到拓竹 Bambu Studio
 
-project.yaml 的 printing.parts 列出可打印零件（开关机器人示例引用了 mechanical/ 下的 5 个 PRINT_*.stl）。emcosim print [零件名] 或界面里的“打印”页会把选中的零件打成一个 3MF（保持 STL 导出时的打印朝向，平铺在热床上），然后交给 Bambu Studio 打开：先找 bambu-studio.exe（注册表和默认安装目录）用命令行参数打开，找不到时用 MakerWorld 用的 bambustudio://open?file= 链接，文件由本机 127.0.0.1 临时提供一次。--with-settings 会把推荐的层高、外墙、填充写进 3MF 的 Metadata/model_settings.config，这个格式拓竹没有公开，是按 Bambu Studio 自己保存的格式写的，没在真机上验证，默认关闭。拓竹 wiki 公开的 bambu-connect://import-file 协议导入的是切好片的 .gcode.3mf，用于直接下发打印机，不适合导入模型。
+project.yaml 的 printing.parts 列出可打印零件（开关机器人示例带了 5 个 PRINT_*.stl，在 examples/switch_robot/print/）。emcosim print [零件名] 或界面里的“打印”页会把选中的零件打成一个 3MF（保持 STL 导出时的打印朝向，平铺在热床上），然后交给 Bambu Studio 打开：先找 bambu-studio.exe（注册表和默认安装目录）用命令行参数打开，找不到时用 MakerWorld 用的 bambustudio://open?file= 链接，文件由本机 127.0.0.1 临时提供一次。--with-settings 会把推荐的层高、外墙、填充写进 3MF 的 Metadata/model_settings.config，这个格式拓竹没有公开，是按 Bambu Studio 自己保存的格式写的，没在真机上验证，默认关闭。拓竹 wiki 公开的 bambu-connect://import-file 协议导入的是切好片的 .gcode.3mf，用于直接下发打印机，不适合导入模型。
 
 ## 3D 打印件强度校核
 
@@ -99,6 +97,6 @@ v0.1 只支持 ESP32（不含 S3/C3）、舵机和直流电机、KiCad。电机�
 
 ## 测试
 
-    cd platform && pytest -q
+    pytest -q
 
 设置了 EMCOSIM_QEMU 时会跑固件联合仿真的用例，装了 ngspice 时会跑标定用例，否则跳过。

@@ -1,0 +1,101 @@
+# Builds the emcosim Windows app: patched QEMU (MSYS2/MinGW), tests on Windows,
+# PyInstaller folder, Inno Setup installer. The installer is uploaded as a
+# workflow artifact (Actions run page → Artifacts).
+name: emcosim-windows
+
+on:
+  push:
+    paths-ignore: ['**.md']
+  pull_request:
+    paths-ignore: ['**.md']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  qemu:
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: msys2 {0}
+    steps:
+      - uses: actions/checkout@v4
+      - id: key
+        shell: bash
+        run: echo "hash=${{ hashFiles('qemu/0001-esp32-cosim-gpio-ledc-lockstep.patch', 'qemu/build-windows.sh') }}" >> "$GITHUB_OUTPUT"
+      - uses: actions/cache@v4
+        id: cache
+        with:
+          path: qemu-win
+          key: qemu-win-${{ steps.key.outputs.hash }}
+      - uses: msys2/setup-msys2@v2
+        if: steps.cache.outputs.cache-hit != 'true'
+        with:
+          msystem: MINGW64
+          update: true
+          install: >-
+            git make bison flex diffutils
+            mingw-w64-x86_64-gcc mingw-w64-x86_64-glib2 mingw-w64-x86_64-pixman
+            mingw-w64-x86_64-libgcrypt mingw-w64-x86_64-ninja
+            mingw-w64-x86_64-meson mingw-w64-x86_64-python mingw-w64-x86_64-python-distlib mingw-w64-x86_64-python-setuptools mingw-w64-x86_64-pkgconf
+      - name: Build QEMU
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: qemu/build-windows.sh "$(cygpath -u "$GITHUB_WORKSPACE")/qemu-win"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: qemu-win
+          path: qemu-win
+
+  app:
+    needs: qemu
+    runs-on: windows-latest
+    env:
+      PYTHONUTF8: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: qemu-win
+          path: qemu-win
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install
+        working-directory: .
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[step,app,dev]" pyinstaller
+      - name: Tests (firmware co-simulation through the Windows QEMU over TCP)
+        working-directory: .
+        env:
+          EMCOSIM_QEMU: ${{ github.workspace }}\qemu-win\qemu-system-xtensa.exe
+          EMCOSIM_QEMU_ROMS: ${{ github.workspace }}\qemu-win\share\qemu
+        run: pytest -q
+      - name: Stage and freeze
+        working-directory: .
+        run: |
+          python packaging/windows/stage.py --qemu qemu-win
+          pyinstaller packaging/windows/emcosim.spec --noconfirm
+      - name: Smoke test the frozen app
+        working-directory: .
+        shell: bash
+        run: |
+          ./dist/emcosim/emcosim.exe --version
+          ./dist/emcosim/emcosim.exe --project dist/emcosim/examples/switch_robot run servo_sweep_scripted > /dev/null
+          ./dist/emcosim/emcosim.exe --project dist/emcosim/examples/switch_robot run stall_brownout | tee run.json || true
+          grep -q '"mcu.resets": 2' run.json
+      - name: Installer
+        working-directory: .
+        shell: pwsh
+        run: |
+          Invoke-WebRequest https://go.microsoft.com/fwlink/p/?LinkId=2124703 -OutFile packaging/windows/MicrosoftEdgeWebview2Setup.exe
+          # The runner's Inno Setup does not ship the Simplified Chinese messages file.
+          Invoke-WebRequest https://raw.githubusercontent.com/jrsoftware/issrc/main/Files/Languages/ChineseSimplified.isl -OutFile packaging/windows/ChineseSimplified.isl
+          $ver = (Select-String -Path pyproject.toml -Pattern '^version = "(.+)"').Matches[0].Groups[1].Value
+          & "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" "/DAppVersion=$ver" packaging/windows/emcosim.iss
+      - uses: actions/upload-artifact@v4
+        with:
+          name: emcosim-windows-installer
+          path: dist/*.exe
+          retention-days: 30

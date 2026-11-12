@@ -13,7 +13,7 @@
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 TOOLS="$ROOT/tools"
-REPO="${EMCOSIM_REPO:-}"
+REPO="${EMCOSIM_REPO:-cnYui/SimWorld}"   # GitHub repository whose releases carry the QEMU builds
 SYSTEM=1; BUILD_QEMU=0
 for a in "$@"; do
   case "$a" in
@@ -26,10 +26,6 @@ say() { printf '\n== %s\n' "$*"; }
 have() { command -v "$1" >/dev/null 2>&1; }
 SUDO=""; [ "$(id -u)" -ne 0 ] && have sudo && SUDO="sudo"
 
-if [ -z "$REPO" ]; then        # owner/name of this clone's GitHub repository
-  url="$(git -C "$ROOT" remote get-url origin 2>/dev/null || true)"
-  REPO="$(printf '%s' "$url" | sed -nE 's#.*github\.com[:/]([^/]+/[^/.]+)(\.git)?/?$#\1#p')"
-fi
 
 say "Python environment (.venv)"
 PY="${PYTHON:-}"

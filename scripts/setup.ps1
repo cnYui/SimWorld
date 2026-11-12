@@ -23,11 +23,8 @@ function Fetch($url, $out) {
   if ($LASTEXITCODE -ne 0) { throw "download failed: $url" }
 }
 
-$Repo = $env:EMCOSIM_REPO
-if (-not $Repo) {
-  $url = try { (& git -C $Root remote get-url origin 2>$null) } catch { '' }
-  if ($url -match 'github\.com[:/]([^/]+/[^/.]+?)(\.git)?/?$') { $Repo = $Matches[1] }
-}
+# GitHub repository whose releases carry the QEMU builds
+$Repo = if ($env:EMCOSIM_REPO) { $env:EMCOSIM_REPO } else { 'cnYui/SimWorld' }
 
 Say 'Python environment (.venv)'
 $py = $null
@@ -84,7 +81,6 @@ else {
 Say 'Patched QEMU (ESP32 firmware tests)'
 $q = Join-Path $Tools 'qemu'
 if (Test-Path (Join-Path $q 'qemu-system-xtensa.exe')) { Write-Host 'already in tools\qemu' }
-elseif (-not $Repo) { Write-Host 'cannot tell which GitHub repository this clone came from; set EMCOSIM_REPO=owner/name and run again' }
 else {
   $zip = Join-Path $Tools 'qemu-esp32-cosim-windows-x64.zip'
   try {

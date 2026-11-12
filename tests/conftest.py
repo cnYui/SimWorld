@@ -7,7 +7,6 @@ import pytest
 from emcosim.toolpaths import find_ngspice
 
 PLATFORM = Path(__file__).resolve().parents[1]
-REPO = PLATFORM.parent
 EXAMPLE = PLATFORM / 'examples' / 'switch_robot'
 
 

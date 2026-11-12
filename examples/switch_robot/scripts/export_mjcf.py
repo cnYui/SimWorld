@@ -1,7 +1,8 @@
-"""Export the switch-robot MuJoCo model from ../../../simulation/model.py
+"""Export the switch-robot MuJoCo model from ../../../simulation/model.py (only in the
+switch-robot-diy repository, where this example was made; the result is checked in)
 (read-only reuse) into mechanics/switch_robot.xml.
 
-Changes against the original XML: mesh paths point back into simulation/assets
+Changes against the original XML: the meshes are copied into mechanics/assets
 (nothing copied), and the torque-source `servo_motor` actuator and its sensor
 are removed because emcosim's servo model applies the torque. The rocker's
 bistable spring, which model.py applies in Python, becomes the `rocker_detent`
@@ -20,7 +21,13 @@ import model  # noqa: E402  (simulation/model.py)
 p = model.parameters()
 root = ET.fromstring(model.make_xml(p))
 out = HERE / 'mechanics' / 'switch_robot.xml'
-root.find('compiler').set('meshdir', os.path.relpath(SIM / 'assets', out.parent).replace('\\', '/'))
+# meshes are copied next to the model so the example works on its own (SimWorld repository)
+import shutil  # noqa: E402
+(out.parent / 'assets').mkdir(exist_ok=True)
+for m in root.iter('mesh'):
+    if m.get('file'):
+        shutil.copy2(SIM / 'assets' / m.get('file'), out.parent / 'assets' / m.get('file'))
+root.find('compiler').set('meshdir', 'assets')
 for tag in ('actuator',):
     for el in root.findall(tag):
         root.remove(el)

@@ -1,0 +1,301 @@
+(PCB "PCB1"
+  (parser
+    (host_cad "EasyEDA Pro")
+    (host_version "4.1.78")
+  )
+  (resolution mil 1000)
+  (structure
+    (boundary(path signal 0 0 0 0 1574.8 2362.2 1574.8 2362.2 0 0 0 )
+    )
+    (via via0
+    )
+    (grid via   0.25)
+    (grid wire   0.25)
+    (grid place   0.25)
+    (rule(clear 6.03))
+    (rule(clear 6.03 (type default_smd)))
+    (rule(clear 6.03 (type smd_smd)))
+    (rule(width 10.05))
+    (layer TopLayer
+      (type signal)
+    )
+    (layer BottomLayer
+      (type signal)
+    )
+  )
+
+  (placement
+    (component u1
+      (place u1 0 0 front 0
+      )
+    )
+  )
+  (library
+    (image u1
+      (pin pc8d21bc556c6b78411 c8d21bc556c6b78411 962.99 354.33)
+      (pin pc8d21bc556c6b78411 c8d21bc556c6b78412 1162.99 354.33)
+      (pin pba500f922d47295e11 ba500f922d47295e11 1112.2 708.66)
+      (pin pba500f922d47295e11 ba500f922d47295e12 1013.78 708.66)
+      (pin p416cc546b79b4dfe7 416cc546b79b4dfe7 529.92 354.33)
+      (pin p416cc546b79b4dfe7 416cc546b79b4dfe8 729.92 354.33)
+      (pin p13b0cf9bb2b9dfee10 13b0cf9bb2b9dfee10 314.96 304.33)
+      (pin p13b0cf9bb2b9dfee11 13b0cf9bb2b9dfee11 314.96 404.33)
+      (pin pbf5da5133a974d6e13 bf5da5133a974d6e13 744.88 1397.64)
+      (pin pbf5da5133a974d6e14 bf5da5133a974d6e14 844.88 1397.64)
+      (pin pbf5da5133a974d6e14 bf5da5133a974d6e15 944.88 1397.64)
+      (pin pbf5da5133a974d6e14 bf5da5133a974d6e16 1044.88 1397.64)
+      (pin pbf5da5133a974d6e14 bf5da5133a974d6e17 1144.88 1397.64)
+      (pin p8713f789c9e653ce11 8713f789c9e653ce11 275.59 844.88)
+      (pin pbf5da5133a974d6e14 8713f789c9e653ce12 275.59 944.88)
+      (pin pbf5da5133a974d6e14 8713f789c9e653ce13 275.59 1044.88)
+      (pin p13b0cf9bb2b9dfee10 b1d619c3d215647010 2086.61 461.81)
+      (pin p13b0cf9bb2b9dfee11 b1d619c3d215647011 2086.61 561.81)
+      (pin p13b0cf9bb2b9dfee10 dc27070f13690a1e10 2086.61 1012.99)
+      (pin p13b0cf9bb2b9dfee11 dc27070f13690a1e11 2086.61 1112.99)
+      (pin p9a3aad8487bbbb3e19 9a3aad8487bbbb3e19 1141.73 794.88)
+      (pin p9a3aad8487bbbb3e19 9a3aad8487bbbb3e20 1141.73 1094.88)
+      (pin p9a3aad8487bbbb3e19 6d659f9a496f3c4e19 1149.21 1220.47)
+      (pin p9a3aad8487bbbb3e19 6d659f9a496f3c4e20 1449.21 1220.47)
+      (pin p9a3aad8487bbbb3e19 7c0955195c69a26619 519.29 905.51)
+      (pin p9a3aad8487bbbb3e19 7c0955195c69a26620 819.29 905.51)
+      (pin p9a3aad8487bbbb3e19 32131a1baa38d11f19 519.29 1082.68)
+      (pin p9a3aad8487bbbb3e19 32131a1baa38d11f20 819.29 1082.68)
+      (pin p9a3aad8487bbbb3e19 55739aa5b4482c6219 440.55 708.66)
+      (pin p9a3aad8487bbbb3e19 55739aa5b4482c6220 740.55 708.66)
+      (pin p9a3aad8487bbbb3e19 f1e2f0c5e78caace19 440.55 1220.47)
+      (pin p9a3aad8487bbbb3e19 f1e2f0c5e78caace20 740.55 1220.47)
+      (pin p416cc546b79b4dfe7 fa354d8b015169ee19 1503.55 461.61)
+      (pin p416cc546b79b4dfe7 fa354d8b015169ee20 1803.55 462.01)
+      (pin p416cc546b79b4dfe7 fa354d8b015169ee21 1803.55 562.01)
+      (pin pfa354d8b015169ee22 fa354d8b015169ee22 1503.54 561.61)
+      (pin p416cc546b79b4dfe7 9ccd0a0171367fc119 1503.55 1012.79)
+      (pin p416cc546b79b4dfe7 9ccd0a0171367fc120 1803.55 1013.19)
+      (pin p416cc546b79b4dfe7 9ccd0a0171367fc121 1803.55 1113.19)
+      (pin pfa354d8b015169ee22 9ccd0a0171367fc122 1503.54 1112.79)
+      (pin p6c9bf34937c1b18 6c9bf34937c1b18 157.48 157.48)
+      (pin p6c9bf34937c1b18 420953f3208680c3 2204.72 157.48)
+      (pin p6c9bf34937c1b18 2481429c2c8708c0 2204.72 1417.32)
+      (pin p6c9bf34937c1b18 42cc9d0b4996b883 157.48 1417.32)
+    )
+
+    (padstack via0
+      (shape(circle TopLayer 24))
+      (shape(circle BottomLayer 24))
+    )
+
+    (padstack pc8d21bc556c6b78411
+      (shape(circle TopLayer 62.99 0 0))
+      (shape(circle BottomLayer 62.99 0 0))
+    )
+    (padstack pba500f922d47295e11
+      (shape(circle TopLayer 55.12 0 0))
+      (shape(circle BottomLayer 55.12 0 0))
+    )
+    (padstack p416cc546b79b4dfe7
+      (shape(circle TopLayer 70.87 0 0))
+      (shape(circle BottomLayer 70.87 0 0))
+    )
+    (padstack p13b0cf9bb2b9dfee10
+      (shape(polygon TopLayer 0.1 39.37 -39.37 -39.37 -39.37 -39.37 -39.37 -39.37 39.37 -39.37 39.37 39.37 39.37 39.37 39.37 39.37 -39.37))
+      (shape(polygon BottomLayer 0.1 39.37 -39.37 -39.37 -39.37 -39.37 -39.37 -39.37 39.37 -39.37 39.37 39.37 39.37 39.37 39.37 39.37 -39.37))
+    )
+    (padstack p13b0cf9bb2b9dfee11
+      (shape(circle TopLayer 78.74 0 0))
+      (shape(circle BottomLayer 78.74 0 0))
+    )
+    (padstack pbf5da5133a974d6e13
+      (shape(polygon TopLayer 0.1 -33.46 -33.46 -33.46 33.46 -33.46 33.46 33.46 33.46 33.46 33.46 33.46 -33.46 33.46 -33.46 -33.46 -33.46))
+      (shape(polygon BottomLayer 0.1 -33.46 -33.46 -33.46 33.46 -33.46 33.46 33.46 33.46 33.46 33.46 33.46 -33.46 33.46 -33.46 -33.46 -33.46))
+    )
+    (padstack pbf5da5133a974d6e14
+      (shape(circle TopLayer 66.93 0 0))
+      (shape(circle BottomLayer 66.93 0 0))
+    )
+    (padstack p8713f789c9e653ce11
+      (shape(polygon TopLayer 0.1 33.46 -33.46 -33.46 -33.46 -33.46 -33.46 -33.46 33.46 -33.46 33.46 33.46 33.46 33.46 33.46 33.46 -33.46))
+      (shape(polygon BottomLayer 0.1 33.46 -33.46 -33.46 -33.46 -33.46 -33.46 -33.46 33.46 -33.46 33.46 33.46 33.46 33.46 33.46 33.46 -33.46))
+    )
+    (padstack p9a3aad8487bbbb3e19
+      (shape(circle TopLayer 51.18 0 0))
+      (shape(circle BottomLayer 51.18 0 0))
+    )
+    (padstack pfa354d8b015169ee22
+      (shape(polygon TopLayer 0.1 35.43 -35.43 -35.43 -35.43 -35.43 -35.43 -35.43 35.43 -35.43 35.43 35.43 35.43 35.43 35.43 35.43 -35.43))
+      (shape(polygon BottomLayer 0.1 35.43 -35.43 -35.43 -35.43 -35.43 -35.43 -35.43 35.43 -35.43 35.43 35.43 35.43 35.43 35.43 35.43 -35.43))
+    )
+    (padstack p6c9bf34937c1b18
+      (shape(circle TopLayer 125.98 0 0))
+      (shape(circle BottomLayer 125.98 0 0))
+    )
+  )
+  (network
+    (net V5_SERVO
+      (pins u1-c8d21bc556c6b78411 u1-ba500f922d47295e12 u1-416cc546b79b4dfe8 u1-8713f789c9e653ce12)
+    )
+    (net GND
+      (pins u1-c8d21bc556c6b78412 u1-ba500f922d47295e11 u1-13b0cf9bb2b9dfee11 u1-bf5da5133a974d6e13 u1-bf5da5133a974d6e17 u1-8713f789c9e653ce11 u1-7c0955195c69a26620 u1-32131a1baa38d11f20 u1-f1e2f0c5e78caace20 u1-fa354d8b015169ee19 u1-9ccd0a0171367fc119)
+    )
+    (net VIN5
+      (pins u1-416cc546b79b4dfe7 u1-13b0cf9bb2b9dfee10)
+    )
+    (net PWM_IN
+      (pins u1-bf5da5133a974d6e14 u1-55739aa5b4482c6219 u1-f1e2f0c5e78caace19)
+    )
+    (net KEY1
+      (pins u1-bf5da5133a974d6e15 u1-9a3aad8487bbbb3e19 u1-7c0955195c69a26619)
+    )
+    (net KEY2
+      (pins u1-bf5da5133a974d6e16 u1-6d659f9a496f3c4e19 u1-32131a1baa38d11f19)
+    )
+    (net SERVO_SIG
+      (pins u1-8713f789c9e653ce13 u1-55739aa5b4482c6220)
+    )
+    (net BTN1_A
+      (pins u1-b1d619c3d215647010 u1-fa354d8b015169ee21)
+    )
+    (net BTN1_B
+      (pins u1-b1d619c3d215647011 u1-fa354d8b015169ee20)
+    )
+    (net BTN2_A
+      (pins u1-dc27070f13690a1e10 u1-9ccd0a0171367fc121)
+    )
+    (net BTN2_B
+      (pins u1-dc27070f13690a1e11 u1-9ccd0a0171367fc120)
+    )
+    (net LED1
+      (pins u1-9a3aad8487bbbb3e20 u1-fa354d8b015169ee22)
+    )
+    (net LED2
+      (pins u1-6d659f9a496f3c4e20 u1-9ccd0a0171367fc122)
+    )
+    (class V5_SERVO 'V5_SERVO'
+      (circuit 
+        (use_via via0)
+      )
+      (rule 
+        (width 10)
+        (clearance 4.02)
+      )
+    )
+    (class GND 'GND'
+      (circuit 
+        (use_via via0)
+      )
+      (rule 
+        (width 10)
+        (clearance 4.02)
+      )
+    )
+    (class VIN5 'VIN5'
+      (circuit 
+        (use_via via0)
+      )
+      (rule 
+        (width 10)
+        (clearance 4.02)
+      )
+    )
+    (class PWM_IN 'PWM_IN'
+      (circuit 
+        (use_via via0)
+      )
+      (rule 
+        (width 10)
+        (clearance 4.02)
+      )
+    )
+    (class KEY1 'KEY1'
+      (circuit 
+        (use_via via0)
+      )
+      (rule 
+        (width 10)
+        (clearance 4.02)
+      )
+    )
+    (class KEY2 'KEY2'
+      (circuit 
+        (use_via via0)
+      )
+      (rule 
+        (width 10)
+        (clearance 4.02)
+      )
+    )
+    (class SERVO_SIG 'SERVO_SIG'
+      (circuit 
+        (use_via via0)
+      )
+      (rule 
+        (width 10)
+        (clearance 4.02)
+      )
+    )
+    (class BTN1_A 'BTN1_A'
+      (circuit 
+        (use_via via0)
+      )
+      (rule 
+        (width 10)
+        (clearance 4.02)
+      )
+    )
+    (class BTN1_B 'BTN1_B'
+      (circuit 
+        (use_via via0)
+      )
+      (rule 
+        (width 10)
+        (clearance 4.02)
+      )
+    )
+    (class BTN2_A 'BTN2_A'
+      (circuit 
+        (use_via via0)
+      )
+      (rule 
+        (width 10)
+        (clearance 4.02)
+      )
+    )
+    (class BTN2_B 'BTN2_B'
+      (circuit 
+        (use_via via0)
+      )
+      (rule 
+        (width 10)
+        (clearance 4.02)
+      )
+    )
+    (class LED1 'LED1'
+      (circuit 
+        (use_via via0)
+      )
+      (rule 
+        (width 10)
+        (clearance 4.02)
+      )
+    )
+    (class LED2 'LED2'
+      (circuit 
+        (use_via via0)
+      )
+      (rule 
+        (width 10)
+        (clearance 4.02)
+      )
+    )
+    (class  ''
+      (circuit 
+        (use_via via0)
+      )
+      (rule 
+        (width 10)
+        (clearance 4.02)
+      )
+    )
+  )
+
+  (wiring
+  )
+)

@@ -13,3 +13,5 @@ qemu/src-win/
 qemu/out-win/
 __tracked_surface.stl
 packaging/windows/ChineseSimplified.isl
+tools/
+.venv/

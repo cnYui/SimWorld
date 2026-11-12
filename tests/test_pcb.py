@@ -1,10 +1,12 @@
 from emcosim.importers import easyeda_pro, kicad
 
-from conftest import EXAMPLE, REPO
+from pathlib import Path
+
+from conftest import EXAMPLE
 
 
 def test_easyeda_conversion_keeps_netlist(tmp_path):
-    v04 = REPO / 'electronics' / 'v04'
+    v04 = Path(__file__).parent / 'data' / 'v04'      # copy of switch-robot-diy electronics/v04
     out = tmp_path / 'carrier.kicad_pcb'
     stats = easyeda_pro.convert(v04 / 'carrier_v04.epcb', v04 / 'carrier_v04.dsn', out, v04 / 'carrier_v04_bom.csv')
     assert stats == {'components': 16, 'tracks': 69, 'nets': 13, 'holes': 4}
