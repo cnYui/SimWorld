@@ -1,5 +1,5 @@
 // The simple panel: pick a test, it runs, and you watch it. One screen, no setup.
-// 3D view + side close-up + live readout + two charts (angles, contact force).
+// 3D view + live readout + two charts (angles, contact force).
 import { get, post } from '../api.js';
 import { store } from '../store.js';
 import { h, icon, clear, toast, toastError, fmtNum, cssVar } from '../ui.js';
@@ -12,7 +12,7 @@ export function createPanel(ctx) {
   const el = h('section', { class: 'screen panel' });
   const D = {};
   let runId = null, meta = null, sig = {}, dur = 0, tNow = 0, playing = false, lastFrame = 0;
-  let main3d = null, side3d = null, angleChart = null, forceChart = null;
+  let main3d = null, angleChart = null, forceChart = null;
   let pendingJob = null, selected = null;
 
   el.append(
@@ -24,9 +24,7 @@ export function createPanel(ctx) {
     D.banner = h('div', { class: 'pn-banner', hidden: true }),
     h('div', { class: 'pn-body' },
       D.view = h('div', { class: 'pn-view' }, h('span', { class: 'pn-tag' }, '打印件、PCB 与外壳同一场景')),
-      h('div', { class: 'pn-right' },
-        D.side = h('div', { class: 'pn-side' }, h('span', { class: 'pn-tag' }, '侧视：接触点 / 翘板两个稳定位置')),
-        D.readout = h('div', { class: 'pn-readout' }))),
+      D.readout = h('div', { class: 'pn-readout' })),
     h('div', { class: 'pn-play' },
       D.playBtn = h('button', { class: 'btn icon', 'aria-label': '播放', onclick: () => togglePlay() }, '▶'),
       D.slider = h('input', { type: 'range', min: 0, max: 1000, value: 0, 'aria-label': '时间' }),
@@ -116,7 +114,6 @@ export function createPanel(ctx) {
     await ensure3d();
     const loads = [];
     if (main3d?.ok) loads.push(main3d.load(id));
-    if (side3d?.ok) loads.push(side3d.load(id).then((ok) => ok && side3d.sideView()));
     await Promise.allSettled(loads);
     setTime(0);
     play();
@@ -175,8 +172,6 @@ export function createPanel(ctx) {
     if (main3d) return;
     const { Replay3D } = await import('../replay3d.js');
     main3d = new Replay3D(D.view);
-    side3d = new Replay3D(D.side);
-    window.__emcosimSide = side3d;   // for UI tests
     if (!main3d.ok) D.view.append(h('div', { class: 'empty' }, main3d.error));
   }
 
@@ -191,7 +186,7 @@ export function createPanel(ctx) {
 
   function setTime(t) {
     tNow = Math.max(0, Math.min(t, dur || 0));
-    main3d?.setTime(tNow); side3d?.setTime(tNow);
+    main3d?.setTime(tNow);
     angleChart?.setCursor(tNow); forceChart?.setCursor(tNow);
     D.slider.value = dur ? Math.round(tNow / dur * 1000) : 0;
     D.time.textContent = `${tNow.toFixed(2)} s / ${dur.toFixed(2)} s`;
@@ -258,7 +253,7 @@ export function createPanel(ctx) {
         const first = scenarios().find((s) => !s.needs_qemu || store.app?.qemu?.found);
         if (first) pick(first.name, false);
       } else renderReadout();
-      main3d?.resize(); side3d?.resize();
+      main3d?.resize();
     },
     hide() { stop(); },
     openRun,
