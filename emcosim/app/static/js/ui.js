@@ -269,8 +269,8 @@ export async function nativePick(kind) {
   } catch (e) { return undefined; }
 }
 
-export function copyText(text) {
-  const done = () => toast(`已复制：${text}`, { timeout: 1800 });
+export function copyText(text, message) {
+  const done = () => toast(message || `已复制：${text}`, { timeout: 2500 });
   if (navigator.clipboard?.writeText) navigator.clipboard.writeText(text).then(done, () => fallback());
   else fallback();
   function fallback() {

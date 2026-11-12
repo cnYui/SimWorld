@@ -559,8 +559,20 @@ def _ai_setup(root):
     claude = 'claude mcp add emcosim -- ' + ' '.join(q(x) for x in [cmd[0], *args])
     toml_list = ', '.join(json.dumps(a) for a in args)
     codex = f'[mcp_servers.emcosim]\ncommand = {json.dumps(cmd[0])}\nargs = [{toml_list}]'
-    return {'claude_code': claude, 'codex': codex, 'project': str(root),
-            'codex_config': str(Path.home() / '.codex' / 'config.toml')}
+    claude = claude.replace('claude mcp add emcosim', 'claude mcp add -s user emcosim', 1)
+    codex_cfg = str(Path.home() / '.codex' / 'config.toml')
+    prompt = (
+        '请帮我把本机的 emcosim 电子+物理仿真平台接到你这里（MCP 服务，stdio）。\n\n'
+        f'如果你是 Claude Code：在终端运行下面这条命令（已经装过 emcosim 的话先运行 claude mcp remove -s user emcosim）：\n'
+        f'{claude}\n\n'
+        f'如果你是 Codex：打开 {codex_cfg}（没有就新建），加入下面这段；已有 [mcp_servers.emcosim] 就整段替换：\n'
+        f'{codex}\n\n'
+        '配好后：如果你现在就能调用 emcosim 的工具，调用 get_project，告诉我连上了、工程里有哪些测试；'
+        '如果要重启会话才生效，告诉我重启后说“检查 emcosim”。\n\n'
+        f'说明：emcosim 的工程在 {root}。连上后你可以改 3D 模型（model_edit）、用 KiCad 检查和修改 PCB'
+        '（board_drc、board_edit）、跑电路检查（circuit_check）和仿真测试（run_scenario）、查嘉立创元件（parts_search、part_info）。'
+        '改动前先告诉我要改什么。')
+    return {'claude_code': claude, 'codex': codex, 'project': str(root), 'codex_config': codex_cfg, 'prompt': prompt}
 
 
 def serve(project_root=None, port=8765, host='127.0.0.1', open_browser=True):

@@ -626,3 +626,6 @@ pre.log { background: var(--sunken); border: 1px solid var(--line); border-radiu
 .pn-pcb { flex: none; }
 .pn-parts-wrap { flex: none; height: 480px; }
 .pn-pcb-body { min-height: 0; }
+.pn-ai-prompt { max-height: 260px; overflow: auto; font-family: inherit; font-size: 13px; line-height: 1.6; margin-bottom: 8px !important; }
+.pn-ai-manual { margin: 4px 0 10px; }
+.pn-ai-manual summary { cursor: pointer; color: var(--text-2, var(--text)); margin-bottom: 8px; }

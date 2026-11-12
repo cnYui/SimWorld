@@ -148,15 +148,19 @@ export function createPanel(ctx) {
         h('button', { class: 'btn sm', type: 'button', onclick: () => copyText(text) }, '复制')),
       h('pre', { class: 'mono' }, text), hint ? h('div', { class: 'muted small' }, hint) : null);
     modal({
-      title: '连接 Claude Code 或 Codex',
+      title: '连接你的 AI（Claude Code 或 Codex）',
       width: '720px',
       body: h('div', { class: 'pn-ai' },
-        h('p', {}, '连上以后，你的 AI 助手可以直接在这个工程里改 3D 模型、改 PCB、跑 KiCad 检查、跑仿真测试。',
-          '它跑的每一次测试都会自动出现在这个页面上。'),
-        block('Claude Code：在终端里运行一次', s.claude_code),
-        block('Codex：把这段加到配置文件里', s.codex, `配置文件位置：${s.codex_config}`),
+        h('p', {}, '复制下面这段话，发给你电脑上的 Claude Code 或 Codex，它会自己配置好并连上。',
+          '连上以后，它可以改 3D 模型、改 PCB、跑 KiCad 检查和仿真测试、查嘉立创元件，跑的每次测试都会出现在这个页面上。'),
+        h('div', { class: 'pn-ai-block' },
+          h('pre', { class: 'pn-ai-prompt' }, s.prompt),
+          h('button', { class: 'btn primary', type: 'button', onclick: () => copyText(s.prompt, '已复制，粘贴发给你的 AI 就行') }, '复制这段话')),
+        h('details', { class: 'pn-ai-manual' }, h('summary', {}, '自己手动配置'),
+          block('Claude Code：在终端里运行一次', s.claude_code),
+          block('Codex：把这段加到配置文件里', s.codex, `配置文件位置：${s.codex_config}`)),
         h('p', { class: 'muted small' }, '这个页面不保存你的 AI 账号，AI 用的是你自己电脑上的 Claude Code 或 Codex。')),
-      actions: [{ label: '好的', value: true, kind: 'primary' }],
+      actions: [{ label: '关闭', value: true }],
     });
   }
 
