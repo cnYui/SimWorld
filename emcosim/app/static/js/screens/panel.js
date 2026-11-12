@@ -2,7 +2,7 @@
 // 3D view + live readout + two charts (angles, contact force).
 import { get, post, authUrl } from '../api.js';
 import { store } from '../store.js';
-import { h, icon, clear, toast, toastError, fmtNum, cssVar, modal, copyText } from '../ui.js';
+import { h, icon, clear, toast, toastError, fmtNum, cssVar, modal, copyText, pathField, nativePick } from '../ui.js';
 import { TimeChart } from '../chart.js';
 
 const SIGS = ['source.charger.i', 'branch.f1.i', 'node.v5_servo.v', 'act.servo1.i_supply', 'act.servo1.pulse_us',
@@ -25,13 +25,18 @@ export function createPanel(ctx) {
   el.append(
     D.nav = h('nav', { class: 'pn-nav', 'aria-label': '页面' },
       D.navToggle = h('button', { class: 'pn-nav-toggle', onclick: () => setNav(!navCollapsed) }, icon('chevron')),
-      h('div', { class: 'pn-nav-brand' }, h('strong', {}, '开关机器人'), h('span', { class: 'muted small' }, '电子 + 物理仿真')),
+      h('div', { class: 'pn-nav-brand' }, h('span', { class: 'pn-logo' }, icon('logo')),
+        h('span', { class: 'pn-nav-label' }, h('strong', {}, 'SimWorld'), h('span', { class: 'muted small' }, '电子 + 物理仿真'))),
       D.tabSim = navItem('sim', 'cube', '仿真'),
-      D.tabPcb = navItem('pcb', 'board', 'PCB 元件')),
+      D.tabPcb = navItem('pcb', 'board', 'PCB 元件'),
+      D.projBox = h('div', { class: 'pn-proj' })),
     h('div', { class: 'pn-main' },
+      D.welcome = h('div', { class: 'pn-welcome', hidden: true }),
       D.banner = h('div', { class: 'pn-banner', hidden: true }),
       D.sim = h('div', { class: 'pn-sim' },
-        D.view = h('div', { class: 'pn-view' }, h('span', { class: 'pn-tag' }, '打印件、PCB 与外壳同一场景'))),
+        D.view = h('div', { class: 'pn-view' }, h('span', { class: 'pn-tag' }, '打印件、PCB 与外壳同一场景'),
+          D.viewEmpty = h('div', { class: 'pn-empty-over' }, icon('cube'), h('div', {}, '还没有运行结果'),
+            h('div', { class: 'muted small' }, '在右边选一个测试，跑完会在这里回放 3D 动画')))),
       D.pcb = h('div', { class: 'pn-pcb', hidden: true },
         h('div', { class: 'pn-circuit-wrap' },
           h('div', { class: 'pn-legend' }, h('strong', {}, '电路原理（跟着仿真动）'),
@@ -47,10 +52,10 @@ export function createPanel(ctx) {
       h('div', { class: 'pn-charts' },
         h('div', { class: 'pn-chart' }, h('div', { class: 'pn-legend' },
           h('span', { style: { color: 'var(--s2)' } }, '按压臂角度'), h('span', { style: { color: 'var(--s1)' } }, '翘板角度'),
-          h('span', { class: 'muted' }, '角度 / °')), D.angleCv = h('canvas')),
+          h('span', { class: 'muted' }, '角度 / °')), D.angleCv = h('canvas'), h('div', { class: 'pn-chart-empty' }, '运行测试后显示角度曲线')),
         h('div', { class: 'pn-chart' }, h('div', { class: 'pn-legend' },
           h('span', { style: { color: 'var(--s3)' } }, '按压接触力'), D.limitLab = h('span', { style: { color: 'var(--bad)' } }, ''),
-          h('span', { class: 'muted' }, '力 / N')), D.forceCv = h('canvas')))),
+          h('span', { class: 'muted' }, '力 / N')), D.forceCv = h('canvas'), h('div', { class: 'pn-chart-empty' }, '运行测试后显示接触力曲线')))),
     h('aside', { class: 'pn-side', 'aria-label': '测试和状态' },
       h('div', { class: 'pn-side-sec' },
         h('div', { class: 'pn-side-title' }, '测试'),
@@ -87,6 +92,8 @@ export function createPanel(ctx) {
   function renderTests() {
     const qemu = !!store.app?.qemu?.found;
     clear(D.tests);
+    if (!store.app?.project) { D.tests.append(h('div', { class: 'pn-side-empty' }, '打开工程后，这里会列出它的测试。')); return; }
+    if (!scenarios().length) { D.tests.append(h('div', { class: 'pn-side-empty' }, '这个工程还没有测试。可以点下面的“连接 AI”，让你的 AI 帮你加。')); return; }
     for (const s of scenarios()) {
       const blocked = s.needs_qemu && !qemu;
       const busy = pendingJob && pendingJob.scenario === s.name;
@@ -131,7 +138,7 @@ export function createPanel(ctx) {
     else if (j.status === 'cancelled') { pendingJob = null; setBanner('', ''); }
     renderTests();
   });
-  store.on('project', () => { if (!el.hidden) renderTests(); });
+  store.on('project', () => { if (!el.hidden) { renderTests(); renderProjBox(); } });
   let knownRuns = null;
   store.on('runs', () => {
     const ids = store.runs.map((r) => r.run_id);
@@ -308,7 +315,7 @@ export function createPanel(ctx) {
   // ------------------------------------------------------------ live circuit
   function renderCircuit() {
     if (!D.circuit) return;
-    if (!runId) { D.circuit.innerHTML = '<div class="muted">先在右边选一个测试。</div>'; return; }
+    if (!runId) { D.circuit.innerHTML = '<div class="pn-side-empty">先在右边选一个测试，跑完这里的电路会跟着仿真动。</div>'; return; }
     const bench = !!sig['node.usb5v.v'];
     const v = (n) => at(n, tNow);
     const vin = bench ? v('node.usb5v.v') : v('node.vin5.v'), vs = bench ? vin : v('node.v5_servo.v');
@@ -355,7 +362,11 @@ export function createPanel(ctx) {
   }
 
   function renderReadout() {
-    if (!runId) { clear(D.readout).append(h('div', { class: 'muted' }, '在右边选一个测试，会自动开始仿真并回放。')); return; }
+    el.classList.toggle('no-run', !runId);
+    if (!runId) {
+      clear(D.readout).append(h('div', { class: 'pn-side-empty' }, store.app?.project ? '选一个测试，跑完这里会显示开关状态、角度、受力和供电电压。' : '打开工程并运行测试后，这里显示实时状态。'));
+      return;
+    }
     const rocker = at('joint.rocker_axis.deg', tNow), arm = at('joint.servo_axis.deg', tNow);
     const f = at('probe.press.force_n', tNow), tq = at('act.servo1.torque', tNow), tgt = at('act.servo1.target_deg', tNow);
     const v5 = sig['node.usb5v.v'] ? at('node.usb5v.v', tNow) : at('node.vin5.v', tNow);
@@ -399,6 +410,7 @@ export function createPanel(ctx) {
   let tab = 'sim', boards = null, boardImg = 'board';
   function setTab(t) {
     tab = t;
+    if (!store.app?.project) { D.tabSim.classList.toggle('active', t === 'sim'); D.tabPcb.classList.toggle('active', t === 'pcb'); return; }
     D.tabSim.classList.toggle('active', t === 'sim'); D.tabPcb.classList.toggle('active', t === 'pcb');
     D.sim.hidden = t !== 'sim'; D.pcb.hidden = t !== 'pcb';
     if (t === 'pcb') { renderPcb(); renderCircuit(); renderCheck(); }
@@ -470,28 +482,98 @@ export function createPanel(ctx) {
   }
 
   // ------------------------------------------------------------ lifecycle
-  async function ensureProject() {
-    if (store.app?.project) return true;
-    const ex = store.app?.examples?.[0];
-    if (!ex) return false;
+  // ------------------------------------------------------------ project: welcome page when none is open
+  const baseName = (p) => String(p || '').split(/[\\/]/).filter(Boolean).pop() || '';
+  function projectName() { return store.project?.data?.name || baseName(store.app?.project); }
+
+  async function reloadProject() {
+    store.seenRuns?.clear?.(); store.newRuns?.clear?.();
+    await store.loadApp(); await store.loadProject(); await store.loadRuns();
+    resetRun(); selected = null; boards = null; boardCheck = null;
+    await showProject();
+  }
+  async function openProject(path, example = false) {
     try {
-      await post('project/open_example', { path: ex });
-      await store.loadApp(); await store.loadProject(); await store.loadRuns();
-      return true;
-    } catch (e) { toastError(e); return false; }
+      const r = await post(example ? 'project/open_example' : 'project/open', { path });
+      await reloadProject();
+      if (r?.copied_to) toast(`示例已复制到 ${r.copied_to}，在副本上修改不会影响安装目录`, { timeout: 8000 });
+    } catch (e) { toastError(e); }
+  }
+  async function openFolder() {
+    const picked = await nativePick('folder');
+    if (picked) return openProject(picked);
+    const f = pathField({ label: '工程文件夹（里面有 project.yaml）', kind: 'folder', placeholder: 'D:\\robots\\my_robot' });
+    const ok = await modal({ title: '打开工程', body: f.el, actions: [{ label: '取消', value: false },
+      { label: '打开', kind: 'primary', handler: () => { if (!f.value) throw new Error('请填写路径'); return true; } }] });
+    if (ok) openProject(f.value);
+  }
+  async function newProject() {
+    const f = pathField({ label: '新工程放在哪个文件夹（不存在会自动创建）', kind: 'folder', placeholder: 'D:\\robots\\my_robot' });
+    const name = h('input', { class: 'input', placeholder: '例如 my_robot' });
+    const ok = await modal({ title: '新建工程',
+      body: [f.el, h('label', { class: 'field' }, '工程名称', name),
+        h('div', { class: 'hint' }, '新工程是空的。之后把 PCB 和 3D 模型交给你的 AI（点“连接 AI”），它会帮你导入、加测试。')],
+      actions: [{ label: '取消', value: false }, { label: '创建', kind: 'primary', handler: async () => {
+        if (!f.value) throw new Error('请填写文件夹');
+        await post('project/new', { path: f.value, name: name.value.trim() || undefined });
+        return true;
+      } }] });
+    if (ok) await reloadProject();
+  }
+  function resetRun() {
+    stop(); runId = null; meta = null; sig = {}; dur = 0; tNow = 0;
+    angleChart?.setSeries([]); forceChart?.setSeries([]); D.limitLab.textContent = '';
+    main3d?.clear(); main3d?.render();
+    setBanner('', ''); setTime(0);
+  }
+
+  function renderProjBox() {
+    clear(D.projBox);
+    const p = store.app?.project;
+    if (!p) return;
+    D.projBox.append(
+      h('div', { class: 'pn-proj-label pn-nav-label' }, '当前工程'),
+      h('button', { class: 'pn-nav-item pn-proj-btn', title: `${p}\n点这里打开别的工程`, onclick: openFolder },
+        icon('folder'), h('span', { class: 'pn-nav-label pn-proj-name' }, projectName())));
+  }
+
+  function renderWelcome() {
+    const app = store.app || {};
+    const recent = (app.recent_projects || []).slice(0, 5);
+    const ex = (app.examples || [])[0];
+    const card = (ic, title, text, onclick, primary) => h('button', { class: 'pn-start' + (primary ? ' primary' : ''), onclick },
+      h('span', { class: 'pn-start-ico' }, icon(ic)), h('span', { class: 'pn-start-txt' }, h('strong', {}, title), h('span', { class: 'muted small' }, text)));
+    clear(D.welcome).append(h('div', { class: 'pn-welcome-in' },
+      h('div', { class: 'pn-welcome-logo' }, icon('logo')),
+      h('h1', {}, '欢迎使用 SimWorld'),
+      h('p', { class: 'muted' }, '把 PCB 和 3D 模型放进来，在同一个场景里跑真实的电路和物理测试；再让你的 AI 改板子、改模型，直到测试通过。'),
+      h('div', { class: 'pn-start-grid' },
+        ex ? card('cube', '打开示例工程', '开关机器人：舵机按墙上开关，带 V0.5 控制板', () => openProject(ex, true), true) : null,
+        card('folder', '打开工程', '选一个有 project.yaml 的文件夹', openFolder),
+        card('plus', '新建空工程', '从零开始，让 AI 帮你导入 PCB 和模型', newProject)),
+      recent.length ? h('div', { class: 'pn-recent' }, h('div', { class: 'pn-side-title' }, '最近打开'),
+        recent.map((r) => h('button', { class: 'pn-recent-row', onclick: () => openProject(r) },
+          icon('folder'), h('span', {}, baseName(r)), h('span', { class: 'muted small mono pn-recent-path' }, r)))) : null));
+  }
+
+  async function showProject() {
+    const has = !!store.app?.project;
+    el.classList.toggle('no-project', !has);
+    D.welcome.hidden = has;
+    D.sim.hidden = !has || tab !== 'sim'; D.pcb.hidden = !has || tab !== 'pcb';
+    renderProjBox(); renderTests(); renderReadout();
+    if (!has) { renderWelcome(); return; }
+    if (tab === 'pcb') { renderPcb(); renderCircuit(); renderCheck(); }
+    if (!selected) {
+      const first = scenarios().find((s) => !s.needs_qemu || store.app?.qemu?.found);
+      if (first) pick(first.name, false);
+    }
+    main3d?.resize();
   }
 
   return {
     el,
-    async show() {
-      if (!(await ensureProject())) { setBanner('bad', '没有找到示例工程，请在“高级功能”里打开一个工程。'); return; }
-      renderTests();
-      if (!selected) {
-        const first = scenarios().find((s) => !s.needs_qemu || store.app?.qemu?.found);
-        if (first) pick(first.name, false);
-      } else renderReadout();
-      main3d?.resize();
-    },
+    async show() { await showProject(); },
     hide() { stop(); },
     openRun,
   };

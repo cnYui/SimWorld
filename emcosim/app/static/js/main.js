@@ -61,7 +61,7 @@ function show(id, arg) {
     b.classList.toggle('active', b.dataset.id === def.id);
     if (b.dataset.id === def.id) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current');
   }
-  document.title = `${def.title} · emcosim`;
+  document.title = `${def.title} · SimWorld`;
 }
 
 function fromHash() {
@@ -95,7 +95,7 @@ const ctx = {
 
 // ------------------------------------------------------------------ rail
 function buildRail() {
-  rail.append(h('div', { class: 'logo', title: 'emcosim' }, icon('logo')));
+  rail.append(h('div', { class: 'logo', title: 'SimWorld' }, icon('logo')));
   rail.append(h('button', { class: 'rail-simple', 'aria-label': '回到简单面板', title: '回到简单面板', onclick: () => setAdvanced(false) }, '简'));
   const tip = h('div', { class: 'rail-tip', hidden: true });
   document.body.append(tip);
@@ -261,16 +261,16 @@ document.addEventListener('keydown', (e) => {
 async function boot() {
   const token = initToken();
   if (!token) {
-    fatal('缺少访问令牌', '请从 emcosim 桌面程序打开本界面，或使用 `emcosim serve` 在终端里打印的完整链接（链接末尾带 #token=…）。为了防止其他网页操控本程序，没有令牌时界面不会连接后台。');
+    fatal('缺少访问令牌', '请从 SimWorld 桌面程序打开本界面，或使用 `emcosim serve` 在终端里打印的完整链接（链接末尾带 #token=…）。为了防止其他网页操控本程序，没有令牌时界面不会连接后台。');
     return;
   }
   try {
     await store.loadApp();
   } catch (e) {
     if (e.status === 401) {
-      fatal('访问令牌无效', '这个链接里的令牌和当前运行的 emcosim 不匹配（程序可能已经重启）。请重新从 emcosim 打开界面，或复制终端里最新打印的链接。');
+      fatal('访问令牌无效', '这个链接里的令牌和当前运行的 SimWorld 不匹配（程序可能已经重启）。请重新从 SimWorld 打开界面，或复制终端里最新打印的链接。');
       try { sessionStorage.removeItem('emcosim.token'); } catch (err) { /* ignore */ }
-    } else fatal('无法连接 emcosim 后台', e.message);
+    } else fatal('无法连接 SimWorld 后台', e.message);
     return;
   }
   document.getElementById('app').classList.toggle('simple', !advanced);

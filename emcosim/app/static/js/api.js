@@ -25,7 +25,7 @@ export async function api(path, { method = 'GET', body, as } = {}) {
   try {
     r = await fetch('/api/' + path, { method, headers, body: body !== undefined ? JSON.stringify(body) : undefined });
   } catch (e) {
-    throw new ApiError('无法连接到 emcosim 后台（程序是否已关闭？）', 0);
+    throw new ApiError('无法连接到 SimWorld 后台（程序是否已关闭？）', 0);
   }
   if (r.ok && as === 'buffer') return r.arrayBuffer();
   if (r.ok && as === 'text') return r.text();

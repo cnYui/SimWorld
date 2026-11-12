@@ -665,3 +665,48 @@ pre.log { background: var(--sunken); border: 1px solid var(--line); border-radiu
   .pn-charts { grid-template-columns: 1fr; }
   .pn-pcb-body { height: auto; }
 }
+
+/* panel: brand, project chip, empty states */
+.pn-nav-brand { flex-direction: row; align-items: center; gap: 10px; }
+.pn-nav-brand > .pn-nav-label { display: flex; flex-direction: column; }
+.pn-logo { width: 30px; height: 30px; border-radius: 8px; background: var(--accent); color: var(--accent-ink); display: grid; place-items: center; flex: none; }
+.pn-logo svg { width: 20px; height: 20px; }
+.nav-collapsed .pn-nav-brand { display: flex; justify-content: center; padding: 2px 0 12px; }
+.nav-collapsed .pn-nav-brand > .pn-nav-label { display: none; }
+.pn-proj { margin-top: auto; display: flex; flex-direction: column; gap: 2px; border-top: 1px solid var(--line); padding-top: 8px; }
+.pn-proj:empty { display: none; }
+.pn-proj-label { font-size: 11px; color: var(--text-3); padding: 0 10px; }
+.pn-proj-name { overflow: hidden; text-overflow: ellipsis; }
+.pn-side-empty { color: var(--text-3); font-size: 13px; line-height: 1.6; padding: 10px 12px; border: 1px dashed var(--line-strong); border-radius: 8px; }
+.pn-readout:has(.pn-side-empty) { padding: 0; border: 0; background: none; }
+.pn-empty-over { position: absolute; inset: 0; display: none; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
+  color: var(--text-2); font-size: 15px; text-align: center; pointer-events: none; }
+.pn-empty-over svg { width: 40px; height: 40px; opacity: .6; }
+.no-run .pn-empty-over { display: flex; }
+.pn-chart { position: relative; }
+.pn-chart-empty { position: absolute; inset: 28px 8px 8px; display: none; align-items: center; justify-content: center; color: var(--text-3); font-size: 13px;
+  border: 1px dashed var(--line); border-radius: 6px; background: var(--panel); }
+.no-run .pn-chart-empty { display: flex; }
+.no-run .pn-play { opacity: .55; pointer-events: none; }
+.pn-welcome { flex: 1; min-height: 0; overflow: auto; display: flex; align-items: center; justify-content: center; border-radius: 8px;
+  background: radial-gradient(1200px 500px at 50% -10%, var(--accent-weak), transparent 70%), var(--panel); border: 1px solid var(--line); }
+.pn-welcome[hidden] { display: none; }
+.pn-welcome-in { max-width: 720px; width: 100%; padding: 32px 24px; display: flex; flex-direction: column; align-items: center; text-align: center; gap: 10px; }
+.pn-welcome-logo { width: 56px; height: 56px; border-radius: 14px; background: var(--accent); color: var(--accent-ink); display: grid; place-items: center; }
+.pn-welcome-logo svg { width: 34px; height: 34px; }
+.pn-welcome h1 { margin: 6px 0 0; font-size: 24px; }
+.pn-welcome p { margin: 0 0 12px; max-width: 520px; line-height: 1.7; }
+.pn-start-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 10px; width: 100%; }
+.pn-start { display: flex; flex-direction: column; align-items: flex-start; gap: 10px; text-align: left; padding: 14px; border-radius: 10px;
+  border: 1px solid var(--line-strong); background: var(--panel); color: var(--text); cursor: pointer; }
+.pn-start:hover { border-color: var(--accent); }
+.pn-start.primary { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; }
+.pn-start-ico { width: 34px; height: 34px; border-radius: 8px; background: var(--accent-weak); color: var(--accent); display: grid; place-items: center; }
+.pn-start-txt { display: flex; flex-direction: column; gap: 4px; }
+.pn-start-txt strong { font-size: 14px; }
+.pn-recent { width: 100%; margin-top: 18px; display: flex; flex-direction: column; gap: 4px; text-align: left; }
+.pn-recent-row { display: grid; grid-template-columns: 18px auto minmax(0, 1fr); align-items: center; gap: 8px; padding: 7px 10px; border: 0; border-radius: 6px;
+  background: transparent; color: var(--text); cursor: pointer; text-align: left; }
+.pn-recent-row:hover { background: var(--hover); }
+.pn-recent-path { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.no-project .pn-bottom { display: none; }

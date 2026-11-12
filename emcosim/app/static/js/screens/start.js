@@ -72,7 +72,7 @@ export function createStart(ctx) {
     clear(body).append(h('div', { class: 'start-grid' },
       h('div', { class: 'hero' },
         h('div', { style: { color: 'var(--accent)' } }, icon('logo', '')),
-        h('div', {}, h('h1', {}, 'emcosim 电子 + 物理联合仿真'),
+        h('div', {}, h('h1', {}, 'SimWorld 电子 + 物理联合仿真'),
           h('p', {}, 'ESP32 固件在 QEMU 里真实运行，舵机/电机电气模型、电源网络和 MuJoCo 机械按 1 ms 锁步联合仿真。'))),
       h('div', { class: 'col' },
         h('div', { class: 'card' },
