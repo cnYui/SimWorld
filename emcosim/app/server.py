@@ -416,7 +416,7 @@ class Handler(BaseHTTPRequestHandler):
                 raise ApiError(str(e), 503)
 
         if head == 'ai_setup' and method == 'GET':
-            return _ai_setup(app.project().root)
+            return _ai_setup(app.root)
 
         if head == 'board' and p[1:] == ['check'] and method == 'POST':
             from .. import eda
@@ -547,14 +547,15 @@ def make_server(app: App, host='127.0.0.1', port=0):
         return _Server((host, 0), handler)
 
 
-def _ai_setup(root):
-    """How to connect Claude Code / Codex to this project's MCP server, with this machine's paths."""
+def _ai_setup(root=None):
+    """How to connect Claude Code / Codex to the MCP server, with this machine's paths. The MCP
+    server follows the project open in the page (app/link.py), so no project is baked in."""
     if getattr(sys, 'frozen', False):
         exe = Path(sys.executable).with_name('emcosim.exe' if sys.platform == 'win32' else 'emcosim')
         cmd = [str(exe)]
     else:
         cmd = [sys.executable, '-m', 'emcosim']
-    args = [*cmd[1:], '--project', str(root), 'mcp']
+    args = [*cmd[1:], 'mcp']
     q = (lambda x: f'"{x}"' if ' ' in x or '\\' in x else x)
     claude = 'claude mcp add emcosim -- ' + ' '.join(q(x) for x in [cmd[0], *args])
     toml_list = ', '.join(json.dumps(a) for a in args)
@@ -562,17 +563,19 @@ def _ai_setup(root):
     claude = claude.replace('claude mcp add emcosim', 'claude mcp add -s user emcosim', 1)
     codex_cfg = str(Path.home() / '.codex' / 'config.toml')
     prompt = (
-        '请帮我把本机的 emcosim 电子+物理仿真平台接到你这里（MCP 服务，stdio）。\n\n'
+        '请帮我把本机的 SimWorld 电子+物理仿真平台接到你这里（MCP 服务，stdio，服务名 emcosim）。\n\n'
         f'如果你是 Claude Code：在终端运行下面这条命令（已经装过 emcosim 的话先运行 claude mcp remove -s user emcosim）：\n'
         f'{claude}\n\n'
         f'如果你是 Codex：打开 {codex_cfg}（没有就新建），加入下面这段；已有 [mcp_servers.emcosim] 就整段替换：\n'
         f'{codex}\n\n'
-        '配好后：如果你现在就能调用 emcosim 的工具，调用 get_project，告诉我连上了、工程里有哪些测试；'
-        '如果要重启会话才生效，告诉我重启后说“检查 emcosim”。\n\n'
-        f'说明：emcosim 的工程在 {root}。连上后你可以改 3D 模型（model_edit）、用 KiCad 检查和修改 PCB'
-        '（board_drc、board_edit）、跑电路检查（circuit_check）和仿真测试（run_scenario）、查嘉立创元件（parts_search、part_info）。'
+        '配好后：如果你现在就能调用 emcosim 的工具，调用 current_project，告诉我连上了、页面里现在打开的是哪个工程；'
+        '如果要重启会话才生效，告诉我重启后说“检查 SimWorld”。\n\n'
+        '说明：你操作的就是我浏览器里开着的 SimWorld 页面。我可以直接跟你说“打开示例工程”“打开 D:\\xxx 这个工程”'
+        '“新建一个工程”，你用 open_example、open_project、new_project，页面会跟着切过去。'
+        '工程打开后，你可以改 3D 模型（model_edit）、用 KiCad 检查和修改 PCB（board_drc、board_edit）、'
+        '跑电路检查（circuit_check）和仿真测试（run_scenario），结果会出现在页面上，还能查嘉立创元件（parts_search、part_info）。'
         '改动前先告诉我要改什么。')
-    return {'claude_code': claude, 'codex': codex, 'project': str(root), 'codex_config': codex_cfg, 'prompt': prompt}
+    return {'claude_code': claude, 'codex': codex, 'project': str(root) if root else None, 'codex_config': codex_cfg, 'prompt': prompt}
 
 
 def serve(project_root=None, port=8765, host='127.0.0.1', open_browser=True):
@@ -580,7 +583,12 @@ def serve(project_root=None, port=8765, host='127.0.0.1', open_browser=True):
     app = App(project_root)
     httpd = make_server(app, host, port)
     url = f'http://{host}:{httpd.server_address[1]}/#token={app.token}'
-    print(f'emcosim app: {url}', flush=True)
+    print(f'SimWorld: {url}', flush=True)
+    from . import link
+    try:
+        link.write(host if host not in ('0.0.0.0', '::') else '127.0.0.1', httpd.server_address[1], app.token)
+    except OSError:
+        pass
     if open_browser:
         threading.Timer(0.5, webbrowser.open, args=(url,)).start()
     try:
@@ -589,3 +597,4 @@ def serve(project_root=None, port=8765, host='127.0.0.1', open_browser=True):
         pass
     finally:
         httpd.server_close()
+        link.remove()

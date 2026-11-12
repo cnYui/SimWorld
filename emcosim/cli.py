@@ -132,7 +132,7 @@ def main(argv=None):
         return _print({'created': str(p.file)})
     if a.cmd == 'mcp':
         from .mcp_server import main as mcp_main
-        return mcp_main(a.project)
+        return mcp_main(a.project if (Path(a.project) / 'project.yaml').exists() else None)
     if a.cmd in ('serve', 'view'):
         from .app.server import serve
         root = a.project if (Path(a.project) / 'project.yaml').exists() else None

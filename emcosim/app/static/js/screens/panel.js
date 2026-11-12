@@ -486,12 +486,18 @@ export function createPanel(ctx) {
   const baseName = (p) => String(p || '').split(/[\\/]/).filter(Boolean).pop() || '';
   function projectName() { return store.project?.data?.name || baseName(store.app?.project); }
 
+  let shownRoot;
   async function reloadProject() {
     store.seenRuns?.clear?.(); store.newRuns?.clear?.();
     await store.loadApp(); await store.loadProject(); await store.loadRuns();
-    resetRun(); selected = null; boards = null; boardCheck = null;
+    await switched();
+  }
+  async function switched() {
+    resetRun(); selected = null; boards = null; boardCheck = null; knownRuns = null;
     await showProject();
   }
+  // opened from elsewhere: the AI through MCP (open_project / open_example / new_project) or another tab
+  store.on('project_opened', () => { if ((store.app?.project || null) !== shownRoot) switched(); });
   async function openProject(path, example = false) {
     try {
       const r = await post(example ? 'project/open_example' : 'project/open', { path });
@@ -551,6 +557,8 @@ export function createPanel(ctx) {
         ex ? card('cube', '打开示例工程', '开关机器人：舵机按墙上开关，带 V0.5 控制板', () => openProject(ex, true), true) : null,
         card('folder', '打开工程', '选一个有 project.yaml 的文件夹', openFolder),
         card('plus', '新建空工程', '从零开始，让 AI 帮你导入 PCB 和模型', newProject)),
+      h('div', { class: 'pn-welcome-ai' }, icon('link'), h('span', {},
+        '也可以先点右下角的“连接 AI”，连上后直接跟你的 AI 说“打开示例工程”或“打开 D:\\xxx 这个工程”，这个页面会跟着切过去。')),
       recent.length ? h('div', { class: 'pn-recent' }, h('div', { class: 'pn-side-title' }, '最近打开'),
         recent.map((r) => h('button', { class: 'pn-recent-row', onclick: () => openProject(r) },
           icon('folder'), h('span', {}, baseName(r)), h('span', { class: 'muted small mono pn-recent-path' }, r)))) : null));
@@ -558,6 +566,7 @@ export function createPanel(ctx) {
 
   async function showProject() {
     const has = !!store.app?.project;
+    shownRoot = store.app?.project || null;
     el.classList.toggle('no-project', !has);
     D.welcome.hidden = has;
     D.sim.hidden = !has || tab !== 'sim'; D.pcb.hidden = !has || tab !== 'pcb';

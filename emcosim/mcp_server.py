@@ -22,10 +22,15 @@ from .project import Project, dump_yaml
 from .toolpaths import find_ngspice
 
 
-def build_server(project_root):
-    root = Path(project_root).resolve()
+def build_server(project_root=None, link=None):
+    """project_root: project used when no SimWorld page is running (the page's open project wins
+    when one is). link: app.link.AppLink, read from the live file when None."""
+    from .app.link import AppLink
+    state = {'root': Path(project_root).resolve() if project_root else None}
     mcp = FastMCP('emcosim', instructions=(
-        'Electronics + physics co-simulation of an ESP32 device. Workflow: get_project -> '
+        'SimWorld: electronics + physics co-simulation. The tools act on the project open in the '
+        "user's SimWorld browser page: current_project shows it; open_project / open_example / "
+        'new_project switch the page to another project. Workflow: get_project -> '
         'import_pcb / import_model / import_firmware -> define_joint / bind_pin -> '
         'run_scenario -> get_results -> set_param or sweep -> run_scenario again. '
         'Parameters are dotted paths into project.yaml (e.g. power.sources.adapter.r_ohm, '
@@ -33,8 +38,92 @@ def build_server(project_root):
         'firmware.press_angle_deg). All model values marked "assumed" in project.yaml are '
         'not measurements.'))
 
+    def page():
+        return link if link is not None else AppLink()
+
+    def page_root():
+        """Project open in the running page: Path, None (page has none), or False (no page)."""
+        try:
+            r = page().call('GET', 'app', timeout=3).get('project')
+        except AppLink.Unavailable:
+            return False
+        return Path(r) if r else None
+
     def prj():
+        r = page_root()
+        root = r if r else state['root']
+        if root is None:
+            raise ValueError('No project is open. Use open_example, open_project or new_project first '
+                             '(list_examples shows the bundled examples).')
+        state['root'] = root
         return Project(root)
+
+    def switch(method, body):
+        """Open a project in the page when it runs, otherwise only here."""
+        try:
+            res = page().call('POST', method, body, timeout=120)
+            state['root'] = Path(res['root'])
+            return {**res, 'page': 'switched'}
+        except AppLink.Unavailable:
+            return None
+
+    @mcp.tool()
+    def current_project() -> dict:
+        """Which project the tools act on, and whether the user's SimWorld page is connected."""
+        r = page_root()
+        root = r if r else state['root']
+        out = {'project': str(root) if root else None, 'page_connected': r is not False,
+               'page_url': page().page_url if r is not False else None}
+        if root:
+            p = Project(root)
+            out['name'] = p.data.get('name') or root.name
+            out['scenarios'] = p.scenarios()
+        else:
+            out['hint'] = 'No project open: open_example, open_project(path) or new_project(path).'
+        return out
+
+    @mcp.tool()
+    def list_examples() -> list:
+        """Example projects bundled with SimWorld (open one with open_example)."""
+        from .app.server import _bundled_examples
+        return [{'name': p.name, 'path': str(p)} for p in _bundled_examples()]
+
+    @mcp.tool()
+    def open_example(name: str = 'switch_robot', dest: str | None = None) -> dict:
+        """Copy a bundled example to Documents/emcosim (or dest) and open it in the page."""
+        from .app.server import _bundled_examples, _documents_dir
+        ex = {p.name: p for p in _bundled_examples()}
+        if name not in ex:
+            raise ValueError(f'no example {name!r}; examples: {sorted(ex)}')
+        res = switch('project/open_example', {'path': str(ex[name]), **({'dest': dest} if dest else {})})
+        if res:
+            return res
+        out = api.copy_project(ex[name], Path(dest) if dest else _documents_dir() / name)
+        state['root'] = Path(out['root'])
+        return {'root': out['root'], 'page': 'not running (start it with: emcosim serve)'}
+
+    @mcp.tool()
+    def open_project(path: str) -> dict:
+        """Open a project folder (one that has project.yaml) and show it in the page."""
+        root = Path(path).expanduser().resolve()
+        if not (root / 'project.yaml').exists():
+            raise ValueError(f'{root} has no project.yaml')
+        res = switch('project/open', {'path': str(root)})
+        if res:
+            return res
+        state['root'] = root
+        return {'root': str(root), 'page': 'not running (start it with: emcosim serve)'}
+
+    @mcp.tool()
+    def new_project(path: str, name: str | None = None) -> dict:
+        """Create an empty project in a folder (created if missing) and open it in the page.
+        Then import_pcb / board_import, import_model and add scenarios."""
+        res = switch('project/new', {'path': path, **({'name': name} if name else {})})
+        if res:
+            return res
+        p = Project.create(path, name)
+        state['root'] = p.root
+        return {'root': str(p.root), 'page': 'not running (start it with: emcosim serve)'}
 
     @mcp.tool()
     def get_project(path: str | None = None) -> dict:
@@ -174,10 +263,11 @@ def build_server(project_root):
 
     # ------------------------------------------------------------- board (KiCad kernel)
     def board_file(key='kicad_pcb'):
-        b = prj().data.get('board') or {}
+        p = prj()
+        b = p.data.get('board') or {}
         if not b.get(key):
             raise ValueError(f'project.yaml has no board.{key}; use board_import first')
-        return root / b[key]
+        return p.root / b[key]
 
     @mcp.tool()
     def board_status() -> dict:
@@ -194,6 +284,7 @@ def build_server(project_root):
         pcb/<name>/<name>.kicad_pcb plus JLCPCB DRC rules and records it as board.kicad_pcb."""
         from . import eda
         p = prj()
+        root = p.root
         src = Path(path).expanduser().resolve()
         name = name or re.sub(r'[^A-Za-z0-9_-]+', '_', src.stem).strip('_').lower()
         out_dir = root / 'pcb' / name
@@ -230,7 +321,8 @@ def build_server(project_root):
     def board_netlist() -> dict:
         """Components (ref, value, LCSC part, manufacturer part) and nets of the board."""
         from . import eda
-        b = prj().data.get('board') or {}
+        p = prj()
+        root, b = p.root, p.data.get('board') or {}
         if b.get('kicad_sch'):
             return eda.netlist(root / b['kicad_sch'])
         if b.get('netlist'):
@@ -311,10 +403,11 @@ def build_server(project_root):
         """For every part on the board (netlist LCSC numbers): live stock, price and library type,
         and which ones are out of stock or extended (assembly fee)."""
         from . import eda, parts
-        b = prj().data.get('board') or {}
+        p = prj()
+        b = p.data.get('board') or {}
         if not b.get('netlist'):
             raise ValueError('board has no netlist')
-        comps = eda.read_netlist(root / b['netlist'])['components']
+        comps = eda.read_netlist(p.root / b['netlist'])['components']
         by_lcsc = {}
         for ref, c in comps.items():
             if c.get('lcsc'):

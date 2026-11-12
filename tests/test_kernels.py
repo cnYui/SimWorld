@@ -25,7 +25,8 @@ def test_mcp_lists_kernel_tools():
     tools = asyncio.run(build_server(EXAMPLE).list_tools())
     names = {t.name for t in tools}
     assert {'board_drc', 'board_edit', 'board_import', 'circuit_check', 'model_info', 'model_edit',
-            'parts_search', 'part_info', 'parts_alternatives', 'board_parts_status'} <= names
+            'parts_search', 'part_info', 'parts_alternatives', 'board_parts_status',
+            'current_project', 'open_project', 'open_example', 'new_project', 'list_examples'} <= names
 
 
 def test_parts_lookup_reports_unreachable_server(monkeypatch):
@@ -86,3 +87,48 @@ def test_model_edit_validates_and_backs_up(prj):
     with pytest.raises(ValueError, match='MuJoCo rejected'):
         model_edit.edit(prj, [{'tag': 'geom', 'name': 'arm_collision_0', 'attr': 'type', 'value': 'nonsense'}])
     assert path.read_text(encoding='utf-8') == before
+
+
+def _tool(srv, name, args=None):
+    import json
+    res = asyncio.run(srv.call_tool(name, args or {}))
+    if isinstance(res, tuple):
+        res = res[1] if isinstance(res[1], dict) else res[0]
+    if isinstance(res, dict):
+        return res.get('result', res) if set(res) == {'result'} else res
+    content = getattr(res, 'content', res)
+    if getattr(res, 'structuredContent', None):
+        out = res.structuredContent
+        return out.get('result', out) if set(out) == {'result'} else out
+    return json.loads(''.join(getattr(c, 'text', '') for c in content))
+
+
+def test_mcp_opens_projects_in_the_page(tmp_path, monkeypatch):
+    import threading
+    from emcosim.app.link import AppLink
+    from emcosim.app.server import App, make_server
+    from emcosim.app.settings import Settings
+    monkeypatch.setenv('EMCOSIM_APP_TOKEN', 't')
+    app = App(None, Settings(tmp_path / 's.json'))
+    httpd = make_server(app, '127.0.0.1', 0)
+    threading.Thread(target=httpd.serve_forever, daemon=True).start()
+    try:
+        srv = build_server(None, link=AppLink({'url': f'http://127.0.0.1:{httpd.server_address[1]}', 'token': 't'}))
+        cur = _tool(srv, 'current_project')
+        assert cur['project'] is None and cur['page_connected']
+        res = _tool(srv, 'open_example', {'name': 'switch_robot', 'dest': str(tmp_path / 'ex')})
+        assert res['page'] == 'switched' and app.root == (tmp_path / 'ex').resolve()
+        cur = _tool(srv, 'current_project')
+        assert cur['project'] == str(app.root) and 'toggle_scripted' in cur['scenarios']
+        _tool(srv, 'new_project', {'path': str(tmp_path / 'fresh'), 'name': 'fresh'})
+        assert app.root == (tmp_path / 'fresh').resolve()
+        app.open_project(tmp_path / 'ex')          # the user switches in the page: MCP follows
+        assert _tool(srv, 'current_project')['project'] == str((tmp_path / 'ex').resolve())
+    finally:
+        httpd.shutdown()
+
+
+def test_mcp_without_page_or_project():
+    from emcosim.app.link import AppLink
+    srv = build_server(None, link=AppLink({}))
+    assert _tool(srv, 'current_project')['project'] is None

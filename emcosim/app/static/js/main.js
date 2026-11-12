@@ -191,7 +191,8 @@ function onEvent(kind, data) {
     case 'scenarios_changed': store.loadProject().then(() => store.emit('scenarios')).catch(toastError); break;
     case 'project_opened':
       store.seenRuns.clear(); store.newRuns.clear();
-      store.loadApp().then(() => store.loadProject()).then(() => store.loadRuns()).catch(toastError);
+      store.loadApp().then(() => store.loadProject()).then(() => store.loadRuns())
+        .then(() => store.emit('project_opened', data?.root)).catch(toastError);
       break;
     case 'runs_changed':
       store.loadRuns().then(() => {
