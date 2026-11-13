@@ -696,9 +696,14 @@ def build_server(project_root=None, link=None):
 
     @tool()
     def circuit_check(run_id: str | None = None) -> dict:
-        """Solve the board's power path with ngspice, using the real board netlist (every R and C, the
-        diode, LDO and fuse with simple models) and the servo / MCU currents of a run, then compare
-        node voltages with the co-simulation. Settings: circuit.* in project.yaml."""
+        """Solve the board's power path with ngspice, using the real board netlist (the schematic, or
+        circuit.netlist) with every R and C, and simple models for diodes, fuses and linear regulators
+        (built-in table, any KiCad Regulator_Linear symbol, or circuit.models), driven by the currents of
+        a run (latest if omitted); compares node voltages with the co-simulation.
+        Settings (set_param 'circuit'): supply {net, v, r_ohm}; loads {name: {net, a | signal}};
+        compare {board_net: run_signal}; models {REF or LCSC: {kind: ldo, v_out, dropout_v, i_gnd_a,
+        pins: {in, out, gnd}} | {kind: resistor, r_ohm}}. supply and compare default from power.nodes.*.net.
+        trustworthy=false with warnings when a compared net has no modelled path to the supply."""
         from .electrical import board_spice
         p = prj()
         if not run_id:

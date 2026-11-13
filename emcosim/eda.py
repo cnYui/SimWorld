@@ -189,6 +189,12 @@ def netlist(sch_path):
     return {'components': comps, 'nets': nets}
 
 
+def export_netlist_xml(sch_path, out_path):
+    """KiCad XML netlist of a schematic (read_netlist reads it, with library parts and pin names)."""
+    _run(['sch', 'export', 'netlist', '--format', 'kicadxml', '-o', Path(out_path), Path(sch_path)])
+    return Path(out_path)
+
+
 def spice_netlist(sch_path):
     """SPICE netlist of a schematic, as KiCad writes it for ngspice (uses Sim.* fields)."""
     with tempfile.TemporaryDirectory() as td:
@@ -310,13 +316,20 @@ def read_netlist(path):
     text = path.read_text(encoding='utf-8', errors='replace')
     if text.lstrip().startswith('<'):
         root = ET.fromstring(text)
+        libparts = {}
+        for lp in root.iter('libpart'):
+            libparts[(lp.get('lib'), lp.get('part'))] = {pn.get('num'): pn.get('name') for pn in lp.iter('pin')}
         comps = {}
         for c in root.iter('comp'):
             fields = {f.get('name'): f.text for f in c.iter('field') if f.text}
             lcsc = next((v for k, v in fields.items()
                          if k.lower() in ('lcsc', 'lcsc part', 'jlcpcb part', 'supplier part')), None)
+            src = c.find('libsource')
+            lib, part = (src.get('lib'), src.get('part')) if src is not None else (None, None)
             comps[c.get('ref')] = {'value': c.findtext('value'), 'footprint': c.findtext('footprint'),
-                                   **fields, **({'lcsc': lcsc} if lcsc else {})}
+                                   **fields, **({'lcsc': lcsc} if lcsc else {}),
+                                   **({'lib': lib, 'part': part, 'pin_names': libparts.get((lib, part), {})}
+                                      if lib else {})}
         nets = {n.get('name'): [f'{p.get("ref")}-{p.get("pin")}' for p in n.iter('node')] for n in root.iter('net')}
         return {'components': comps, 'nets': nets}
     if not text.startswith('PROTEL NETLIST'):

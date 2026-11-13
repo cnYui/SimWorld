@@ -233,3 +233,39 @@ def test_behaviour_errors_point_at_the_line(empty):
                                                                'behavior_script: behavior/oops.py\n'})
     with pytest.raises(ToolError, match=r"no IMU probe 'nope'.*line 2"):
         asyncio.run(srv.call_tool('run_scenario', {'name': 's'}))
+
+
+# ------------------------------------------------------------------ circuit check on a generated design
+from emcosim.toolpaths import find_ngspice as _find_ngspice
+
+needs_ngspice = pytest.mark.skipif(_find_ngspice() is None, reason='ngspice not installed')
+DESIGN = json.loads((_Path(__file__).parent / 'data' / 'rep_counter_design.json').read_text(encoding='utf-8'))
+
+
+@needs_kicad
+@needs_ngspice
+def test_circuit_check_on_generated_schematic(empty):
+    p, srv = empty
+    out, _ = call_parts(srv, 'schematic_create', DESIGN)
+    assert out['erc']['errors'] == 0
+    call(srv, 'set_param', {'path': 'power', 'value': {
+        'nodes': {'vbat': {'c_f': 1e-5, 'net': 'VBAT'}},
+        'sources': {'lipo': {'node': 'vbat', 'v': 3.7, 'r_ohm': 0.3}},
+        'regulators': {'ldo3v3': {'type': 'ldo', 'input': 'vbat', 'v_out': 3.3, 'dropout_v': 0.2,
+                                  'c_out_f': 1e-5, 'i_q_a': 6e-5, 'net': '3V3'}}}})
+    call(srv, 'set_param', {'path': 'mcu.supply', 'value': 'ldo3v3'})
+    call(srv, 'write_scenario', {'name': 'idle', 'scenario_yaml': 'duration_s: 0.3\nmcu_backend: scripted\n'})
+    call(srv, 'run_scenario', {'name': 'idle'})
+    with pytest.raises(ToolError, match='circuit.loads is missing'):
+        asyncio.run(srv.call_tool('circuit_check', {}))
+    call(srv, 'set_param', {'path': 'circuit', 'value': {'loads': {'mcu': {'net': '3V3', 'a': 0.05}}}})
+    res = call(srv, 'circuit_check')
+    rows = {r['net']: r for r in res['compare']}
+    assert res['trustworthy'], res['warnings']
+    assert set(rows) == {'VBAT', '3V3'} and rows['3V3']['max_abs_diff_v'] < 0.1
+    assert any(u['ref'] == 'U4' for u in res['parts_modelled'])
+    # without the regulator model the 3V3 net floats: the check must say so instead of printing nonsense
+    call(srv, 'set_param', {'path': 'circuit.models', 'value': {'U4': {'kind': 'ldo', 'v_out': 3.3,
+                                                                      'pins': {'in': '9', 'out': '5', 'gnd': '2'}}}})
+    res = call(srv, 'circuit_check')
+    assert not res['trustworthy'] and any('3V3 has no DC path' in w for w in res['warnings'])
