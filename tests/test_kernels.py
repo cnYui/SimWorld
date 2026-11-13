@@ -26,7 +26,8 @@ def test_mcp_lists_kernel_tools():
     names = {t.name for t in tools}
     assert {'board_drc', 'board_edit', 'board_import', 'circuit_check', 'model_info', 'model_edit',
             'parts_search', 'part_info', 'parts_alternatives', 'board_parts_status',
-            'current_project', 'open_project', 'open_example', 'new_project', 'list_examples'} <= names
+            'current_project', 'open_project', 'open_example', 'new_project', 'list_examples',
+            'strength_check', 'gear_check'} <= names
 
 
 def test_parts_lookup_reports_unreachable_server(monkeypatch):

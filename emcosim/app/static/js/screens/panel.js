@@ -37,9 +37,17 @@ export function createPanel(ctx) {
       D.welcome = h('div', { class: 'pn-welcome', hidden: true }),
       D.banner = h('div', { class: 'pn-banner', hidden: true }),
       D.sim = h('div', { class: 'pn-sim' },
+        D.simModes = h('div', { class: 'pn-tabs pn-sim-modes', role: 'tablist' },
+          ...[['replay', '运动回放'], ['stress', '强度和应力'], ['history', '历史结果']].map(([m, l]) =>
+            h('button', { 'data-mode': m, role: 'tab', onclick: () => setSimMode(m) }, l))),
         D.view = h('div', { class: 'pn-view' }, h('span', { class: 'pn-tag' }, '打印件、PCB 与外壳同一场景'),
           D.viewEmpty = h('div', { class: 'pn-empty-over' }, icon('cube'), D.viewEmptyTitle = h('div', {}, '还没有运行结果'),
-            D.viewEmptyText = h('div', { class: 'muted small' }, '在右边选一个测试，跑完会在这里回放 3D 动画')))),
+            D.viewEmptyText = h('div', { class: 'muted small' }, '在右边选一个测试，跑完会在这里回放 3D 动画'))),
+        D.stress = h('div', { class: 'pn-stress', hidden: true },
+          D.stressView = h('div', { class: 'pn-view pn-stress-view' }, D.stressTag = h('span', { class: 'pn-tag' }, '3D 参考图：颜色是应力'),
+            D.stressLegend = h('div', { class: 'pn-stress-legend', hidden: true })),
+          D.stressInfo = h('div', { class: 'pn-stress-info' })),
+        D.history = h('div', { class: 'pn-history', hidden: true })),
       D.pcb = h('div', { class: 'pn-pcb', hidden: true },
         D.parts = h('div', { class: 'pn-parts-wrap' }),
         D.check = h('div', { class: 'pn-check' }),
@@ -85,6 +93,7 @@ export function createPanel(ctx) {
     try { localStorage.setItem('emcosim.panel.nav', collapsed ? 'collapsed' : 'open'); } catch { /* storage off */ }
   }
   setNav(navCollapsed);
+  queueMicrotask(() => setSimMode('replay'));
   D.tabSim.classList.add('active');
   D.slider.addEventListener('input', () => { stop(); setTime(D.slider.value / 1000 * dur); });
 
@@ -156,6 +165,7 @@ export function createPanel(ctx) {
       const fresh = store.runs.find((r) => !knownRuns.has(r.run_id) && !String(r.run_id).includes('-sweep'));
       if (fresh && !el.hidden) {
         selected = fresh.scenario;
+        setTab('sim'); setSimMode('replay');
         openRun(fresh.run_id).then(() => {
           const title = store.project?.scenario_info?.[fresh.scenario]?.title || fresh.scenario;
           if (D.banner.className.includes('bad') || D.banner.className.includes('ok')) {
@@ -310,6 +320,166 @@ export function createPanel(ctx) {
         h('td', { class: 'mono' }, b.pin), h('td', {}, b.to ? '输出 →' : '← 输入'),
         h('td', {}, who(b.to || b.from)), h('td', { class: 'mono muted' }, b.net || '–'))))));
   }
+
+  // ------------------------------------------------------------ 仿真 page modes: replay | strength & stress | history
+  let simMode = 'replay';
+  function setSimMode(m) {
+    simMode = m;
+    for (const b of D.simModes.children) { const on = b.dataset.mode === m; b.classList.toggle('active', on); b.setAttribute('aria-selected', String(on)); }
+    D.view.hidden = m !== 'replay'; D.stress.hidden = m !== 'stress'; D.history.hidden = m !== 'history';
+    el.classList.toggle('sim-other', m !== 'replay');
+    if (m === 'stress') loadChecks();
+    else if (m === 'history') renderHistory();
+    else main3d?.resize();
+  }
+
+  const MODE_ZH = { in_plane: '层内断裂', interlayer_normal: '层与层被拉开', interlayer_shear: '层与层错开', interlayer_combined: '层间综合' };
+  const sfClass = (sf) => (sf >= 3 ? 'ok' : sf >= 1.5 ? 'warn' : 'bad');
+  const sfText = (sf) => (sf >= 3 ? '够结实' : sf >= 1.5 ? '余量不多' : '可能会坏');
+  let checks = null, gears = null, stressJob = null, stress3d = null, stressPart = null;
+
+  async function loadChecks() {
+    try { checks = await get('checks'); } catch (e) { checks = { failed: e.message }; }
+    try { gears = runId || store.runs.length ? await post('checks/gears', runId ? { run_id: runId } : {}) : null; }
+    catch (e) { gears = { failed: e.message }; }
+    renderChecks();
+  }
+
+  async function startStrength(part) {
+    try {
+      const job = await post('jobs/strength', { part, ...(runId ? { run_id: runId } : {}) });
+      stressJob = { id: job.id, part, progress: 0 };
+    } catch (e) { toastError(e); }
+    renderChecks();
+  }
+  store.on('job_progress', (d) => { if (stressJob && d.id === stressJob.id) { stressJob.progress = d.progress; renderChecks(); } });
+  store.on('job', (j) => {
+    if (!stressJob || j.id !== stressJob.id) return;
+    if (j.status === 'done') { stressPart = stressJob.part; stressJob = null; loadChecks(); }
+    else if (j.status === 'failed' || j.status === 'cancelled') { stressJob = null; toast(`强度检测没算完：${j.error || '已取消'}`, { kind: 'bad', timeout: 8000 }); renderChecks(); }
+  });
+  // results written by the AI through MCP (or another tab): show them
+  store.on('checks_changed', () => {
+    if (el.hidden || stressJob) return;
+    setTab('sim'); setSimMode('stress');
+  });
+
+  function renderChecks() {
+    clear(D.stressInfo);
+    if (!checks) { D.stressInfo.append(h('div', { class: 'muted' }, '读取中…')); return; }
+    if (checks.failed) { D.stressInfo.append(h('div', { class: 'pn-banner bad' }, checks.failed)); return; }
+    const parts = checks.strength_parts || [];
+    const title = (sc) => store.project?.scenario_info?.[sc]?.title || sc;
+    D.stressInfo.append(h('div', { class: 'muted small' },
+      runId ? `按当前回放的这次仿真的受力来算（${title(meta?.scenario?.name)}）。` : '按最近一次仿真的受力来算。',
+      '安全系数 = 材料能承受的 ÷ 实际受到的，3 倍以上算够结实。'));
+    if (!parts.length) {
+      D.stressInfo.append(h('div', { class: 'pn-side-empty' }, '这个工程还没有设置要检测强度的打印件。可以让 AI 给打印件设好夹持位置和受力位置（strength 配置）。'));
+    }
+    for (const sp of parts) {
+      const r = checks.strength?.[sp.name];
+      const busy = stressJob?.part === sp.name;
+      const card = h('div', { class: 'pn-ck' },
+        h('div', { class: 'pn-ck-head' },
+          h('div', {}, h('strong', {}, `${sp.label} 强度`), h('div', { class: 'muted small' }, `${sp.material || '—'}，按“建模”页里的打印设置算`)),
+          h('button', { class: 'btn sm' + (r ? '' : ' primary'), disabled: !!stressJob, onclick: () => startStrength(sp.name) },
+            busy ? `计算中 ${Math.round((stressJob.progress || 0) * 100)}%…` : r ? '重新检测' : '开始检测')));
+      if (r) {
+        card.append(h('div', { class: 'pn-ck-big ' + sfClass(r.min_sf) }, h('span', { class: 'n' }, `${r.min_sf}`), h('span', {}, ` 倍安全系数 · ${sfText(r.min_sf)}`)),
+          h('table', { class: 'pn-parts' }, h('tbody', {}, r.cases.map((c) => h('tr', {},
+            h('td', {}, c.label, h('div', { class: 'muted small' }, `受力 ${c.force_n} N，最先坏在：${MODE_ZH[c.governing] || c.governing}`)),
+            h('td', { class: 'num ' + sfClass(c.min_sf) }, `${c.min_sf} 倍`),
+            h('td', { class: 'num muted small' }, `最大应力 ${c.max_von_mises_mpa} MPa`, h('br'), `变形 ${c.tip_deflection_mm ?? c.max_deflection_mm} mm`))))),
+          h('div', { class: 'muted small' }, `${r.material}，层高 ${r.print_settings.layer_height_mm} mm，${r.print_settings.walls} 层墙，填充 ${r.print_settings.infill_pct}%。用的是「${title(r.scenario)}」的受力。${r.assumptions}`),
+          h('button', { class: 'btn sm', onclick: () => showStress(sp.name) }, icon('cube'), '看 3D 应力图'));
+      } else if (!busy) card.append(h('div', { class: 'muted small' }, '有限元计算，大约半分钟到一分钟。'));
+      D.stressInfo.append(card);
+    }
+    // gears
+    if (gears?.failed) D.stressInfo.append(h('div', { class: 'pn-banner bad' }, gears.failed));
+    for (const g of gears?.gears || []) {
+      const worst = Math.min(...g.cases.map((c) => c.sf ?? 99));
+      D.stressInfo.append(h('div', { class: 'pn-ck' },
+        h('div', { class: 'pn-ck-head' }, h('div', {}, h('strong', {}, `${g.actuator} 舵机齿轮应力`),
+          h('div', { class: 'muted small' }, `${(g.preset || '').toUpperCase()} 输出齿轮，${g.gear.material}`))),
+        h('div', { class: 'pn-ck-big ' + sfClass(worst) }, h('span', { class: 'n' }, `${worst}`), h('span', {}, ` 倍安全系数 · ${sfText(worst)}`)),
+        h('table', { class: 'pn-parts' }, h('tbody', {}, g.cases.map((c) => h('tr', {},
+          h('td', {}, c.label, h('div', { class: 'muted small' }, `力矩 ${c.torque_nm} N·m，齿上的力 ${c.tooth_force_n} N`)),
+          h('td', { class: 'num ' + sfClass(c.sf) }, `${c.sf} 倍`),
+          h('td', { class: 'num muted small' }, `齿根应力 ${c.stress_mpa} MPa`, h('br'), `许用 ${g.gear.allow_mpa} MPa`))))),
+        h('div', { class: 'muted small' }, `模数 ${g.gear.module_mm} mm、${g.gear.teeth} 齿、齿宽 ${g.gear.face_width_mm} mm${g.assumed ? '，都是这类舵机的典型值（估计，没拆实物量过），可以在“建模”页改' : ''}。${gears.method}。`)));
+    }
+    if (!stressPart) stressPart = parts.find((sp) => checks.strength?.[sp.name])?.name || null;
+    if (stressPart && checks.strength?.[stressPart]) showStress(stressPart);
+    else { stress3d?.clear(); D.stressLegend.hidden = true; D.stressTag.textContent = '3D 参考图：检测后显示应力颜色'; }
+  }
+
+  async function showStress(part) {
+    stressPart = part;
+    const r = checks?.strength?.[part];
+    if (!r) return;
+    if (!stress3d) {
+      const { StressView, stressGradient } = await import('../stress3d.js');
+      stress3d = new StressView(D.stressView);
+      D.stressGrad = stressGradient;
+      if (!stress3d.ok) { D.stressView.append(h('div', { class: 'empty' }, stress3d.error)); return; }
+    }
+    try {
+      const { max } = await stress3d.load(part);
+      const caseLabel = r.cases.find((c) => c.case === r.stress_view.case)?.label || '';
+      D.stressTag.textContent = `${r.label}：${caseLabel}的应力（拖动旋转）`;
+      D.stressLegend.hidden = false;
+      clear(D.stressLegend).append(h('span', { class: 'mono' }, '0'), h('i', { style: { background: D.stressGrad } }),
+        h('span', { class: 'mono' }, `${max.toFixed(1)} MPa`), h('span', { class: 'muted' }, `（材料强度约 ${r.stress_view.material_strength_mpa} MPa）`));
+    } catch (e) { toastError(e); }
+  }
+
+  // ------------------------------------------------------------ history: past runs, compare two
+  const pickedRuns = new Set();
+  const METRICS = [['probe.press.force_n.peak', '最大按压力', 'N', 2], ['node.v5_servo.min_v', '舵机最低电压', 'V', 2],
+    ['node.vin5.min_v', '输入最低电压', 'V', 2], ['mcu.min_rail_v', '单片机最低电压', 'V', 2], ['mcu.resets', '单片机重启', '次', 0],
+    ['act.servo1.peak_current_a', '舵机最大电流', 'A', 2], ['joint.servo_axis.deg.max', '按压臂最大角度', '°', 1]];
+  const metaCache = new Map();
+  const runMeta = (id) => { if (!metaCache.has(id)) metaCache.set(id, get(`run/${id}`)); return metaCache.get(id); };
+
+  async function renderHistory() {
+    clear(D.history);
+    const runs = store.runs.filter((r) => !String(r.run_id).includes('-sweep'));
+    const title = (sc) => store.project?.scenario_info?.[sc]?.title || sc;
+    if (!runs.length) { D.history.append(h('div', { class: 'pn-side-empty' }, '还没有仿真结果。在右边选一个测试跑一次。')); return; }
+    D.history.append(h('div', { class: 'muted small' }, '勾选两次结果可以对比；点“回放”回到 3D 动画。'),
+      h('table', { class: 'pn-parts' },
+        h('thead', {}, h('tr', {}, ['', '时间', '测试', '结果', '临时改的参数', ''].map((x) => h('th', {}, x)))),
+        h('tbody', {}, runs.slice(0, 40).map((r) => h('tr', { class: r.run_id === runId ? 'cur' : '' },
+          h('td', {}, h('input', { type: 'checkbox', checked: pickedRuns.has(r.run_id), 'aria-label': '选择对比', onchange: (e) => {
+            if (e.target.checked) { pickedRuns.add(r.run_id); if (pickedRuns.size > 2) pickedRuns.delete(pickedRuns.values().next().value); } else pickedRuns.delete(r.run_id);
+            renderHistory(); } })),
+          h('td', { class: 'mono small' }, (r.created || '').slice(5, 16)),
+          h('td', {}, title(r.scenario)),
+          h('td', { class: r.passed ? 'ok' : 'bad' }, r.passed ? '通过' : '没通过'),
+          h('td', { class: 'mono small muted' }, Object.entries(r.overrides || {}).map(([k, v]) => `${k}=${v}`).join('，') || '–'),
+          h('td', {}, h('button', { class: 'btn sm', onclick: () => { selected = r.scenario; renderTests(); setSimMode('replay'); openRun(r.run_id); } }, '回放')))))));
+    if (pickedRuns.size === 2) {
+      const [a, b] = [...pickedRuns];
+      const box = h('div', { class: 'pn-ck' }, h('strong', {}, '对比'));
+      D.history.append(box);
+      try {
+        const [ma, mb] = await Promise.all([runMeta(a), runMeta(b)]);
+        const v = (m, k) => m.metrics?.[k];
+        box.append(h('table', { class: 'pn-parts' },
+          h('thead', {}, h('tr', {}, h('th', {}, ''), h('th', {}, `${title(ma.scenario?.name)} ${(ma.created || '').slice(11, 16)}`), h('th', {}, `${title(mb.scenario?.name)} ${(mb.created || '').slice(11, 16)}`), h('th', {}, '差'))),
+          h('tbody', {},
+            h('tr', {}, h('td', {}, '结果'), h('td', {}, ma.passed ? '通过' : '没通过'), h('td', {}, mb.passed ? '通过' : '没通过'), h('td', {}, '')),
+            METRICS.filter(([k]) => v(ma, k) !== undefined || v(mb, k) !== undefined).map(([k, l, u, d]) => {
+              const x = v(ma, k), y = v(mb, k);
+              const f = (n) => (typeof n === 'number' ? `${n.toFixed(d)} ${u}` : '–');
+              return h('tr', {}, h('td', {}, l), h('td', { class: 'num' }, f(x)), h('td', { class: 'num' }, f(y)),
+                h('td', { class: 'num muted' }, typeof x === 'number' && typeof y === 'number' ? `${(y - x >= 0 ? '+' : '')}${(y - x).toFixed(d)} ${u}` : ''));
+            }))));
+      } catch (e) { box.append(h('div', { class: 'pn-banner bad' }, e.message)); }
+    }
+  }
+  store.on('runs', () => { if (!el.hidden && tab === 'sim' && simMode === 'history') renderHistory(); });
 
   // ------------------------------------------------------------ load a run
   async function openRun(id) {
@@ -506,6 +676,7 @@ export function createPanel(ctx) {
     D.tabModel.classList.toggle('active', t === 'model');
     el.classList.toggle('tab-model', t === 'model');
     el.classList.toggle('tab-pcb', t === 'pcb');
+    el.classList.toggle('tab-sim', t === 'sim');
     if (!store.app?.project) return;
     D.sim.hidden = t !== 'sim'; D.pcb.hidden = t !== 'pcb'; D.model.hidden = t !== 'model';
     if (t === 'pcb') renderPcbPage();
@@ -680,9 +851,9 @@ export function createPanel(ctx) {
         h('button', { class: 'btn sm primary', onclick: () => sendPrint(true) }, icon('send'), '发到 Bambu Studio')) : null));
     D.modelMat.hidden = !pc.length;
     if (pc.length) D.modelMat.append(h('div', { class: 'pf-grid' }, ...pc));
-    const mc = mechCards(store.project?.presets);
+    const mc = mechCards(store.project?.presets, model.gear_defaults);
     clear(D.modelMech).append(h('div', { class: 'pn-sec-head' }, h('strong', {}, '机构参数'),
-      h('span', { class: 'muted small' }, '电机型号、开关手感、开始角度')), h('div', { class: 'pf-grid' }, ...mc));
+      h('span', { class: 'muted small' }, '电机型号、齿轮、开关手感、开始角度')), h('div', { class: 'pf-grid' }, ...mc));
     D.modelMech.hidden = !mc.length;
   }
 
@@ -730,6 +901,8 @@ export function createPanel(ctx) {
   }
   async function switched() {
     resetRun(); selected = null; boards = null; boardCheck = null; knownRuns = null; model = null;
+    checks = null; gears = null; stressPart = null; pickedRuns.clear(); metaCache.clear(); stress3d?.clear();
+    if (simMode !== 'replay') setSimMode('replay');
     model3d?.clear(); model3d && (model3d._framed = false);
     await showProject();
   }

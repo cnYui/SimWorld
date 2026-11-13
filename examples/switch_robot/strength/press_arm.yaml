@@ -5,7 +5,7 @@
 # The STL is exported in its print pose (bar flat on the bed, fingers up, flipped about y),
 # so the transform below rotates it back: x -> -x, z -> 3 - z. In this frame the
 # as-exported print direction is -z.
-part_mesh: ../../../mechanical/PRINT_03_double_press_arm.stl   # relative to the project root
+part_mesh: print/PRINT_03_double_press_arm.stl   # relative to the project root
 unit_scale: 1.0                                               # STL is in mm
 transform:
   - [-1, 0, 0, 0]

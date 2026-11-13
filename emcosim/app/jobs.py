@@ -54,7 +54,7 @@ class JobManager:
         threading.Thread(target=self._worker, daemon=True, name='emcosim-jobs').start()
 
     def submit(self, kind, **args):
-        if kind not in ('run', 'sweep'):
+        if kind not in ('run', 'sweep', 'strength'):
             raise ValueError(kind)
         job = Job(kind, args)
         self.jobs[job.id] = job
@@ -94,7 +94,11 @@ class JobManager:
             try:
                 project = self.get_project()
                 a = job.args
-                if job.kind == 'run':
+                if job.kind == 'strength':
+                    from .. import checks
+                    job.result = checks.strength_check(project, a['part'], a.get('run_id'),
+                                                       progress=lambda f: progress(f, 0.0, {}))
+                elif job.kind == 'run':
                     job.result = api.run_scenario(project, a['scenario'], a.get('overrides') or None,
                                                   progress=progress, cancel=job.cancel)
                 else:

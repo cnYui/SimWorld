@@ -30,6 +30,9 @@ JSON API (all under /api):
   GET  model/scene.json|scene.bin|frames.bin   the model at its initial pose, for the 建模 page
   POST upload/model?name=x.stl   raw file body: saved under mechanics/uploads and imported as a part
   POST annotate/joint {...}, annotate/pin {...}
+  GET  checks                    strength-checkable print parts + last results; POST jobs/strength {part, run_id?}
+  POST checks/gears {run_id?}    servo output gear bending stress (Lewis)
+  GET  checks/<part>/stress.bin  surface mesh + von Mises per vertex of the last strength check
   POST circuit/check {run_id?}   ngspice on the board netlist with a run's load currents
   GET  pcb                       PCB summary (components, nets, board, copper)
   GET  printing                  printable parts + whether Bambu Studio is installed
@@ -393,6 +396,18 @@ class Handler(BaseHTTPRequestHandler):
             if p[1:] == ['run'] and method == 'POST':
                 app.project()
                 return app.jobs.submit('run', scenario=b['scenario'], overrides=b.get('overrides') or {})
+            if p[1:] == ['strength'] and method == 'POST':
+                from .. import checks
+                names = [x['name'] for x in checks.strength_parts(app.project())]
+                if b.get('part') not in names:
+                    raise ApiError(f"没有这个可检测的打印件：{b.get('part')}")
+                try:
+                    import skfem  # noqa: F401
+                    from ..strength.meshing import _ftetwild
+                    _ftetwild()
+                except ImportError:
+                    raise ApiError('强度检测要的有限元库还没装。运行 scripts\\setup 后再试。', 409)
+                return app.jobs.submit('strength', part=b['part'], run_id=b.get('run_id'))
             if p[1:] == ['sweep'] and method == 'POST':
                 app.project()
                 if not b.get('params'):
@@ -508,6 +523,22 @@ class Handler(BaseHTTPRequestHandler):
             if not eda.find_cli():
                 raise ApiError('没有找到 KiCad。装好 KiCad 9 后再点检查（kicad.org/download）。', 409)
             return eda.drc(prj.root / board, limit=60)
+
+        if head == 'checks':
+            # 仿真 page: strength of printed parts (FEA, as a job) and servo gear stress
+            from .. import checks
+            prj = app.project()
+            if len(p) == 1 and method == 'GET':
+                return {'strength_parts': checks.strength_parts(prj), 'strength': checks.last_results(prj)}
+            if p[1:] == ['gears'] and method == 'POST':
+                return checks.gear_check(prj, b.get('run_id'))
+            if len(p) == 3 and p[2] == 'stress.bin' and re.fullmatch(r'[\w\-]+', p[1]):
+                f = prj.root / checks.RESULTS_DIR / p[1] / 'stress.bin'
+                if not f.is_file():
+                    raise ApiError('not found', 404)
+                self._send(f.read_bytes(), 'application/octet-stream')
+                return None
+            raise ApiError('not found', 404)
 
         if head == 'circuit' and p[1:] == ['check'] and method == 'POST':
             # ngspice on the real board netlist, driven by the currents of a run (latest by default)

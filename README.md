@@ -23,6 +23,8 @@ Linux / macOS：
 
 QEMU 预编译版来自本仓库的 Release（打 v* 标签时由 .github/workflows/release.yml 编译）。只想快速看看也可以不装 QEMU：标着“快速”的测试用脚本代替固件，照样能跑。
 
+页面按做事的顺序分成三页：“PCB 元件”管电路（元件清单和立创料号、KiCad 检查、ngspice 电路检查、电源和单片机参数、引脚接线、跟着仿真动的电路图）；“建模”管机械（3D 模型、零件和关节、导入 STL/STEP、每个打印件的材料和打印设置、电机型号和齿轮、开关手感、导出 3MF 或发到 Bambu Studio）；“仿真”把两边放在一起跑（测试和 3D 回放、按这次受力算的打印件强度和带应力颜色的 3D 参考图、舵机齿轮应力、历史结果对比）。新建的空工程从“建模”开始。
+
 Docker（QEMU、ngspice 都装好了）：
 
     docker build -t emcosim .
@@ -68,6 +70,10 @@ Docker（QEMU、ngspice 都装好了）：
 project.yaml 的 printing.parts 列出可打印零件（开关机器人示例带了 5 个 PRINT_*.stl，在 examples/switch_robot/print/）。emcosim print [零件名] 或界面里的“打印”页会把选中的零件打成一个 3MF（保持 STL 导出时的打印朝向，平铺在热床上），然后交给 Bambu Studio 打开：先找 bambu-studio.exe（注册表和默认安装目录）用命令行参数打开，找不到时用 MakerWorld 用的 bambustudio://open?file= 链接，文件由本机 127.0.0.1 临时提供一次。--with-settings 会把推荐的层高、外墙、填充写进 3MF 的 Metadata/model_settings.config，这个格式拓竹没有公开，是按 Bambu Studio 自己保存的格式写的，没在真机上验证，默认关闭。拓竹 wiki 公开的 bambu-connect://import-file 协议导入的是切好片的 .gcode.3mf，用于直接下发打印机，不适合导入模型。
 
 ## 3D 打印件强度校核
+
+页面上：在“仿真”页切到“强度和应力”，点“开始检测”，按当前回放的那次仿真算（约半分钟）。打印件要在 project.yaml 里有 `printing.parts.<名字>.strength: <配置>`，配置写夹持位置和受力位置（例子见 `examples/switch_robot/strength/press_arm.yaml`）；材料和层高、墙数、填充取“建模”页的设置。舵机齿轮应力用 Lewis 公式按仿真里的最大力矩和堵转力矩估算，齿轮尺寸和许用应力是同类舵机的典型值（估计），可在 `actuators.<名字>.gear` 改。MCP 里对应 strength_check、gear_check。
+
+完整报告：
 
 `pip install -e ".[strength]"` 后运行 `python examples/switch_robot/strength/run_strength.py`（4 核约 13 分钟，`--report-only` 只重出报告）。用仿真里的接触力峰值和舵机堵转扭矩作载荷，对打印件做线弹性有限元，材料按 PLA/PETG 的横观各向同性处理，层间强度单独折减，可比较平放、侧放、竖放三种打印方向，并扫描喷嘴直径、层高、壁数、填充率；另有直角内角圆角半径的应力集中系数研究。结果见 `examples/switch_robot/strength/REPORT.md`。材料与打印参数关系取自文献和数据手册，未经实测，结论只能用来比较方案。
 

@@ -37,6 +37,8 @@ fi
 [ -d "$ROOT/.venv" ] || "$PY" -m venv "$ROOT/.venv"
 "$ROOT/.venv/bin/python" -m pip install -q --upgrade pip
 "$ROOT/.venv/bin/python" -m pip install -q -e "$ROOT[step,dev]"
+# strength check (FEA) on the 仿真 page: optional
+"$ROOT/.venv/bin/python" -m pip install -q -e "$ROOT[strength]" || echo "strength check libraries could not be installed (optional)"
 
 OS="$(uname -s)"; ARCH="$(uname -m)"
 if [ "$SYSTEM" = 1 ]; then

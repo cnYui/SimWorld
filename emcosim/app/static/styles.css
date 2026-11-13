@@ -631,7 +631,7 @@ pre.log { background: var(--sunken); border: 1px solid var(--line); border-radiu
 .nav-collapsed .pn-nav-item { justify-content: center; padding: 0; }
 
 .pn-main { grid-area: main; display: flex; flex-direction: column; gap: 8px; padding: 10px 10px 0 12px; min-height: 0; min-width: 0; }
-.pn-sim { flex: 1; min-height: 0; display: flex; }
+.pn-sim { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 8px; }
 .pn-sim .pn-view { flex: 1; }
 .pn-pcb { flex: 1; min-height: 0; overflow: auto; display: flex; flex-direction: column; gap: 8px; padding-bottom: 8px; }
 .pn-sim[hidden], .pn-pcb[hidden] { display: none; }
@@ -785,3 +785,24 @@ select.pf-in { width: auto; text-align: left; }
 /* PCB page: circuit only; the physics charts and test verdict belong to 仿真 (the play bar stays for the live circuit) */
 .tab-pcb .pn-charts, .tab-pcb .pn-main > .pn-banner { display: none; }
 .pn-sec[hidden] { display: none; }
+
+/* 仿真 page: replay | strength & stress | history */
+.pn-sim-modes { align-self: flex-start; }
+.pn-sim > [hidden] { display: none !important; }
+.tab-sim.sim-other .pn-bottom, .sim-other .pn-main > .pn-banner { display: none; }
+.pn-stress { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(320px, 1fr); gap: 10px; }
+.pn-stress-view { min-height: 300px; }
+.pn-stress-legend { position: absolute; left: 8px; bottom: 8px; z-index: 1; display: flex; align-items: center; gap: 6px; font-size: 12px;
+  background: rgba(255,255,255,.85); color: #222; padding: 4px 8px; border-radius: 4px; }
+.pn-stress-legend i { display: inline-block; width: 120px; height: 10px; border-radius: 2px; }
+.pn-stress-info, .pn-history { overflow: auto; min-height: 0; display: flex; flex-direction: column; gap: 8px; }
+.pn-history { flex: 1; }
+.pn-ck { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; display: flex; flex-direction: column; gap: 6px; }
+.pn-ck-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
+.pn-ck-big { font-size: 14px; }
+.pn-ck-big .n { font-size: 26px; font-weight: 700; }
+.pn-ck-big.ok, td.ok { color: var(--ok); }
+.pn-ck-big.warn, td.warn { color: var(--warn); }
+.pn-ck-big.bad, td.bad { color: var(--bad); }
+.pn-history tr.cur td { background: var(--accent-weak); }
+@media (max-width: 900px) { .pn-stress { grid-template-columns: 1fr; } }

@@ -48,6 +48,9 @@ if (-not (Test-Path $venvPy)) {
 & $venvPy -m pip install -q --upgrade pip
 & $venvPy -m pip install -q -e "$Root[step,app,dev]"
 if ($LASTEXITCODE -ne 0) { throw 'pip install failed' }
+# strength check (FEA) on the 仿真 page: optional, the rest works without it
+& $venvPy -m pip install -q -e "$Root[strength]"
+if ($LASTEXITCODE -ne 0) { Write-Host 'strength check libraries could not be installed; the 强度检测 button will say so' -ForegroundColor Yellow }
 
 if (-not $NoKicad) {
   Say 'KiCad'

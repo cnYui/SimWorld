@@ -168,6 +168,36 @@ def test_circuit_check_uses_latest_run(client):
     assert {row['net'] for row in r['compare']} >= {'VIN5', '3V3'}
 
 
+def test_checks_gears_and_strength(client, project):
+    code, c = client('GET', 'checks')
+    assert code == 200 and [x['name'] for x in c['strength_parts']] == ['press_arm'] and c['strength'] == {}
+    code, job = client('POST', 'jobs/run', {'scenario': 'servo_sweep_scripted'})
+    assert wait_job(client.app, job['id']).status == 'done'
+    code, g = client('POST', 'checks/gears', {})
+    assert code == 200
+    sg = g['gears'][0]
+    assert sg['preset'] == 'sg90' and sg['assumed'] and len(sg['cases']) == 2
+    stall = sg['cases'][1]
+    assert stall['sf'] < sg['cases'][0]['sf'] and abs(stall['stress_mpa'] * stall['sf'] - sg['gear']['allow_mpa']) < 0.5
+    try:
+        import skfem  # noqa: F401
+        from emcosim.strength.meshing import _ftetwild
+        _ftetwild()
+    except ImportError:
+        pytest.skip('strength extra not installed')
+    code, job = client('POST', 'jobs/strength', {'part': 'press_arm'})
+    assert code == 200
+    j = wait_job(client.app, job['id'], timeout=300)
+    assert j.status == 'done', j.error
+    r = j.result
+    assert {c['case'] for c in r['cases']} == {'press', 'stall'} and r['min_sf'] > 1
+    raw = _raw(client, 'GET', 'checks/press_arm/stress.bin')
+    nv, nt = (int.from_bytes(raw[i:i + 4], 'little') for i in (0, 4))
+    assert len(raw) == 8 + nv * 12 + nt * 12 + nv * 4 and nt > 100
+    code, c = client('GET', 'checks')
+    assert c['strength']['press_arm']['min_sf'] == r['min_sf']
+
+
 def test_sweep_job_rows(client):
     code, job = client('POST', 'jobs/sweep', {'scenario': 'servo_sweep_scripted',
                                               'params': {'actuators.servo1.node': ['v5_servo', 'vin5']},

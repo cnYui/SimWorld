@@ -117,6 +117,7 @@ printing:
       file: print/PRINT_03_double_press_arm.stl
       label: 按压臂
       material: PETG
+      strength: strength/press_arm.yaml
       settings:
         layer_height: 0.16
         wall_loops: 4

@@ -10,12 +10,13 @@ const ASSUMED = /assum|假设|估计|not measured/i;
 /** rows: [{ path, label, unit, scale = 1, options, hint }]; rows whose value is missing are skipped. */
 export function paramCard(title, rows, { sub, note } = {}) {
   const data = store.project?.data || {};
-  const live = rows.filter((r) => getPath(data, r.path) !== undefined);
+  const val = (r) => { const v = getPath(data, r.path); return v === undefined ? r.fallback : v; };
+  const live = rows.filter((r) => val(r) !== undefined);
   if (!live.length) return null;
   const parentNote = (path) => getPath(data, path.split('.').slice(0, -1).concat('note').join('.'));
   return h('div', { class: 'pf-card' },
     h('div', { class: 'pf-head' }, h('strong', {}, title), sub ? h('span', { class: 'muted small' }, sub) : null),
-    h('div', { class: 'pf-rows' }, live.map((r) => row(r, getPath(data, r.path), parentNote(r.path)))),
+    h('div', { class: 'pf-rows' }, live.map((r) => row(r, val(r), r.fallbackNote && getPath(data, r.path) === undefined ? r.fallbackNote : parentNote(r.path)))),
     note ? h('div', { class: 'muted small' }, note) : null);
 }
 
@@ -124,7 +125,7 @@ export function printCards(materials) {
 }
 
 /** Mechanism settings: servo model, switch feel, start angles. */
-export function mechCards(presets) {
+export function mechCards(presets, gearDefaults) {
   const d = store.project?.data || {};
   const cards = [];
   for (const [name, a] of Object.entries(d.actuators || {})) {
@@ -134,6 +135,16 @@ export function mechCards(presets) {
       { path: `actuators.${name}.preset`, label: '型号', options: opts },
       { path: `actuators.${name}.angle_limit_deg`, label: '最大转角', unit: '°' },
     ], { sub: a.joint ? `带动关节 ${a.joint}` : '' }));
+    const g = gearDefaults?.[a.preset];
+    if (g) {
+      const fb = (k) => ({ path: `actuators.${name}.gear.${k}`, fallback: g[k], fallbackNote: 'assumed: typical for this servo class' });
+      cards.push(paramCard(`${name} 输出齿轮`, [
+        { ...fb('module_mm'), label: '模数', unit: 'mm' },
+        { ...fb('teeth'), label: '齿数', unit: '齿' },
+        { ...fb('face_width_mm'), label: '齿宽', unit: 'mm' },
+        { ...fb('allow_mpa'), label: '许用应力', unit: 'MPa' },
+      ], { sub: `${g.material}；仿真页的齿轮应力按这里算` }));
+    }
   }
   for (const [name, e] of Object.entries(d.mechanics?.elements || {})) {
     if (e.type !== 'bistable') continue;

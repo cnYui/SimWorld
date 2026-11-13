@@ -57,7 +57,8 @@ class ProjectWatcher(threading.Thread):
         return (str(root), mtime(root / 'project.yaml'),
                 tuple(sorted((p.name, mtime(p)) for p in sc.glob('*.yaml'))) if sc.exists() else (),
                 tuple(sorted(p.name for p in runs.iterdir() if (p / 'run.json').exists())) if runs.exists() else (),
-                extra)
+                extra,
+                tuple(sorted((f.parent.name, mtime(f)) for f in (runs / '_checks').glob('*/result.json'))))
 
     def run(self):
         while not self._stop.wait(self.interval):
@@ -80,6 +81,8 @@ class ProjectWatcher(threading.Thread):
                 self.bus.publish('runs_changed', {'new': new})
             if last[4] != snap[4]:
                 self.bus.publish('files_changed')
+            if last[5] != snap[5]:
+                self.bus.publish('checks_changed')
 
     def stop(self):
         self._stop.set()

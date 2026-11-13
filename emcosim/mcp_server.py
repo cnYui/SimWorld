@@ -207,6 +207,24 @@ def build_server(project_root=None, link=None):
         return api.sweep(prj(), scenario, params, metrics=metrics, extra_overrides=overrides)
 
     @mcp.tool()
+    def strength_check(part: str, run_id: str | None = None) -> dict:
+        """FEA strength check of a printed part (printing.parts.<part>.strength config) with the loads
+        of a run (newest if omitted): contact-force peak and servo stall torque. Uses the part's
+        material and print settings. Returns the minimum safety factor per failure mode (in-plane,
+        between layers); the page's 仿真 tab shows the result with a stress-coloured 3D view.
+        Takes ~20-60 s."""
+        from . import checks
+        return checks.strength_check(prj(), part, run_id)
+
+    @mcp.tool()
+    def gear_check(run_id: str | None = None) -> dict:
+        """Bending stress in each servo's output gear tooth (Lewis) for the peak torque of a run and
+        the stall torque, with safety factors. Gear geometry defaults are assumed per servo model;
+        override with actuators.<name>.gear.{module_mm, teeth, face_width_mm, allow_mpa}."""
+        from . import checks
+        return checks.gear_check(prj(), run_id)
+
+    @mcp.tool()
     def get_results(run_id: str | None = None, signals: list[str] | None = None,
                     t0: float | None = None, t1: float | None = None, max_points: int = 300) -> dict:
         """Summary of a run (latest if run_id is omitted; 'list' lists runs). With `signals`,
