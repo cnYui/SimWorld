@@ -335,3 +335,51 @@ def test_bind_pin_finds_the_pull_up_on_the_schematic(empty):
     assert out['pull_up'].startswith('R4') and 'warnings' not in out
     with pytest.raises(ToolError, match='not in the schematic'):
         asyncio.run(srv.call_tool('bind_pin', {'pin': 'GPIO39', 'input': 'mode_btn', 'net': 'NOPE'}))
+
+
+# ------------------------------------------------------------------ LCSC numbers against the design
+from emcosim.parts_check import check_part
+
+USB16 = {'model': 'TYPE-C 16PIN 2MD(073)', 'package': 'SMD', 'category': 'Connectors',
+         'specs': {'Number of Contacts': '16P', 'Connector Type': 'Type-C'}}
+R47K = {'model': '0402WGF4701TCE', 'package': '0402', 'category': 'Resistors', 'specs': {'Resistance': '4.7kΩ'}}
+C10U_0603 = {'model': 'CL10A106KP8NNNC', 'package': '0603', 'category': 'Capacitors', 'specs': {'Capacitance': '10uF'}}
+ME6211 = {'model': 'ME6211C33M5G-N', 'package': 'SOT-23-5', 'category': 'Power Management', 'specs': {}}
+ESP32 = {'model': 'ESP32-PICO-V3-02', 'package': 'QFN-48-EP(7x7)', 'category': 'RF', 'specs': {}}
+
+
+@pytest.mark.parametrize('ref, value, fp, info, pads, problem', [
+    ('J1', 'USB-C', 'Connector_USB:USB_C_Receptacle_GCT_USB4125-xx-x_6P_TopMnt_Horizontal', USB16,
+     ['A5', 'A9', 'A12', 'B5', 'B9', 'B12', 'SH'], '16-pin part'),
+    ('R1', '5.1k', 'Resistor_SMD:R_0402_1005Metric', R47K, None, 'value 4.7k'),
+    ('C3', '10uF', 'Capacitor_SMD:C_0402_1005Metric', C10U_0603, None, 'package 0603'),
+    ('U3', 'TP4054', 'Package_TO_SOT_SMD:SOT-23-5', ME6211, None, 'part is ME6211'),
+    ('U1', 'ESP32-PICO-V3-02', 'Package_DFN_QFN:QFN-32-1EP_5x5mm_P0.5mm_EP3.45x3.45mm', ESP32, None, '48 pins'),
+])
+def test_lcsc_mismatches_are_caught(ref, value, fp, info, pads, problem):
+    r = check_part(ref, value, fp, info, pads)
+    assert r['status'] == 'mismatch' and any(problem in x for x in r['problems']), r
+
+
+@pytest.mark.parametrize('ref, value, fp, info', [
+    ('R2', '4.7k', 'Resistor_SMD:R_0402_1005Metric', R47K),
+    ('C1', '10uF', 'Capacitor_SMD:C_0603_1608Metric', C10U_0603),
+    ('U4', 'ME6211C33M5G-N', 'Package_TO_SOT_SMD:SOT-23-5', ME6211),
+    ('U1', 'ESP32-PICO-V3-02', 'Package_DFN_QFN:QFN-48-1EP_7x7mm_P0.5mm_EP5.3x5.3mm', ESP32),
+])
+def test_lcsc_matches_pass(ref, value, fp, info):
+    assert check_part(ref, value, fp, info)['status'] == 'ok'
+
+
+@needs_kicad
+def test_board_parts_status_reports_a_wrong_lcsc(empty, monkeypatch):
+    from emcosim import parts
+    p, srv = empty
+    bad = {**LED_BOARD, 'components': [dict(c) for c in LED_BOARD['components']]}
+    bad['components'][1]['lcsc'] = 'C25900'                     # a 4.7 k on the 330 ohm resistor
+    call_parts(srv, 'schematic_create', bad)
+    monkeypatch.setattr(parts, 'part', lambda code, mpn=None: {**R47K, 'lcsc': code, 'stock': 100,
+                                                                 'library_type': 'basic'})
+    out = call(srv, 'board_parts_status')
+    assert out['mismatches'] and out['mismatches'][0]['ref'] == 'R1'
+    assert any('value 4.7k' in x for x in out['mismatches'][0]['problems'])

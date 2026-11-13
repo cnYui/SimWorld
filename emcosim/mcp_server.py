@@ -769,9 +769,12 @@ def build_server(project_root=None, link=None):
     @tool()
     def board_parts_status() -> dict:
         """For every part of the design that has an LCSC number (schematic, board or netlist): live stock,
-        price and library type, and which ones are out of stock or extended (assembly fee). Parts with
-        no LCSC number are listed under no_lcsc."""
+        price and library type, and whether the LCSC part fits the design: package size/family and pin
+        count against the footprint, R/C/L value against the schematic value, the part name against an
+        IC's value. mismatches lists the references to fix (schematic_edit field LCSC, or pick another
+        with parts_search / parts_alternatives). Parts with no LCSC number are listed under no_lcsc."""
         from . import parts
+        from .parts_check import check_part
         comps, source, _ = board_parts(prj())
         by_lcsc, missing = {}, []
         for ref, c in comps.items():
@@ -779,16 +782,39 @@ def build_server(project_root=None, link=None):
                 by_lcsc.setdefault(c['lcsc'], []).append(ref)
             else:
                 missing.append(ref)
-        rows = []
+        pads_cache = {}
+
+        def pads(fid):
+            if fid not in pads_cache:
+                try:
+                    from .design import kicad_libs
+                    pads_cache[fid] = kicad_libs.footprint_pads(fid)
+                except Exception:
+                    pads_cache[fid] = None
+            return pads_cache[fid]
+        rows, mismatches = [], []
         for code, refs in sorted(by_lcsc.items()):
             try:
                 info = parts.part(code)
-                rows.append({'lcsc': code, 'refs': refs, 'mpn': info.get('model') or info.get('mpn'),
-                             'stock': info.get('stock'), 'library_type': info.get('library_type'),
-                             'price': info.get('price') or info.get('prices')})
             except Exception as e:
                 rows.append({'lcsc': code, 'refs': refs, 'error': str(e)})
-        return {'source': source, 'parts': rows, 'no_lcsc': sorted(missing),
+                continue
+            fits = {}
+            for ref in refs:
+                c = comps[ref]
+                r = check_part(ref, c.get('value'), c.get('footprint'), info,
+                               pads(c['footprint']) if c.get('footprint') else None)
+                fits[ref] = r
+                if r['status'] == 'mismatch':
+                    mismatches.append({'ref': ref, 'lcsc': code, 'problems': r['problems']})
+            status = ('mismatch' if any(f['status'] == 'mismatch' for f in fits.values())
+                      else 'ok' if all(f['status'] == 'ok' for f in fits.values()) else 'unchecked')
+            rows.append({'lcsc': code, 'refs': refs, 'mpn': info.get('model') or info.get('mpn'),
+                         'package': info.get('package'), 'stock': info.get('stock'),
+                         'library_type': info.get('library_type'), 'price': info.get('price') or info.get('prices'),
+                         'fits_design': status,
+                         'checked': sorted({k for f in fits.values() for k in f['checked']})})
+        return {'source': source, 'parts': rows, 'mismatches': mismatches, 'no_lcsc': sorted(missing),
                 'out_of_stock': [r['lcsc'] for r in rows if r.get('stock') == 0],
                 'extended': [r['lcsc'] for r in rows if r.get('library_type') == 'extended'],
                 'credit': parts.CREDIT}
