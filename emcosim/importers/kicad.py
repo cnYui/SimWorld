@@ -87,6 +87,9 @@ def load_kicad_pcb(path, cu_thickness=DEFAULT_CU_THICKNESS):
                 'x_mm': round(fx, 4), 'y_mm': round(fy, 4), 'rot_deg': frot,
                 'side': 'bottom' if layer is not None and 'B.' in str(layer[1]) else 'top',
                 'pads': {}}
+        lcsc = _prop(fp, 'LCSC') or _prop(fp, 'LCSC Part') or _prop(fp, 'JLCPCB Part')
+        if lcsc:
+            comp['lcsc'] = str(lcsc)
         parsed = parse_value(value)
         if parsed is not None:
             comp['value_si'] = parsed

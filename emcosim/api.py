@@ -4,7 +4,10 @@ from __future__ import annotations
 
 import copy
 import itertools
+import os
+import re
 import shutil
+import sys
 import time
 from pathlib import Path
 
@@ -15,6 +18,17 @@ from .engine import Simulation, compute_metrics, evaluate
 from .importers import kicad
 from .project import Project, dump_yaml, get_path, pin_number
 from .results import Recorder, RunStore, new_run_id
+
+
+def offscreen_renderer(model, height, width):
+    """mujoco.Renderer, but on a Linux machine with no display and no MUJOCO_GL it raises at once:
+    there MuJoCo falls back to GLFW, which hangs instead of failing when called off the main
+    thread (the MCP tools run in worker threads)."""
+    import mujoco
+    if (sys.platform.startswith('linux') and not os.environ.get('MUJOCO_GL')
+            and not os.environ.get('DISPLAY') and not os.environ.get('WAYLAND_DISPLAY')):
+        raise RuntimeError('no display for OpenGL: set MUJOCO_GL=egl or MUJOCO_GL=osmesa on a headless machine')
+    return mujoco.Renderer(model, height=int(height), width=int(width))
 
 
 # ---------------------------------------------------------------- import ----
@@ -65,8 +79,11 @@ def import_pcb(project: Project, path, placement=None, dsn=None, bom=None):
             'note': note}
 
 
+DEFAULT_DENSITY = 1240.0       # kg/m3, about PLA; only used when neither mass nor density is given
+
+
 def import_model(project: Project, path, name=None, parent='world', pos=None, euler_deg=None,
-                 units='mm', density=1240.0, mass_kg=None, collision='hull', rgba=None):
+                 units='mm', density=None, mass_kg=None, collision='hull', rgba=None):
     """STL/STEP/OBJ part, or an MJCF (.xml) used as the mechanical base model."""
     path = Path(path)
     if path.suffix.lower() == '.xml':
@@ -79,16 +96,35 @@ def import_model(project: Project, path, name=None, parent='world', pos=None, eu
                 'joints': [m.joint(i).name for i in range(m.njnt)]}
     from .importers.mesh import import_mesh
     name = name or path.stem
+    warnings = []
+    assumed_density = mass_kg is None and density is None
+    if assumed_density:
+        density = DEFAULT_DENSITY
+    parts = project.data.setdefault('mechanics', {}).setdefault('parts', {})
+    if name in parts:
+        warnings.append(f'part {name!r} already existed and was replaced (old file {parts[name].get("source")})')
+    if parent not in (None, 'world') and parent not in parts and not project.data['mechanics'].get('mjcf'):
+        raise ValueError(f'parent {parent!r} is not a part of this project; parts: {sorted(parts) or "none"} '
+                         '(use "world" for a part fixed in space)')
     info = import_mesh(path, project.root / 'mechanics' / 'meshes', name, units=units, density=density,
                        collision=collision, mass_kg=mass_kg)
     info.update({'parent': parent, 'pos': pos or [0, 0, 0]})
+    if assumed_density:
+        info['mass_assumed'] = True
+        warnings.append(f'mass {info["mass_kg"] * 1000:.1f} g is ASSUMED: no mass_kg or density was given, so the '
+                        f'solid volume was multiplied by {DEFAULT_DENSITY:.0f} kg/m3 (about PLA, 100 % infill). '
+                        'Pass mass_kg (measured or from the datasheet) or density when it matters.')
     if euler_deg:
         info['euler_deg'] = euler_deg
     if rgba:
         info['rgba'] = rgba
-    project.data.setdefault('mechanics', {}).setdefault('parts', {})[name] = info
+    parts[name] = info
     project.save()
-    return {'part': name, **{k: info[k] for k in ('mass_kg', 'bounds_m', 'watertight', 'collision')}}
+    out = {'part': name, **{k: info[k] for k in ('mass_kg', 'bounds_m', 'watertight', 'collision')},
+           'units': {'pos': 'm', 'bounds_m': 'm', 'mesh': units}}
+    if warnings:
+        out['warnings'] = warnings
+    return out
 
 
 MODEL_UPLOAD_TYPES = ('.stl', '.step', '.stp', '.obj')
@@ -201,20 +237,31 @@ def import_firmware(project: Project, path, name='firmware', params=None):
 # -------------------------------------------------------------- annotate ----
 
 def define_joint(project: Project, name, body, type='hinge', axis=None, pos=None, range_deg=None,
-                 **extra):
+                 range_mm=None, **extra):
+    if type not in ('hinge', 'slide', 'ball', 'free'):
+        raise ValueError(f"joint type {type!r}: use 'hinge' (rotates, range_deg) or 'slide' (moves, range_mm)")
     j = {'body': body, 'type': type}
     if axis is not None:
         j['axis'] = axis
     if pos is not None:
         j['pos'] = pos
+    if type == 'slide' and range_deg is not None and range_mm is None:
+        raise ValueError('a slide joint moves in a straight line: give its travel as range_mm '
+                         '(millimetres), not range_deg')
+    if type == 'hinge' and range_mm is not None:
+        raise ValueError('a hinge joint rotates: give its range as range_deg')
     if range_deg is not None:
         j['range_deg'] = range_deg
+    if range_mm is not None:
+        j['range_mm'] = range_mm
     j.update({k: v for k, v in extra.items() if v is not None})
     project.data.setdefault('mechanics', {}).setdefault('joints', {})[name] = j
     project.save()
     from .mechanics import Mechanics
     mech = Mechanics(project.root, project.data['mechanics'], project.pcb())
-    return {'joint': name, 'joints_in_model': list(mech.joints)}
+    units = {'hinge': 'range in degrees; signals joint.<name>.deg and .dps',
+             'slide': 'range in millimetres; signals joint.<name>.mm and .mm_s'}.get(type, '')
+    return {'joint': name, 'joints_in_model': list(mech.joints), 'units': units}
 
 
 def bind_pin(project: Project, pin, actuator=None, role=None, input=None, net=None,
@@ -224,6 +271,8 @@ def bind_pin(project: Project, pin, actuator=None, role=None, input=None, net=No
     type information is given. With a PCB, `net` is checked and the copper path
     from the MCU connector to the actuator connector is reported."""
     n = pin_number(pin)
+    warnings = esp32_pin_check(n, 'output' if actuator else 'input', input_type=params.get('input_type'),
+                               active=active)
     binding = {'pin': f'GPIO{n}'}
     if net:
         binding['net'] = net
@@ -240,7 +289,20 @@ def bind_pin(project: Project, pin, actuator=None, role=None, input=None, net=No
         binding['to'] = f'{actuator}.{role}' if role else actuator
     elif input:
         ins = data.setdefault('inputs', {})
-        ins.setdefault(input, {'type': 'button', 'active': active})
+        itype = params.pop('input_type', None) or (ins.get(input) or {}).get('type') or 'button'
+        if itype == 'button':
+            ins[input] = {**(ins.get(input) or {}), 'type': 'button', 'active': active}
+        elif itype == 'pot':
+            cfg = {'type': 'pot', 'v_ref': params.pop('v_ref', 3.3)}
+            if joint:
+                cfg['joint'] = joint
+                cfg['range_deg'] = params.pop('range_deg', None) or [0, 270]
+            else:
+                cfg['value'] = params.pop('value', 0.5)
+            ins[input] = cfg
+        else:
+            raise ValueError(f"input_type {itype!r}: use 'button' (digital) or 'pot' (analog, ADC)")
+        params.clear()
         binding['from'] = input
     else:
         raise ValueError('give actuator=... or input=...')
@@ -251,12 +313,87 @@ def bind_pin(project: Project, pin, actuator=None, role=None, input=None, net=No
             raise ValueError(f'net {net!r} is not on the PCB; nets: {list(pcb["nets"])}')
         report['net_pads'] = pcb['nets'][net]
         report['reaches'] = _net_neighbours(pcb, net)
+    elif net:
+        design = _design_netlist(project)
+        if design is not None:
+            nets, parts = design
+            if net not in nets:
+                raise ValueError(f'net {net!r} is not in the schematic/board; nets: {sorted(nets)}')
+            report['net_pins'] = nets[net]
+            pull = _pull_up(nets, parts, net)
+            if pull:
+                report['pull_up'] = pull
+                warnings = [w for w in warnings if 'pull-up' not in w]
     bindings = [b for b in data.setdefault('bindings', []) if pin_number(b['pin']) != n
                 or ('to' in b) != ('to' in binding)]
     bindings.append(binding)
     data['bindings'] = bindings
     project.save()
+    if warnings:
+        report['warnings'] = warnings
     return {'binding': binding, **report}
+
+
+def _design_netlist(project):
+    """({net: ['REF.PIN', ...]}, {ref: value}) of the schematic, else the board; None without either."""
+    b = project.data.get('board') or {}
+    try:
+        if b.get('kicad_sch'):
+            from . import eda
+            nl = eda.netlist(project.path(b['kicad_sch']))
+            return nl['nets'], {c['ref']: c.get('value') for c in nl['components']}
+        if b.get('kicad_pcb'):
+            from .importers.kicad import load_kicad_pcb
+            pcb = load_kicad_pcb(project.path(b['kicad_pcb']))
+            return pcb['nets'], {c['ref']: c.get('value') for c in pcb['components']}
+    except Exception:          # no KiCad: the binding still works, only the check is skipped
+        return None
+    return None
+
+
+def _pull_up(nets, parts, net):
+    """A resistor between `net` and a supply-looking net, e.g. 'R4 10k to 3V3'."""
+    supply = re.compile(r'^\+?(3V3|3\.3V|VCC|VDD|VBAT|5V|VBUS|3V)', re.I)
+    pin_net = {p: n for n, pins in nets.items() for p in pins}
+    for p in nets.get(net, []):
+        ref = p.split('.')[0]
+        if not re.match(r'R\d', ref):
+            continue
+        other = [n for q, n in pin_net.items() if q.split('.')[0] == ref and n != net]
+        if other and supply.match(other[0]):
+            return f'{ref} {parts.get(ref) or ""} to {other[0]}'.replace('  ', ' ')
+    return None
+
+
+ESP32_INPUT_ONLY = range(34, 40)
+ESP32_FLASH = range(6, 12)
+ESP32_ADC1 = range(32, 40)
+ESP32_ADC2 = (0, 2, 4, 12, 13, 14, 15, 25, 26, 27)
+ESP32_STRAP = (0, 2, 5, 12, 15)
+
+
+def esp32_pin_check(n, direction, input_type=None, active='low'):
+    """Errors for pins that cannot work, warnings for ones that need care (ESP32 / ESP32-PICO)."""
+    if n in ESP32_FLASH:
+        raise ValueError(f'GPIO{n} is wired to the SPI flash on ESP32 modules and cannot be used')
+    if n > 39 or n in (20, 24, 28, 29, 30, 31):
+        raise ValueError(f'GPIO{n} does not exist on the ESP32')
+    if direction == 'output' and n in ESP32_INPUT_ONLY:
+        raise ValueError(f'GPIO{n} is input-only on the ESP32 (GPIO34-39); pick an output-capable pin')
+    w = []
+    if input_type == 'pot':
+        if n in ESP32_ADC2:
+            w.append(f'GPIO{n} is on ADC2, which cannot be read while Wi-Fi or Bluetooth is on; '
+                     'prefer ADC1 (GPIO32-39)')
+        elif n not in ESP32_ADC1:
+            w.append(f'GPIO{n} has no ADC; an analog input needs GPIO32-39 (ADC1)')
+    elif direction == 'input' and n in ESP32_INPUT_ONLY and active == 'low':
+        w.append(f'GPIO{n} (34-39) has no internal pull-up: an active-low button needs an external '
+                 'pull-up resistor (e.g. 10 k to 3V3) on the board')
+    if n in ESP32_STRAP:
+        w.append(f'GPIO{n} is a boot strapping pin; make sure what is wired to it does not hold it at the '
+                 'wrong level during reset')
+    return w
 
 
 def _net_neighbours(pcb, net):
@@ -294,6 +431,14 @@ def _mcu_factory(project):
         backend = scenario.get('mcu_backend', mcu.get('backend', 'qemu'))
         if backend == 'scripted':
             return ScriptedMcu(scenario.get('pin_script'))
+        if backend == 'behavior':
+            from .mcu.behavior import BehaviorMcu
+            script = scenario.get('behavior_script') or (mcu.get('behavior') or {}).get('script')
+            if not script:
+                raise ValueError('mcu_backend: behavior needs behavior_script (write one with write_behavior)')
+            return BehaviorMcu(project.path(script), params=(mcu.get('behavior') or {}).get('params'))
+        if backend != 'qemu':
+            raise ValueError(f'mcu_backend {backend!r}: use qemu (real firmware), scripted or behavior')
         fw = mcu.get('firmware') or {}
         if not fw.get('flash'):
             raise ValueError('no firmware imported (import_firmware) and scenario does not use mcu_backend: scripted')
@@ -328,7 +473,11 @@ def run_scenario(project: Project, scenario, overrides=None, tag=None, frame_eve
             'log': info['log'], 'brownout_detector': sim.bod.events,
             'timing': {k: info[k] for k in ('wall_s', 'sim_s', 'substeps', 'dt_mech_s')},
             'mcu_backend': sim.mcu.backend}
+    files = getattr(sim.mcu, 'files', None) or {}
+    meta['files'] = sorted(files)
     rec.finish(meta, sim.mcu.uart, sim.mcu.events)
+    for name, text in files.items():
+        (rec.dir / name).write_text(text, encoding='utf-8')
     return summarize(meta)
 
 
@@ -345,6 +494,9 @@ def summarize(meta):
     return {'run_id': meta['run_id'], 'scenario': meta['scenario']['name'], 'passed': meta['passed'],
             'overrides': meta['overrides'], 'checks': meta['checks'], 'metrics': keep,
             'mcu_events': [f"{e['t']:.3f}s {e['event']} {e['detail']}".strip() for e in meta['mcu_events']][:40],
+            'scenario_events': [f"{e['t']:.3f}s {e.get('detail')}" for e in meta.get('log', [])
+                                if e.get('event') == 'scenario'][:20],
+            'files': meta.get('files') or [],
             'timing': meta['timing']}
 
 
@@ -403,7 +555,7 @@ def render_frames(project: Project, run_id, times, width=640, height=480, camera
     ft, q = z['t'], z['qpos']
     out_dir = Path(out_dir or store.dir(run_id) / 'frames')
     out_dir.mkdir(parents=True, exist_ok=True)
-    r = mujoco.Renderer(mech.model, height=height, width=width)
+    r = offscreen_renderer(mech.model, height, width)
     cam = mujoco.MjvCamera()
     mujoco.mjv_defaultFreeCamera(mech.model, cam)
     for k, v in (camera or {}).items():

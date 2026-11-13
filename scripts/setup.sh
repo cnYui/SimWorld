@@ -60,7 +60,7 @@ if [ "$SYSTEM" = 1 ]; then
   elif have dnf; then
     $SUDO dnf install -y ngspice kicad glib2 pixman libgcrypt libslirp
   else
-    echo "No apt/dnf/brew: install KiCad 9 and ngspice yourself."
+    echo "No apt/dnf/brew: install KiCad 9 or 10 and ngspice yourself."
   fi
 fi
 
@@ -95,16 +95,27 @@ else
   fi
 fi
 
+say "freerouting (PCB autorouter)"
+FR_VERSION=2.5.0
+if ls "$ROOT/tools/freerouting/"*.jar >/dev/null 2>&1; then echo "already in tools/freerouting"
+elif ! have java; then echo "Java not found: board_autoroute uses the built-in grid router until Java 21+ is installed."
+else
+  mkdir -p "$ROOT/tools/freerouting"
+  curl -fL -o "$ROOT/tools/freerouting/freerouting-$FR_VERSION.jar"     "https://github.com/freerouting/freerouting/releases/download/v$FR_VERSION/freerouting-$FR_VERSION.jar"     || echo "freerouting not installed; board_autoroute falls back to the built-in grid router."
+fi
+
 say "Check"
 "$ROOT/.venv/bin/python" - <<'PY'
 from emcosim import eda
 from emcosim.toolpaths import find_ngspice
 from emcosim.mcu.qemu import find_qemu
+from emcosim.design.autoroute import find_freerouting
 try:
     q = find_qemu()[0]
 except RuntimeError:
     q = None
-for name, v in (('KiCad', eda.find_cli()), ('ngspice', find_ngspice()), ('QEMU', q)):
+fr = find_freerouting()
+for name, v in (('KiCad', eda.find_cli()), ('ngspice', find_ngspice()), ('QEMU', q), ('freerouting', fr and fr[-1])):
     print(f'{name:8s} {v or "NOT FOUND"}')
 PY
 cat <<MSG

@@ -47,9 +47,19 @@ Docker（QEMU、ngspice 都装好了）：
 
 （Windows 上 python 在 .venv\Scripts\python.exe。）MCP 服务通过 %APPDATA%\emcosim\live.json（Linux 是 ~/.config/emcosim/live.json）找到正在运行的页面。
 
-内核工具（v0.3）：board_import（经 KiCad 的导入器读 .kicad_pcb、嘉立创EDA 导出的 .epro、Altium、Eagle，加上原 EDA 的网表补齐焊盘网络）、board_drc / board_erc（KiCad 的 DRC/ERC，导入时写入嘉立创两层板工艺规则）、board_netlist、board_edit（用 KiCad 自己的板子模型移元件、改值、改字段、改线宽和间距，每次留 .bak 备份并自动重跑 DRC）、schematic_edit、board_export_3d、circuit_check（用板子的真实网表和 ngspice 重算一次运行的电源路径，和联合仿真对比）、model_info / model_edit（按名字改 MuJoCo 模型的属性，改完必须能被 MuJoCo 编译，否则不保存）。元件查询（内置）：parts_search、part_info、parts_alternatives、board_parts_status 查嘉立创在库元件、实时库存和价格、可替换料，数据来自开源的 PCB Parts MCP（github.com/Averyy/jlcpcb-mcp，MIT 许可，作者公开运行在 pcbparts.dev/mcp）；emcosim 作为它的客户端把这几个工具并进自己的 MCP，用户只需要连一个服务。上游项目实时查询用的是绕过网站反爬的 HTTP 客户端，emcosim 不在本机运行那一部分；EMCOSIM_PARTS_MCP 可以指向自己部署的实例。面板 PCB 页的“现在库存”列也走这条路。需要本机装好 KiCad 9（kicad.org/download，Windows 默认路径会自动找到，或设 EMCOSIM_KICAD_CLI）和 ngspice。
+内核工具（v0.3）：board_import（经 KiCad 的导入器读 .kicad_pcb、嘉立创EDA 导出的 .epro、Altium、Eagle，加上原 EDA 的网表补齐焊盘网络）、board_drc / board_erc（KiCad 的 DRC/ERC，导入时写入嘉立创两层板工艺规则）、board_netlist、board_edit（用 KiCad 自己的板子模型移元件、改值、改字段、改线宽和间距，每次留 .bak 备份并自动重跑 DRC）、schematic_edit、board_export_3d、circuit_check（用板子的真实网表和 ngspice 重算一次运行的电源路径，和联合仿真对比）、model_info / model_edit（按名字改 MuJoCo 模型的属性，改完必须能被 MuJoCo 编译，否则不保存）。元件查询（内置）：parts_search、part_info、parts_alternatives、board_parts_status 查嘉立创在库元件、实时库存和价格、可替换料，数据来自开源的 PCB Parts MCP（github.com/Averyy/jlcpcb-mcp，MIT 许可，作者公开运行在 pcbparts.dev/mcp）；emcosim 作为它的客户端把这几个工具并进自己的 MCP，用户只需要连一个服务。上游项目实时查询用的是绕过网站反爬的 HTTP 客户端，emcosim 不在本机运行那一部分；EMCOSIM_PARTS_MCP 可以指向自己部署的实例。面板 PCB 页的“现在库存”列也走这条路。需要本机装好 KiCad 9 或 10（kicad.org/download，Windows 默认路径和 winget 的用户目录安装都会自动找到，或设 EMCOSIM_KICAD_CLI）和 ngspice。工具出错时，原因会作为文字返回给 AI（例如“这个工程还没有 PCB，用 board_from_schematic 生成或 board_import 导入”），AI 可以照着改。
 
 工具：get_project、import_pcb、import_model、import_firmware、define_joint、bind_pin、set_param、write_scenario、run_scenario、sweep、get_results、render_frames、calibrate_power、fit_measurements、compare_trace、send_to_bambu_studio。参数一律用 project.yaml 里的点路径，例如 power.sources.adapter.r_ohm、actuators.servo1.preset、mechanics.elements.rocker_detent.peak_force_n；firmware.press_angle_deg 这类写法指固件 fw_params 分区里的字段，改了不用重新编译。set_param 会写回 project.yaml，run_scenario 和 sweep 的 overrides 只对那一次运行生效。命令行有同名子命令（emcosim --help）。
+
+### 从空白工程开始设计（不需要别的 EDA 或 CAD）
+
+- 原理图：symbol_search / symbol_info / footprint_search 在本机 KiCad 库里找符号、引脚和封装；schematic_create 用元件表和 REF.PIN 网络写出 KiCad 原理图（真实符号、网络标签、没用到的引脚打叉、电源网络自动加 PWR_FLAG），跑 ERC 并用 KiCad 导出的网表核对；schematic_render 出图。
+- PCB：board_from_schematic 生成或更新板子（封装、网络、外框、嘉立创两层板规则写进 .kicad_dru 和 .kicad_pro，零件按大小自动摆进外框）；board_edit 能移动、翻面、加线、打孔、删线、铺铜、改外框；board_autoroute 用 freerouting 自动布线（setup 脚本在有 Java 时把 jar 放到 tools/freerouting，没有就用内置的两层网格布线器）；board_render 出 2D 图（DRC 问题用红圈编号标在图上，返回像素和毫米的换算）或 KiCad 3D 渲染图。
+- 建模：add_shape 直接做方块、圆角盒、圆柱、管、球、胶囊零件；part_edit / part_delete 移动、换父零件、改质量、删除；model_info 对任何工程都能列出零件、关节、包围盒和质量来源（给定、密度、估计）；render_model 不用先跑仿真就能对准某个零件截图。没给质量的零件按实心 PLA 估计，并在结果里标成“估计值”。
+- 传感器和输入：define_probe 加 IMU（加速度计和陀螺仪）或接触力探针；bind_pin 的 input_type="pot" 是接在 ADC 上的电位器（跟着某个关节的角度，或由场景事件设定）。
+- 运动：场景里的 motions 让关节按 reps / sine / hold 轨迹运动（例如杠铃上下 5 次），用于验证计数之类依赖运动的功能。
+- 行为模型：QEMU 补丁还没有 ADC、I2C 外设和无线，write_behavior 写一个 Python 版的固件逻辑（setup/loop，每 1 ms 调用一次，能读按键、ADC、IMU，能输出、记事件、导出文件），场景用 mcu_backend: behavior 运行；算法验证好再移植到真实固件。
+- 电路检查：没有 circuit.netlist 时直接用原理图；内置 ME6211、AP2112K、XC6206 等稳压芯片模型，KiCad Regulator_Linear 库的稳压器按引脚名自动建模；比较的网络和供电默认取自 power.nodes 的 net；某个网络没有经过有模型的元件接到电源时，结果标成不可信并说明原因。
 
 ## 架构与时钟
 
@@ -99,7 +109,7 @@ STL/OBJ 按给定单位缩放成米，STEP 经 cascadio（OpenCASCADE）转网�
 
 ## 已知局限
 
-v0.1 只支持 ESP32（不含 S3/C3）、舵机和直流电机、KiCad。电机和电源都是平均值模型，不解析 PWM 纹波、EMI 和热；保险丝没有跳闸模型；LDO 用固定压差；ESP32 的电流只分运行和复位两档，没有 Wi-Fi 发射尖峰。MuJoCo 碰撞是刚体加软约束，塑料件弹性、磨损、疲劳都不在内。仿真比实时稍慢（示例 4.5 s 仿真约 5 s 墙钟，一个 4 核容器）。
+v0.1 只支持 ESP32（不含 S3/C3）、舵机和直流电机、KiCad。真实固件（QEMU）只看得到按键和 GPIO/LEDC；IMU、ADC 和导出逻辑要用行为模型（mcu_backend: behavior）验证。内置网格布线器只适合小而稀疏的板子，密的板子用 freerouting 或手动布线。电机和电源都是平均值模型，不解析 PWM 纹波、EMI 和热；保险丝没有跳闸模型；LDO 用固定压差；ESP32 的电流只分运行和复位两档，没有 Wi-Fi 发射尖峰。MuJoCo 碰撞是刚体加软约束，塑料件弹性、磨损、疲劳都不在内。仿真比实时稍慢（示例 4.5 s 仿真约 5 s 墙钟，一个 4 核容器）。
 
 ## 测试
 

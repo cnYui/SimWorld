@@ -32,7 +32,38 @@ MODELS = {
               'note': 'behavioural LDO: min(3.3 V, Vin - 1.1 V), 5 mA ground current (datasheet typical)'},
     'C5395': {'kind': 'resistor', 'name': 'RUEF110', 'r_ohm': 0.15,
               'note': 'polyfuse at its cold resistance (assumed, datasheet range 0.10-0.18 ohm)'},
+    'C82942': {'kind': 'ldo', 'name': 'ME6211C33M5G-N', 'v_out': 3.3, 'dropout_v': 0.2, 'i_gnd_a': 0.00006,
+               'r_out_ohm': 0.05, 'pins': {'in': '1', 'out': '5', 'gnd': '2'},
+               'note': 'behavioural LDO: min(3.3 V, Vin - 0.2 V), 60 uA ground current (datasheet: 120 mV '
+                       'dropout at 100 mA, 0.2 V assumed for 200 mA)'},
+    'C51118': {'kind': 'ldo', 'name': 'AP2112K-3.3', 'v_out': 3.3, 'dropout_v': 0.25, 'i_gnd_a': 0.000055,
+               'r_out_ohm': 0.05, 'pins': {'in': '1', 'out': '5', 'gnd': '2'},
+               'note': 'behavioural LDO: min(3.3 V, Vin - 0.25 V), 55 uA ground current (datasheet typical)'},
+    'C5446': {'kind': 'ldo', 'name': 'XC6206P332MR', 'v_out': 3.3, 'dropout_v': 0.25, 'i_gnd_a': 0.000001,
+              'r_out_ohm': 0.1, 'pins': {'in': '3', 'out': '2', 'gnd': '1'},
+              'note': 'behavioural LDO: min(3.3 V, Vin - 0.25 V) (datasheet: 250 mV at 100 mA)'},
 }
+
+
+def _generic_ldo(c):
+    """Model for a linear regulator from KiCad's Regulator_Linear library: output voltage from the part
+    name or value, pins by name (VIN / VOUT / GND or VSS). Dropout and ground current are assumed."""
+    if c.get('lib') != 'Regulator_Linear':
+        return None
+    names = {num: re.sub(r'[_{}~ ]', '', str(nm)).upper() for num, nm in (c.get('pin_names') or {}).items()}
+    pick = lambda pat: next((n for n, nm in names.items() if re.fullmatch(pat, nm)), None)
+    pins = {'in': pick(r'V?IN'), 'out': pick(r'V?OUT|VO'), 'gnd': pick(r'GND|VSS')}
+    if not all(pins.values()):
+        return None
+    text = f"{c.get('part', '')} {c.get('value', '')}"
+    m = re.search(r'(\d)\.(\d{1,2})\s*V?', text) or re.search(r'C(\d)(\d)[A-Z]', text) or re.search(r'-(\d)(\d)\b', text)
+    if not m:
+        return None
+    v = float(f'{m.group(1)}.{m.group(2)}')
+    return {'kind': 'ldo', 'name': c.get('part') or c.get('value'), 'v_out': v, 'dropout_v': 0.25,
+            'i_gnd_a': 0.0001, 'r_out_ohm': 0.05, 'pins': pins,
+            'note': f'generic LDO from the KiCad symbol: min({v} V, Vin - 0.25 V), 0.1 mA ground current '
+                    '(dropout and ground current ASSUMED; give the datasheet values in circuit.models)'}
 ESR = {'electrolytic': 0.08, 'ceramic': 0.005}
 
 _SI = {'p': 1e-12, 'n': 1e-9, 'u': 1e-6, 'µ': 1e-6, 'm': 1e-3, 'k': 1e3, 'K': 1e3, 'M': 1e6, 'R': 1, 'Ω': 1}
@@ -55,15 +86,24 @@ def _node(net):
     return 'n_' + re.sub(r'[^A-Za-z0-9_]', '_', net) if net != 'GND' else '0'
 
 
-def build(netlist, loads, supply, t_end, lead_l_h=1e-6):
+def build(netlist, loads, supply, t_end, lead_l_h=1e-6, models=None):
     """SPICE text for the board. netlist: eda.read_netlist() result. loads: {net: (t, i)} current
-    drawn from that net to GND. supply: {'net', 'v', 'r_ohm'}."""
+    drawn from that net to GND. supply: {'net', 'v', 'r_ohm'}. models: {ref or LCSC: model} from
+    circuit.models, used before the built-in table."""
     pin_net = {pin: net for net, pins in netlist['nets'].items() for pin in pins}
     lines = ['* emcosim board circuit check (generated from the board netlist)', '.options method=gear reltol=1e-4']
     used, skipped = [], []
+    models = models or {}
     for ref, c in sorted(netlist['components'].items()):
         pins = {p.split('-', 1)[1]: n for p, n in pin_net.items() if p.split('-', 1)[0] == ref}
-        model = MODELS.get(c.get('lcsc') or '')
+        model = models.get(ref) or models.get(c.get('lcsc') or '') or MODELS.get(c.get('lcsc') or '') \
+            or _generic_ldo(c)
+        if model and model.get('kind') == 'ldo':
+            model = {'dropout_v': 0.25, 'i_gnd_a': 0.0001, 'r_out_ohm': 0.05, 'note': 'from circuit.models', **model}
+            missing = [k for k in ('in', 'out', 'gnd') if (model.get('pins') or {}).get(k) not in pins]
+            if missing:
+                skipped.append({'ref': ref, 'why': f'LDO model pins {missing} are not connected on the board'})
+                continue
         kind = model['kind'] if model else {'R': 'resistor', 'C': 'capacitor'}.get(re.sub(r'\d', '', ref)[:1])
         if kind in ('resistor', 'capacitor') and len(pins) == 2 and set(pins) == {'1', '2'}:
             a, b = _node(pins['1']), _node(pins['2'])
@@ -123,19 +163,92 @@ def run(circuit, probes, timeout=300):
         r = subprocess.run([exe, '-b', 'board.cir'], cwd=tmp, capture_output=True, text=True, timeout=timeout)
         out = Path(tmp) / 'out.txt'
         if not out.exists():
-            raise RuntimeError('ngspice failed: ' + (r.stdout + r.stderr)[-1200:])
+            errs = [ln for ln in (r.stdout + r.stderr).splitlines() if re.search(r'error|singular|fail|unknown', ln, re.I)]
+            raise RuntimeError('ngspice could not solve the circuit: ' + ('; '.join(errs[-6:]) or
+                                                                          (r.stdout + r.stderr)[-600:]))
         data = np.loadtxt(out, ndmin=2)
     return data[:, 0], {n: data[:, 1 + k] for k, n in enumerate(probes)}
 
 
+def _netlist_for(project, cfg):
+    from .. import eda
+    if cfg.get('netlist'):
+        return eda.read_netlist(project.path(cfg['netlist'])), cfg['netlist']
+    sch = (project.data.get('board') or {}).get('kicad_sch')
+    if sch:
+        with tempfile.TemporaryDirectory() as td:
+            f = eda.export_netlist_xml(project.path(sch), Path(td) / 'net.xml')
+            return eda.read_netlist(f), sch
+    raise ValueError('circuit_check needs the board netlist: a schematic (schematic_create) or '
+                     'circuit.netlist = path of an EDA netlist export')
+
+
+def _defaults(project, cfg, nets):
+    """Fill circuit.supply / compare from the power model when they are not given."""
+    power = project.data.get('power') or {}
+    out = dict(cfg)
+    notes = []
+    if not out.get('supply'):
+        for name, src in (power.get('sources') or {}).items():
+            node = (power.get('nodes') or {}).get(src.get('node'), {})
+            if node.get('net') in nets:
+                out['supply'] = {'net': node['net'], 'v': src.get('v', 5.0), 'r_ohm': src.get('r_ohm', 0.2)}
+                notes.append(f'supply from power.sources.{name} on net {node["net"]}')
+                break
+    if not out.get('compare'):
+        cmp = {}
+        for name, node in (power.get('nodes') or {}).items():
+            if node.get('net') in nets:
+                cmp[node['net']] = f'node.{name}.v'
+        mcu = project.data.get('mcu') or {}
+        rnet = ((power.get('regulators') or {}).get(mcu.get('supply')) or {}).get('net')
+        if rnet in nets:
+            cmp[rnet] = 'mcu.rail_v'
+        if cmp:
+            out['compare'] = cmp
+            notes.append(f'compare from power.nodes[*].net: {cmp}')
+    example = ('circuit: {supply: {net: VBAT, v: 3.7, r_ohm: 0.3}, loads: {mcu: {net: 3V3, a: 0.05}}, '
+               'compare: {VBAT: node.vbat.v, 3V3: mcu.rail_v}}')
+    if not out.get('supply'):
+        raise ValueError('circuit.supply is missing and no power.nodes.<n>.net matches a board net. '
+                         f'Set it with set_param, e.g. {example}')
+    if not out.get('compare'):
+        raise ValueError('circuit.compare is missing: which board nets to compare with which run signals. '
+                         f'e.g. {example}')
+    if not out.get('loads'):
+        raise ValueError(f'circuit.loads is missing: what draws current from which net. e.g. {example}')
+    bad = [n for n in [out['supply']['net'], *out['compare'], *(ld['net'] for ld in out['loads'].values())]
+           if n not in nets]
+    if bad:
+        raise ValueError(f'nets {bad} are not on the board; board nets: {sorted(nets)}')
+    return out, notes
+
+
+def _reachable(netlist, used, supply_net):
+    """Nets with a DC path to the supply through modelled parts (R, fuse, diode, LDO)."""
+    pin_net = {pin: net for net, pins in netlist['nets'].items() for pin in pins}
+    edges = {}
+    modelled = {u['ref'] for u in used if u.get('model') != 'capacitor'}
+    for ref in modelled:
+        nets = {n for p, n in pin_net.items() if p.split('-', 1)[0] == ref}
+        for a in nets:
+            edges.setdefault(a, set()).update(nets - {a})
+    seen, todo = {supply_net, 'GND'}, [supply_net]
+    while todo:
+        n = todo.pop()
+        for m in edges.get(n, ()):
+            if m not in seen:
+                seen.add(m)
+                todo.append(m)
+    return seen
+
+
 def check(project, run_id, cfg=None, max_points=400):
     """Re-solve one run's power path with ngspice on the real board netlist and compare."""
-    from .. import eda
     from ..results import RunStore
     cfg = cfg or project.data.get('circuit') or {}
-    if not cfg.get('netlist'):
-        raise ValueError('project.yaml has no circuit.netlist (path of the board netlist export)')
-    net = eda.read_netlist(project.root / cfg['netlist'])
+    net, source = _netlist_for(project, cfg)
+    cfg, notes = _defaults(project, cfg, net['nets'])
     res = RunStore(project.root)
     names = res.signal_names(run_id)
     want = [ld['signal'] for ld in cfg.get('loads', {}).values() if ld.get('signal') in names]
@@ -151,20 +264,34 @@ def check(project, run_id, cfg=None, max_points=400):
             loads[ld['net']] = (t[idx], np.asarray(sig[ld['signal']])[idx])
         elif 'a' in ld:
             loads[ld['net']] = (np.array([0.0, t_end]), np.array([ld['a'], ld['a']]))
-    circuit, used, skipped = build(net, loads, cfg['supply'], t_end)
+    circuit, used, skipped = build(net, loads, cfg['supply'], t_end, models=cfg.get('models'))
     probes = list(cfg.get('compare', {}))
+    reach = _reachable(net, used, cfg['supply']['net'])
+    warnings = []
+    for n in sorted(set(probes) | set(loads)):
+        if n not in reach:
+            warnings.append(f'net {n} has no DC path to the supply ({cfg["supply"]["net"]}) through parts with a '
+                            'circuit model, so its voltage is meaningless: give the regulator/switch between them '
+                            'a model in circuit.models (see parts_not_modelled)')
     ts, vs = run(circuit, probes)
     rows = []
+    vmax = float(cfg['supply']['v']) * 1.5 + 0.5
     for netname, signal in cfg.get('compare', {}).items():
         if signal not in names:
+            warnings.append(f'compare: run {run_id} has no signal {signal}')
             continue
         cos = np.interp(ts, t, np.asarray(sig[signal]))
         d = vs[netname] - cos
+        lo, hi = float(vs[netname].min()), float(vs[netname].max())
+        if lo < -0.5 or hi > vmax:
+            warnings.append(f'{netname} solved to {lo:.3g}..{hi:.3g} V, outside 0..{vmax:.3g} V: not a real voltage; '
+                            'something on this net is not modelled or not connected')
         rows.append({'net': netname, 'cosim_signal': signal,
-                     'spice_min_v': round(float(vs[netname].min()), 3), 'cosim_min_v': round(float(cos.min()), 3),
+                     'spice_min_v': round(lo, 3), 'cosim_min_v': round(float(cos.min()), 3),
                      'max_abs_diff_v': round(float(np.abs(d).max()), 3),
                      'mean_diff_v': round(float(d.mean()), 3)})
-    return {'run': run_id, 'solver': 'ngspice', 'netlist': cfg['netlist'], 'compare': rows,
+    return {'run': run_id, 'solver': 'ngspice', 'netlist': str(source), 'compare': rows,
+            'trustworthy': not warnings, 'warnings': warnings, 'settings_notes': notes,
             'parts_modelled': used, 'parts_not_modelled': skipped,
             'trace': {'t': ts[:: max(1, len(ts) // 300)].round(5).tolist(),
                       **{n: v[:: max(1, len(ts) // 300)].round(4).tolist() for n, v in vs.items()}}}
