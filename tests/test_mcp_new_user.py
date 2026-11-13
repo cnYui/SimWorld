@@ -156,3 +156,31 @@ def test_symbol_and_footprint_search(empty):
     info = call(srv, 'symbol_info', {'symbol': 'MCU_Espressif:ESP32-PICO-V3-02'})
     assert {'number': '5', 'name': 'SENSOR_VP', 'type': 'input', 'unit': 0} in info['pins']
     assert 'SOT-23-5' in ' '.join(call(srv, 'footprint_search', {'query': 'SOT-23-5'})['footprints'])
+
+
+# ------------------------------------------------------------------ modelling without CAD files
+def test_shapes_edit_delete_and_render(empty):
+    p, srv = empty
+    out, img = call_parts(srv, 'add_shape', {'name': 'bar', 'shape': 'cylinder', 'size_mm': [28, 1200],
+                                             'pos': [0, 0, 1.0], 'euler_deg': [0, 90, 0], 'mass_kg': 20})
+    assert img and out['mass_kg'] == 20
+    out, _ = call_parts(srv, 'add_shape', {'name': 'case', 'shape': 'rounded_box', 'size_mm': [48, 26, 14, 4],
+                                           'parent': 'bar', 'pos': [-0.021, 0, -0.35], 'euler_deg': [0, -90, 0]})
+    assert any('ASSUMED' in w for w in out['warnings'])
+    call_parts(srv, 'add_shape', {'name': 'knob', 'shape': 'cylinder', 'size_mm': [14, 7], 'parent': 'case',
+                                  'pos': [0, 0, 0.0105], 'mass_kg': 0.002})
+    with pytest.raises(ToolError, match='size_mm needs 2'):
+        asyncio.run(srv.call_tool('add_shape', {'name': 'x', 'shape': 'cylinder', 'size_mm': [1]}))
+    info = call(srv, 'model_info', {'tag': 'body'})
+    case = next(b for b in info['body'] if b['name'] == 'case')
+    assert case['bounds_world_m'][0][2] == pytest.approx(1.014, abs=1e-3)      # sits on the bar
+    call(srv, 'part_edit', {'name': 'case', 'mass_kg': 0.035})
+    assert Project(p.root).data['mechanics']['parts']['case']['mass_kg'] == 0.035
+    with pytest.raises(ToolError, match='part_edit'):
+        asyncio.run(srv.call_tool('model_edit', {'ops': [{'tag': 'body', 'name': 'case', 'attr': 'pos', 'value': [0, 0, 0]}]}))
+    out, img = call_parts(srv, 'render_model', {'target': 'case', 'highlight': ['knob']})
+    assert img and out['camera']['distance_m'] < 0.5
+    with pytest.raises(ToolError, match='carries'):
+        asyncio.run(srv.call_tool('part_delete', {'name': 'case'}))
+    out = call(srv, 'part_delete', {'name': 'case', 'cascade': True})
+    assert set(out['deleted_parts']) == {'case', 'knob'}

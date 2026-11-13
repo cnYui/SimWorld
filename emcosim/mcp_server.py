@@ -256,13 +256,25 @@ def build_server(project_root=None, link=None):
     @tool()
     def render_frames(run_id: str, times: list[float], width: int = 640, height: int = 480,
                       azimuth: float | None = None, elevation: float | None = None,
-                      distance: float | None = None) -> list:
-        """Render MuJoCo images of a run at the given times (max 6). Needs an OpenGL backend
-        (MUJOCO_GL=egl or osmesa on headless machines)."""
-        cam = {k: v for k, v in (('azimuth', azimuth), ('elevation', elevation), ('distance', distance))
-               if v is not None}
-        out = api.render_frames(prj(), run_id, times[:6], width, height, camera=cam)
-        return [json.dumps(out)] + [Image(path=p) for p in out['frames']]
+                      distance: float | None = None, target: str | None = None) -> list:
+        """Render MuJoCo images of a run at the given times (max 6), on a floor. target: a body name to
+        aim the camera at (e.g. the part you are checking); distance in metres. For the model without a
+        run use render_model. Needs an OpenGL backend (MUJOCO_GL=egl or osmesa on headless machines)."""
+        from . import modeling
+        from .results import RunStore
+        p = prj()
+        store = RunStore(p.root)
+        import numpy as np
+        z = np.load(store.dir(run_id) / 'qpos.npz')
+        frames = []
+        for t in times[:6]:
+            i = int(np.argmin(np.abs(z['t'] - t)))
+            out = modeling.render(p, store.dir(run_id) / 'frames' / f'frame_{z["t"][i]:07.3f}s.png', width, height,
+                                  target=target, azimuth=azimuth, elevation=elevation, distance=distance,
+                                  qpos=z['qpos'][i])
+            frames.append(out['png'])
+        meta = {'run_id': run_id, 'frames': frames, 'camera': out['camera']}
+        return [json.dumps(meta)] + [Image(path=f) for f in frames]
 
     @tool()
     def calibrate_power(node: str, source: str, i_step_a: float = 0.7, apply: bool = False) -> dict:
@@ -671,20 +683,82 @@ def build_server(project_root=None, link=None):
     # ---------------------------------------------------------------- mechanics (MuJoCo)
     @tool()
     def model_info(tag: str | None = None) -> dict:
-        """Named bodies, geoms, joints, sites and meshes of the MuJoCo model with sizes, positions,
-        masses, friction and joint ranges. tag limits it to one kind."""
-        from . import model_edit
-        return model_edit.info(prj(), tag)
+        """The mechanical model as MuJoCo compiles it: bodies (world position, mass, world bounds),
+        joints (type, axis, range in deg or mm), geoms, sites, and the part records (mass source:
+        given, density or assumed). tag: body | joint | geom | site | part. Works for MJCF models,
+        imported/shape parts, or both. See it with render_model."""
+        from . import modeling
+        p = prj()
+        out = modeling.model_summary(p, tag)
+        if (p.data.get('mechanics') or {}).get('mjcf'):
+            from . import model_edit
+            out['mjcf_elements'] = model_edit.info(p, tag if tag in model_edit.TAGS else None)
+        return out
 
     @tool()
     def model_edit(ops: list[dict]) -> dict:
-        """Change attributes of named MJCF elements, e.g.
+        """Change attributes of named elements of the MJCF base model, e.g.
         [{"tag": "geom", "name": "arm_collision_0", "attr": "friction", "value": [0.6, 0.005, 0.0001]},
          {"tag": "body", "name": "press_arm", "attr": "pos", "value": [0, 0.01, 0.02]}].
         value null removes the attribute. MuJoCo must still compile the model, otherwise nothing is
-        saved. The previous file is kept as <file>.bak-<time>. Run a scenario afterwards."""
+        saved. The previous file is kept as <file>.bak-<time>. Parts made with add_shape/import_model
+        are changed with part_edit / part_delete instead."""
         from . import model_edit as me
-        return me.edit(prj(), ops)
+        p = prj()
+        if not (p.data.get('mechanics') or {}).get('mjcf'):
+            raise ValueError('this project has no MJCF base model; its parts come from add_shape / import_model: '
+                             'change them with part_edit (pos, euler_deg, parent, mass_kg, rgba) or part_delete, '
+                             'and joints with define_joint')
+        return me.edit(p, ops)
+
+    @tool()
+    def add_shape(name: str, shape: str, size_mm: list[float], parent: str = 'world',
+                  pos: list[float] | None = None, euler_deg: list[float] | None = None,
+                  mass_kg: float | None = None, density: float | None = None,
+                  rgba: list[float] | None = None) -> list:
+        """Make a part from a simple shape, centred on its own origin, with no CAD file:
+        box [x, y, z] | rounded_box [x, y, z, corner_r] | cylinder [d, h] | tube [d_out, d_in, h] |
+        sphere [d] | capsule [d, h]; sizes in mm, cylinder/tube/capsule axis along z. pos (metres) and
+        euler_deg place it relative to `parent` (a part, or world). mass_kg or density sets the mass;
+        otherwise it is estimated as solid PLA and flagged. Returns a picture of the model with the new
+        part highlighted. Collisions use the convex hull (a tube collides as a full cylinder)."""
+        from . import modeling
+        p = prj()
+        out = modeling.add_shape(p, name, shape, size_mm, parent=parent, pos=pos, euler_deg=euler_deg,
+                                 mass_kg=mass_kg, density=density, rgba=rgba)
+        img = modeling.render(p, p.root / 'mechanics' / 'render.png', target=None, highlight=[name])
+        out['image'] = img['png']
+        return [json.dumps(out, ensure_ascii=False), Image(path=img['png'])]
+
+    @tool()
+    def part_edit(name: str, pos: list[float] | None = None, euler_deg: list[float] | None = None,
+                  parent: str | None = None, mass_kg: float | None = None, rgba: list[float] | None = None,
+                  label: str | None = None) -> dict:
+        """Move, re-parent, re-weigh or recolour a part (pos in metres relative to its parent,
+        euler_deg in degrees, mass in kg). MuJoCo must still compile, otherwise nothing is saved."""
+        from . import modeling
+        return modeling.part_edit(prj(), name, pos=pos, euler_deg=euler_deg, parent=parent, mass_kg=mass_kg,
+                                  rgba=rgba, label=label)
+
+    @tool()
+    def part_delete(name: str, cascade: bool = False) -> dict:
+        """Delete a part and the joints, probes and actuators that depend on it. Parts mounted on it
+        must be deleted first, or pass cascade=true to delete them too."""
+        from . import modeling
+        return modeling.part_delete(prj(), name, cascade=cascade)
+
+    @tool()
+    def render_model(target: str | None = None, highlight: list[str] | None = None,
+                     azimuth: float | None = None, elevation: float | None = None,
+                     distance: float | None = None, width: int = 900, height: int = 600) -> list:
+        """Picture of the mechanical model as it is now (no run needed), on a floor. target: body to
+        aim at (default: the whole model); highlight: bodies drawn in orange; azimuth/elevation in
+        degrees, distance in metres. Returns the camera used so the next shot can be adjusted."""
+        from . import modeling
+        p = prj()
+        img = modeling.render(p, p.root / 'mechanics' / 'render.png', width, height, target=target,
+                              azimuth=azimuth, elevation=elevation, distance=distance, highlight=highlight)
+        return [json.dumps(img), Image(path=img['png'])]
 
     return mcp
 
