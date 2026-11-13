@@ -31,10 +31,13 @@ export function createPanel(ctx) {
       D.tabPcb = navItem('pcb', 'board', 'PCB 元件'),
       D.tabModel = navItem('model', 'shapes', '建模'),
       D.tabSim = navItem('sim', 'cube', '仿真'),
+      D.tabGuide = h('button', { class: 'pn-nav-item', title: 'MCP 使用说明：AI 能用的每个工具做什么、什么时候用', onclick: () => showGuide(true) },
+        icon('file'), h('span', { class: 'pn-nav-label' }, 'MCP 使用说明')),
       D.projBox = h('div', { class: 'pn-proj' }),
       h('div', { class: 'pn-nav-bottom' }, navItemBtn('settings', '设置', () => showSettings()))),
     h('div', { class: 'pn-main' },
       D.welcome = h('div', { class: 'pn-welcome', hidden: true }),
+      D.guide = h('div', { class: 'pn-guide', hidden: true }),
       D.banner = h('div', { class: 'pn-banner', hidden: true }),
       D.sim = h('div', { class: 'pn-sim' },
         D.simModes = h('div', { class: 'pn-tabs pn-sim-modes', role: 'tablist' },
@@ -771,6 +774,7 @@ export function createPanel(ctx) {
   // ------------------------------------------------------------ PCB parts page
   let tab = 'sim', boards = null, boardImg = 'board';
   function setTab(t) {
+    showGuide(false);
     tab = t;
     D.tabSim.classList.toggle('active', t === 'sim'); D.tabPcb.classList.toggle('active', t === 'pcb');
     D.tabModel.classList.toggle('active', t === 'model');
@@ -782,6 +786,46 @@ export function createPanel(ctx) {
     if (t === 'pcb') renderPcbPage();
     else if (t === 'model') renderModel();
     else main3d?.resize();
+  }
+
+  // ------------------------------------------------------------ MCP 使用说明: every MCP tool in plain words
+  let guide = null;
+  function showGuide(on) {
+    D.guide.hidden = !on;
+    el.classList.toggle('show-guide', on);
+    D.tabGuide.classList.toggle('active', on);
+    if (on) {
+      for (const b of [D.tabSim, D.tabPcb, D.tabModel]) b.classList.remove('active');
+      renderGuide();
+    } else {
+      const t = typeof tab === 'string' ? tab : 'sim';
+      D.tabSim.classList.toggle('active', t === 'sim'); D.tabPcb.classList.toggle('active', t === 'pcb');
+      D.tabModel.classList.toggle('active', t === 'model');
+    }
+  }
+
+  async function renderGuide() {
+    if (!guide) {
+      clear(D.guide).append(h('div', { class: 'muted' }, '读取中…'));
+      try { guide = await get('mcp_guide'); } catch (e) { clear(D.guide).append(h('div', { class: 'pn-banner bad' }, e.message)); return; }
+    }
+    const g = guide;
+    clear(D.guide).append(
+      h('div', { class: 'pn-guide-head' },
+        h('div', {}, h('h2', {}, 'MCP 使用说明'),
+          h('p', { class: 'muted' }, `SimWorld 把建模、PCB、仿真的能力做成了 ${g.count} 个工具，通过 MCP 交给你自己的 AI（Claude Code、Codex）。`,
+            '你跟 AI 说想做什么，它会挑合适的工具去做，结果会出现在这个页面上。下面是每个工具能做什么、什么时候用；可以自己看，也可以整份复制发给 AI。')),
+        h('div', { class: 'pn-model-acts' },
+          h('button', { class: 'btn primary', onclick: () => copyText(g.markdown, '已复制，可以直接发给你的 AI') }, icon('copy'), '复制全文给 AI'),
+          h('button', { class: 'btn', onclick: () => showAiSetup() }, icon('link'), '还没连 AI？'))),
+      ...g.sections.map((sec) => h('section', { class: 'pn-guide-sec' },
+        h('div', { class: 'pn-sec-head' }, h('strong', {}, sec.title),
+          sec.page && sec.page !== '全部' && sec.page !== sec.title ? h('span', { class: 'pn-guide-page' }, `${sec.page}页`) : null,
+          h('span', { class: 'muted small' }, sec.intro)),
+        h('table', { class: 'pn-parts pn-guide-table' },
+          h('thead', {}, h('tr', {}, ['工具', '能做什么', '什么时候用'].map((x) => h('th', {}, x)))),
+          h('tbody', {}, sec.tools.map((t) => h('tr', {},
+            h('td', { class: 'mono' }, t.name), h('td', {}, t.what), h('td', { class: 'muted' }, t.when || '–'))))))));
   }
 
   function openShop(url) {

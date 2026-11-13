@@ -566,6 +566,8 @@ class Handler(BaseHTTPRequestHandler):
 
         if head == 'ai_setup' and method == 'GET':
             return _ai_setup(app.root)
+        if head == 'mcp_guide' and method == 'GET':
+            return _mcp_guide()
 
         if head == 'board' and p[1:] == ['check'] and method == 'POST':
             from .. import eda
@@ -729,6 +731,25 @@ def make_server(app: App, host='127.0.0.1', port=0):
             raise
         print(f'port {port} is in use, picking a free one', file=sys.stderr)
         return _Server((host, 0), handler)
+
+
+_GUIDE = {}
+
+
+def _mcp_guide():
+    """The 'MCP 使用说明' page: every tool of the MCP server in plain words, plus Markdown to copy."""
+    if 'g' not in _GUIDE:
+        from ..mcp_docs import GROUPS, guide_markdown, mcp_guide
+        try:
+            import asyncio
+            from ..mcp_server import build_server
+            from .link import AppLink
+            tools = [(t.name, t.description) for t in asyncio.run(build_server(None, link=AppLink({})).list_tools())]
+        except Exception:      # MCP package missing: the written guide still lists the tools
+            tools = [(t, '') for _, _, _, rows in GROUPS for t, _, _ in rows]
+        sections = mcp_guide(tools)
+        _GUIDE['g'] = {'sections': sections, 'markdown': guide_markdown(sections), 'count': len(tools)}
+    return {**_GUIDE['g'], 'setup': _ai_setup()}
 
 
 def _ai_setup(root=None):
