@@ -37,6 +37,7 @@ include = ["emcosim*"]
 
 [tool.setuptools.package-data]
 "emcosim.app" = ["static/*", "static/**/*"]
+"emcosim" = ["skills/*/SKILL.md"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

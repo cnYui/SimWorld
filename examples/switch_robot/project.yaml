@@ -55,6 +55,9 @@ mechanics:
   parts: {}
   # names the 建模 page shows for the parts of the MJCF (geom name prefix -> name); geoms that share
   # a name are one part there. `print` links a part to its entry under printing.parts.
+  # test fixtures: what the robot is tested on (the wall, the existing wall switch, the socket).
+  # They are simulated and shown on the 仿真 page, not on the 建模 page.
+  fixtures: [wall, plate, rocker, socket_plate, socket_slot]
   part_labels:
     wall: 墙
     plate: 开关面板

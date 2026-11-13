@@ -125,11 +125,16 @@ def main(argv=None):
     s.add_argument('--with-settings', action='store_true', help='embed suggested per-object print settings')
     s.add_argument('--no-open', action='store_true', help='only write the 3MF')
     sub.add_parser('mcp', help='run the MCP server on stdio')
+    s = sub.add_parser('skill', help='install the SimWorld skill (page rules) for Claude Code or Codex')
+    s.add_argument('target', nargs='?', default='claude', help="'claude', 'codex' or a skills directory")
 
     a = ap.parse_args(argv)
     if a.cmd == 'new':
         p = Project.create(a.project, a.name)
         return _print({'created': str(p.file)})
+    if a.cmd == 'skill':
+        from .skill import install_skill
+        return _print({'installed': str(install_skill(a.target))})
     if a.cmd == 'mcp':
         from .mcp_server import main as mcp_main
         return mcp_main(a.project if (Path(a.project) / 'project.yaml').exists() else None)

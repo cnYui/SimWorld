@@ -4,7 +4,7 @@ import { get, post, upload, authUrl } from '../api.js';
 import { store } from '../store.js';
 import { h, icon, clear, toast, toastError, fmtNum, cssVar, modal, copyText, pathField, nativePick } from '../ui.js';
 import { TimeChart } from '../chart.js';
-import { powerCards, printCards, mechCards } from './pfields.js';
+import { powerCards, printCards, mechCards, fixtureCards } from './pfields.js';
 
 const SIGS = ['source.charger.i', 'branch.f1.i', 'node.v5_servo.v', 'act.servo1.i_supply', 'act.servo1.pulse_us',
   'joint.servo_axis.deg', 'joint.rocker_axis.deg', 'probe.press.force_n', 'act.servo1.torque',
@@ -38,7 +38,7 @@ export function createPanel(ctx) {
       D.banner = h('div', { class: 'pn-banner', hidden: true }),
       D.sim = h('div', { class: 'pn-sim' },
         D.simModes = h('div', { class: 'pn-tabs pn-sim-modes', role: 'tablist' },
-          ...[['replay', '运动回放'], ['stress', '强度和应力'], ['history', '历史结果']].map(([m, l]) =>
+          ...[['replay', '运动回放'], ['stress', '强度和应力'], ['env', '测试环境'], ['history', '历史结果']].map(([m, l]) =>
             h('button', { 'data-mode': m, role: 'tab', onclick: () => setSimMode(m) }, l))),
         D.view = h('div', { class: 'pn-view' }, h('span', { class: 'pn-tag' }, '打印件、PCB 与外壳同一场景'),
           D.viewEmpty = h('div', { class: 'pn-empty-over' }, icon('cube'), D.viewEmptyTitle = h('div', {}, '还没有运行结果'),
@@ -47,6 +47,7 @@ export function createPanel(ctx) {
           D.stressView = h('div', { class: 'pn-view pn-stress-view' }, D.stressTag = h('span', { class: 'pn-tag' }, '3D 参考图：颜色是应力'),
             D.stressLegend = h('div', { class: 'pn-stress-legend', hidden: true })),
           D.stressInfo = h('div', { class: 'pn-stress-info' })),
+        D.env = h('div', { class: 'pn-history pn-env', hidden: true }),
         D.history = h('div', { class: 'pn-history', hidden: true })),
       D.pcb = h('div', { class: 'pn-pcb', hidden: true },
         D.parts = h('div', { class: 'pn-parts-wrap' }),
@@ -156,7 +157,7 @@ export function createPanel(ctx) {
     else if (j.status === 'cancelled') { pendingJob = null; setBanner('', ''); }
     renderTests();
   });
-  store.on('project', () => { if (!el.hidden) { renderTests(); renderProjBox(); renderSimEmpty(); if (tab === 'model') renderModel(); if (tab === 'pcb') { renderPower(); renderWiring(); } } });
+  store.on('project', () => { if (!el.hidden) { renderTests(); renderProjBox(); renderSimEmpty(); if (tab === 'model') renderModel(); if (tab === 'sim' && simMode === 'env') renderEnv(); if (tab === 'pcb') { renderPower(); renderWiring(); } } });
   let knownRuns = null;
   store.on('runs', () => {
     const ids = store.runs.map((r) => r.run_id);
@@ -326,11 +327,27 @@ export function createPanel(ctx) {
   function setSimMode(m) {
     simMode = m;
     for (const b of D.simModes.children) { const on = b.dataset.mode === m; b.classList.toggle('active', on); b.setAttribute('aria-selected', String(on)); }
-    D.view.hidden = m !== 'replay'; D.stress.hidden = m !== 'stress'; D.history.hidden = m !== 'history';
+    D.view.hidden = m !== 'replay'; D.stress.hidden = m !== 'stress'; D.history.hidden = m !== 'history'; D.env.hidden = m !== 'env';
     el.classList.toggle('sim-other', m !== 'replay');
     if (m === 'stress') loadChecks();
+    else if (m === 'env') renderEnv();
     else if (m === 'history') renderHistory();
     else main3d?.resize();
+  }
+
+  // test fixtures (barbell, table, wall...): what the product is tested on, set up here and not on 建模
+  async function renderEnv() {
+    let m;
+    try { m = await get('model'); } catch (e) { clear(D.env).append(h('div', { class: 'pn-banner bad' }, e.message)); return; }
+    if (simMode !== 'env') return;
+    const names = [...new Set((m.fixtures || []).map((f) => f.label))];
+    const cards = fixtureCards(m.fixture_joints || []);
+    clear(D.env).append(
+      h('div', { class: 'pn-sec-head' }, h('strong', {}, '测试夹具和环境'),
+        h('span', { class: 'muted small' }, '产品在什么上面测试：杠铃、桌面、墙、开关等。它们参与仿真，但不是要设计的零件，所以不在“建模”页里。')),
+      names.length ? h('div', {}, '这个工程的夹具：', names.join('、'))
+        : h('div', { class: 'pn-side-empty' }, '这个工程还没有测试夹具。测试需要的桌面、杠铃、墙这些，让 AI 加测试时一起放进来（它会把它们标成夹具）。'),
+      cards.length ? h('div', { class: 'pf-grid' }, ...cards) : null);
   }
 
   const MODE_ZH = { in_plane: '层内断裂', interlayer_normal: '层与层被拉开', interlayer_shear: '层与层错开', interlayer_combined: '层间综合' };
@@ -900,6 +917,8 @@ export function createPanel(ctx) {
         model.error ? h('div', { class: 'pn-banner bad' }, `模型编译失败：${model.error}`) : null,
         h('div', { class: 'pn-side-title' }, '零件', h('span', { class: 'muted small' }, '  点一下在 3D 里标出来，眼睛按钮单独看')),
         D.partList = h('div', { class: 'pn-plist' }),
+        model.fixtures?.length ? h('div', { class: 'muted small' },
+          `测试用的 ${[...new Set(model.fixtures.map((f) => f.label))].join('、')} 不是要设计的零件，在“仿真”页的“测试环境”里。`) : null,
         h('div', { class: 'pn-side-title' }, '活动关节'),
         model.joints.length ? h('table', { class: 'pn-parts' },
           h('thead', {}, h('tr', {}, ['名称', '方式', '零件', '范围'].map((x) => h('th', {}, x)))),
@@ -987,7 +1006,7 @@ export function createPanel(ctx) {
         h('button', { class: 'btn sm primary', onclick: () => sendPrint(true) }, icon('send'), '发到 Bambu Studio')) : null));
     D.modelMat.hidden = !pc.length;
     if (pc.length) D.modelMat.append(h('div', { class: 'pf-grid' }, ...pc));
-    const mc = mechCards(store.project?.presets, model.gear_defaults);
+    const mc = mechCards(store.project?.presets, model.gear_defaults, model.fixture_joints || []);
     clear(D.modelMech).append(h('div', { class: 'pn-sec-head' }, h('strong', {}, '机构参数'),
       h('span', { class: 'muted small' }, '电机型号、齿轮、开关手感、开始角度')), h('div', { class: 'pf-grid' }, ...mc));
     D.modelMech.hidden = !mc.length;
