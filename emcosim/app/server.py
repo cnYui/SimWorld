@@ -30,6 +30,7 @@ JSON API (all under /api):
   GET  model/scene.json|scene.bin|frames.bin   the model at its initial pose, for the 建模 page
   POST upload/model?name=x.stl   raw file body: saved under mechanics/uploads and imported as a part
   POST annotate/joint {...}, annotate/pin {...}
+  POST circuit/check {run_id?}   ngspice on the board netlist with a run's load currents
   GET  pcb                       PCB summary (components, nets, board, copper)
   GET  printing                  printable parts + whether Bambu Studio is installed
   POST printing/send {names, with_settings, open}  export a 3MF and open it in Bambu Studio
@@ -507,6 +508,25 @@ class Handler(BaseHTTPRequestHandler):
             if not eda.find_cli():
                 raise ApiError('没有找到 KiCad。装好 KiCad 9 后再点检查（kicad.org/download）。', 409)
             return eda.drc(prj.root / board, limit=60)
+
+        if head == 'circuit' and p[1:] == ['check'] and method == 'POST':
+            # ngspice on the real board netlist, driven by the currents of a run (latest by default)
+            from ..electrical import board_spice
+            from ..toolpaths import find_ngspice
+            prj = app.project()
+            if not (prj.data.get('circuit') or {}).get('netlist'):
+                raise ApiError('这个工程还没有设置电路检查（project.yaml 里的 circuit.netlist）')
+            if not find_ngspice():
+                raise ApiError('没有找到 ngspice。运行 scripts\\setup 安装后再试。', 409)
+            run_id = b.get('run_id')
+            if not run_id:
+                runs = [r for r in RunStore(prj.root).list() if '-sweep' not in r['run_id']]
+                if not runs:
+                    raise ApiError('还没有仿真结果。电路检查要用一次仿真里的舵机和单片机电流，先在“仿真”页跑一个测试。', 409)
+                run_id = runs[0]['run_id']
+            res = board_spice.check(prj, run_id)
+            res['scenario'] = RunStore(prj.root).meta(run_id).get('scenario', {}).get('name')
+            return res
 
         if head == 'pcb' and method == 'GET':
             prj = app.project()

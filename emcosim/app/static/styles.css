@@ -765,3 +765,22 @@ pre.log { background: var(--sunken); border: 1px solid var(--line); border-radiu
 .pn-proj-cur svg { flex: none; width: 18px; height: 18px; }
 .nav-collapsed .pn-proj-cur { justify-content: center; padding: 6px 0; }
 .pn-new-more summary { cursor: pointer; margin: 4px 0; }
+
+/* PCB / 建模 pages: sections and editable parameter cards */
+.pn-sec { display: flex; flex-direction: column; gap: 8px; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; }
+.pn-sec-head { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.pf-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 8px; }
+.pf-card { border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; display: flex; flex-direction: column; gap: 6px; background: var(--bg); }
+.pf-head { display: flex; flex-direction: column; gap: 1px; }
+.pf-rows { display: flex; flex-direction: column; gap: 4px; }
+.pf-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 13px; }
+.pf-k { color: var(--text-2); display: flex; align-items: center; gap: 6px; }
+.pf-tag { font-size: 10px; padding: 0 5px; border-radius: 3px; background: var(--warn-weak, var(--sunken)); color: var(--warn); }
+.pf-v { display: flex; align-items: center; gap: 4px; }
+.pf-in { width: 92px; padding: 3px 6px; text-align: right; }
+select.pf-in { width: auto; text-align: left; }
+.pf-u { font-size: 12px; min-width: 22px; }
+.pf-in.saving { border-color: var(--accent); }
+.pf-in.saved { border-color: var(--ok); }
+/* PCB page: circuit only; the physics charts and test verdict belong to 仿真 (the play bar stays for the live circuit) */
+.tab-pcb .pn-charts, .tab-pcb .pn-main > .pn-banner { display: none; }

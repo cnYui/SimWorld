@@ -4,6 +4,7 @@ import { get, post, upload, authUrl } from '../api.js';
 import { store } from '../store.js';
 import { h, icon, clear, toast, toastError, fmtNum, cssVar, modal, copyText, pathField, nativePick } from '../ui.js';
 import { TimeChart } from '../chart.js';
+import { powerCards } from './pfields.js';
 
 const SIGS = ['source.charger.i', 'branch.f1.i', 'node.v5_servo.v', 'act.servo1.i_supply', 'act.servo1.pulse_us',
   'joint.servo_axis.deg', 'joint.rocker_axis.deg', 'probe.press.force_n', 'act.servo1.torque',
@@ -40,12 +41,17 @@ export function createPanel(ctx) {
           D.viewEmpty = h('div', { class: 'pn-empty-over' }, icon('cube'), D.viewEmptyTitle = h('div', {}, '还没有运行结果'),
             D.viewEmptyText = h('div', { class: 'muted small' }, '在右边选一个测试，跑完会在这里回放 3D 动画')))),
       D.pcb = h('div', { class: 'pn-pcb', hidden: true },
+        D.parts = h('div', { class: 'pn-parts-wrap' }),
+        D.check = h('div', { class: 'pn-check' }),
+        D.spice = h('div', { class: 'pn-check' }),
+        h('div', { class: 'pn-sec' }, h('div', { class: 'pn-sec-head' }, h('strong', {}, '电源和单片机参数'),
+          h('span', { class: 'muted small' }, '改完按回车保存，下次仿真就按新数值算')),
+          D.power = h('div', { class: 'pf-grid' })),
+        D.wiring = h('div', { class: 'pn-sec' }),
         h('div', { class: 'pn-circuit-wrap' },
           h('div', { class: 'pn-legend' }, h('strong', {}, '电路原理（跟着仿真动）'),
             h('span', { class: 'muted' }, '线越粗电流越大，变红表示电压掉得太低')),
-          D.circuit = h('div', { class: 'pn-circuit' })),
-        D.check = h('div', { class: 'pn-check' }),
-        D.parts = h('div', { class: 'pn-parts-wrap' })),
+          D.circuit = h('div', { class: 'pn-circuit' }))),
       D.model = h('div', { class: 'pn-model', hidden: true })),
     h('div', { class: 'pn-bottom' },
       D.play = h('div', { class: 'pn-play' },
@@ -141,7 +147,7 @@ export function createPanel(ctx) {
     else if (j.status === 'cancelled') { pendingJob = null; setBanner('', ''); }
     renderTests();
   });
-  store.on('project', () => { if (!el.hidden) { renderTests(); renderProjBox(); renderSimEmpty(); if (tab === 'model') renderModel(); } });
+  store.on('project', () => { if (!el.hidden) { renderTests(); renderProjBox(); renderSimEmpty(); if (tab === 'model') renderModel(); if (tab === 'pcb') { renderPower(); renderWiring(); } } });
   let knownRuns = null;
   store.on('runs', () => {
     const ids = store.runs.map((r) => r.run_id);
@@ -163,7 +169,8 @@ export function createPanel(ctx) {
   });
   store.on('files_changed', () => {
     boardCheck = null;
-    if (tab === 'pcb') renderCheck();
+    spice = null;
+    if (tab === 'pcb') { renderCheck(); renderSpice(); }
     if (tab === 'model') renderModel();
     toast('模型或板子文件刚被改过（可能是 AI 改的）。重新运行测试就能看到效果。', { timeout: 6000 });
   });
@@ -244,6 +251,64 @@ export function createPanel(ctx) {
         h('span', { class: 'sev' }, i.severity === 'error' ? '错误' : '提醒'), ' ', i.description,
         i.where?.length ? h('span', { class: 'muted small' }, '  ' + i.where.map((w) => w.item).join('；')) : null))));
     }
+  }
+
+  // ------------------------------------------------------------ PCB page: everything about the circuit
+  function renderPcbPage() { renderPcb(); renderCheck(); renderSpice(); renderPower(); renderWiring(); renderCircuit(); }
+
+  // ngspice on the board netlist, with the servo / MCU currents of the latest simulation
+  let spice = null, spiceBusy = false;
+  async function runSpice() {
+    spiceBusy = true; renderSpice();
+    try { spice = await post('circuit/check', runId ? { run_id: runId } : {}); }
+    catch (e) { spice = { failed: e.message }; }
+    spiceBusy = false; renderSpice();
+  }
+  function renderSpice() {
+    clear(D.spice);
+    if (!store.project?.data?.circuit?.netlist) return;
+    D.spice.append(h('div', { class: 'pn-check-head' },
+      h('div', {}, h('strong', {}, '电路检查（ngspice）'),
+        h('div', { class: 'muted small' }, '用板子上真实的电阻、电容、二极管、稳压和保险丝，按仿真里的舵机和单片机电流重新算一遍电压')),
+      h('button', { class: 'btn sm', disabled: spiceBusy, onclick: runSpice }, spiceBusy ? '计算中…' : spice ? '重新检查' : '检查')));
+    if (!spice) return;
+    if (spice.failed) { D.spice.append(h('div', { class: 'pn-banner bad' }, spice.failed)); return; }
+    const title = store.project?.scenario_info?.[spice.scenario]?.title || spice.scenario || spice.run;
+    const worst = Math.max(0, ...spice.compare.map((r) => r.max_abs_diff_v));
+    D.spice.append(
+      h('div', { class: 'pn-banner ' + (worst < 0.2 ? 'ok' : 'bad') },
+        worst < 0.2 ? `和仿真一致：各点电压最多差 ${worst.toFixed(2)} V（按「${title}」的电流算）`
+          : `和仿真差得比较多：最多差 ${worst.toFixed(2)} V（按「${title}」的电流算），电源参数可能需要调整`),
+      h('table', { class: 'pn-parts' },
+        h('thead', {}, h('tr', {}, ['网络', 'ngspice 最低电压', '仿真最低电压', '最大差值'].map((x) => h('th', {}, x)))),
+        h('tbody', {}, spice.compare.map((r) => h('tr', {},
+          h('td', { class: 'mono' }, r.net), h('td', { class: 'num' }, `${r.spice_min_v.toFixed(2)} V`),
+          h('td', { class: 'num' }, `${r.cosim_min_v.toFixed(2)} V`), h('td', { class: 'num' }, `${r.max_abs_diff_v.toFixed(2)} V`))))),
+      spice.parts_not_modelled?.length ? h('div', { class: 'muted small' },
+        `算进去了 ${spice.parts_modelled.length} 个元件；没算的：${spice.parts_not_modelled.map((x) => x.ref || x).slice(0, 12).join('、')}${spice.parts_not_modelled.length > 12 ? ' 等' : ''}`) : null);
+  }
+
+  function renderPower() {
+    clear(D.power);
+    const cards = powerCards();
+    if (!cards.length) D.power.append(h('div', { class: 'pn-side-empty' }, '这个工程还没有电源网络。导入 PCB 后可以让 AI 帮你按板子建好。'));
+    else D.power.append(...cards);
+  }
+
+  // which MCU pin drives what: firmware, bindings, inputs
+  function renderWiring() {
+    clear(D.wiring);
+    const d = store.project?.data || {};
+    const mcu = d.mcu || {}, binds = d.bindings || [];
+    D.wiring.append(h('div', { class: 'pn-sec-head' }, h('strong', {}, '单片机和接线'),
+      h('span', { class: 'muted small' }, `${(mcu.type || '—').toUpperCase()} · 固件 ${mcu.firmware?.flash ? baseName(mcu.firmware.flash) : '还没有'} · ${store.app?.qemu?.found ? '可以跑真实固件' : '没装 QEMU，只能跑快速测试'}`)));
+    if (!binds.length) { D.wiring.append(h('div', { class: 'pn-side-empty' }, '还没有接线。可以让 AI 按原理图把引脚连到舵机、按键上。')); return; }
+    const who = (name) => d.actuators?.[name] ? `${name}（${d.actuators[name].preset || d.actuators[name].type}）` : d.inputs?.[name] ? `${name}（按键）` : name;
+    D.wiring.append(h('table', { class: 'pn-parts' },
+      h('thead', {}, h('tr', {}, ['引脚', '方向', '连到', '网络'].map((x) => h('th', {}, x)))),
+      h('tbody', {}, binds.map((b) => h('tr', {},
+        h('td', { class: 'mono' }, b.pin), h('td', {}, b.to ? '输出 →' : '← 输入'),
+        h('td', {}, who(b.to || b.from)), h('td', { class: 'mono muted' }, b.net || '–'))))));
   }
 
   // ------------------------------------------------------------ load a run
@@ -440,9 +505,10 @@ export function createPanel(ctx) {
     D.tabSim.classList.toggle('active', t === 'sim'); D.tabPcb.classList.toggle('active', t === 'pcb');
     D.tabModel.classList.toggle('active', t === 'model');
     el.classList.toggle('tab-model', t === 'model');
+    el.classList.toggle('tab-pcb', t === 'pcb');
     if (!store.app?.project) return;
     D.sim.hidden = t !== 'sim'; D.pcb.hidden = t !== 'pcb'; D.model.hidden = t !== 'model';
-    if (t === 'pcb') { renderPcb(); renderCircuit(); renderCheck(); }
+    if (t === 'pcb') renderPcbPage();
     else if (t === 'model') renderModel();
     else main3d?.resize();
   }

@@ -154,6 +154,19 @@ def test_run_job_progress_and_cancel(client):
     assert len(runs2) == len(runs)
 
 
+def test_circuit_check_uses_latest_run(client):
+    from emcosim.toolpaths import find_ngspice
+    code, r = client('POST', 'circuit/check', {})
+    assert code == 409 and '仿真' in r['error']          # no run yet
+    if not find_ngspice():
+        pytest.skip('ngspice not installed')
+    code, job = client('POST', 'jobs/run', {'scenario': 'servo_sweep_scripted'})
+    assert wait_job(client.app, job['id']).status == 'done'
+    code, r = client('POST', 'circuit/check', {})
+    assert code == 200 and r['scenario'] == 'servo_sweep_scripted'
+    assert {row['net'] for row in r['compare']} >= {'VIN5', '3V3'}
+
+
 def test_sweep_job_rows(client):
     code, job = client('POST', 'jobs/sweep', {'scenario': 'servo_sweep_scripted',
                                               'params': {'actuators.servo1.node': ['v5_servo', 'vin5']},
