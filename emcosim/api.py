@@ -4,8 +4,10 @@ from __future__ import annotations
 
 import copy
 import itertools
+import os
 import re
 import shutil
+import sys
 import time
 from pathlib import Path
 
@@ -16,6 +18,17 @@ from .engine import Simulation, compute_metrics, evaluate
 from .importers import kicad
 from .project import Project, dump_yaml, get_path, pin_number
 from .results import Recorder, RunStore, new_run_id
+
+
+def offscreen_renderer(model, height, width):
+    """mujoco.Renderer, but on a Linux machine with no display and no MUJOCO_GL it raises at once:
+    there MuJoCo falls back to GLFW, which hangs instead of failing when called off the main
+    thread (the MCP tools run in worker threads)."""
+    import mujoco
+    if (sys.platform.startswith('linux') and not os.environ.get('MUJOCO_GL')
+            and not os.environ.get('DISPLAY') and not os.environ.get('WAYLAND_DISPLAY')):
+        raise RuntimeError('no display for OpenGL: set MUJOCO_GL=egl or MUJOCO_GL=osmesa on a headless machine')
+    return mujoco.Renderer(model, height=int(height), width=int(width))
 
 
 # ---------------------------------------------------------------- import ----
@@ -542,7 +555,7 @@ def render_frames(project: Project, run_id, times, width=640, height=480, camera
     ft, q = z['t'], z['qpos']
     out_dir = Path(out_dir or store.dir(run_id) / 'frames')
     out_dir.mkdir(parents=True, exist_ok=True)
-    r = mujoco.Renderer(mech.model, height=height, width=width)
+    r = offscreen_renderer(mech.model, height, width)
     cam = mujoco.MjvCamera()
     mujoco.mjv_defaultFreeCamera(mech.model, cam)
     for k, v in (camera or {}).items():

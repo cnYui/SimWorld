@@ -302,7 +302,7 @@ def render(project: Project, out_png, width=900, height=600, target=None, azimut
     cam.distance = distance if distance is not None else max(span * 2.2, 0.02)
     cam.azimuth = azimuth if azimuth is not None else 135
     cam.elevation = elevation if elevation is not None else -25
-    r = mujoco.Renderer(m, height=int(height), width=int(width))
+    r = api.offscreen_renderer(m, height, width)
     r.update_scene(d, camera=cam)
     out_png = Path(out_png)
     out_png.parent.mkdir(parents=True, exist_ok=True)

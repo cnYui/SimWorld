@@ -16,7 +16,7 @@ def _gl():
     try:
         import mujoco
         m = mujoco.MjModel.from_xml_string('<mujoco><worldbody><geom size=".1"/></worldbody></mujoco>')
-        r = mujoco.Renderer(m, 32, 32)
+        r = api.offscreen_renderer(m, 32, 32)
         r.close()
         return True
     except Exception:
