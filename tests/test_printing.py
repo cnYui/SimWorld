@@ -70,3 +70,26 @@ def test_no_slicer_error(tmp_path, monkeypatch):
     with pytest.raises(FileNotFoundError, match='Bambu Studio'):
         printing.send_parts(prj, ['press_arm'])
     assert list((prj.root / 'print').glob('*.3mf'))     # the 3MF is still exported
+
+
+def test_all_parts_land_on_the_plate_without_overlap(tmp_path):
+    parts = printing.printable_parts(Project(EXAMPLE))
+    out = printing.write_3mf(parts, tmp_path / 'all.3mf')
+    with zipfile.ZipFile(out['file']) as z:
+        model = ET.fromstring(z.read('3D/3dmodel.model'))
+    boxes = []
+    for o, it in zip(model.findall('m:resources/m:object', NS), model.findall('m:build/m:item', NS)):
+        t = [float(x) for x in it.get('transform').split()[-3:]]
+        v = [(float(e.get('x')), float(e.get('y'))) for e in o.findall('m:mesh/m:vertices/m:vertex', NS)]
+        xs, ys = [p[0] + t[0] for p in v], [p[1] + t[1] for p in v]
+        boxes.append((min(xs), min(ys), max(xs), max(ys)))
+    for x0, y0, x1, y1 in boxes:  # Bambu Studio's plate runs from (0, 0) to (256, 256)
+        assert 0 <= x0 and 0 <= y0 and x1 <= 256 and y1 <= 256
+    for i, a in enumerate(boxes):
+        for b in boxes[i + 1:]:
+            assert a[2] <= b[0] or b[2] <= a[0] or a[3] <= b[1] or b[3] <= a[1]
+
+
+def test_exe_from_link_handler_command():
+    assert printing._exe_from_command('"D:\\Bambu Studio\\bambu-studio.exe" "%1"') == 'D:\\Bambu Studio\\bambu-studio.exe'
+    assert printing._exe_from_command('C:\\BS\\bambu-studio.exe %1') == 'C:\\BS\\bambu-studio.exe'

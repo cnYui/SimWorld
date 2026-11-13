@@ -60,19 +60,38 @@ def _load_mesh(path):
     return np.asarray(m.vertices, dtype=float), np.asarray(m.faces, dtype=np.int64)
 
 
-def write_3mf(parts, out_path, with_settings=False, spacing_mm=8.0, app_name='emcosim'):
+def _layout(sizes, plate, spacing):
+    """Shelf-pack footprints (w, d) in mm into rows no wider than the plate, then centre the whole
+    layout on the plate. Returns the lower-left corner of each footprint in plate coordinates."""
+    order = sorted(range(len(sizes)), key=lambda i: -sizes[i][1])
+    pos, x, y, row_d, width = [None] * len(sizes), 0.0, 0.0, 0.0, 0.0
+    for i in order:
+        w, d = sizes[i]
+        if x > 0 and x + w > plate[0]:
+            x, y, row_d = 0.0, y + row_d + spacing, 0.0
+        pos[i] = (x, y)
+        width = max(width, x + w)
+        x += w + spacing
+        row_d = max(row_d, d)
+    depth = y + row_d
+    dx, dy = (plate[0] - width) / 2, (plate[1] - depth) / 2
+    return [(px + dx, py + dy) for px, py in pos]
+
+
+def write_3mf(parts, out_path, with_settings=False, spacing_mm=8.0, app_name='emcosim', plate_mm=(256.0, 256.0)):
     """parts: [{'name', 'file', 'settings'?}] (STL/OBJ/3MF in millimetres).
-    Objects are dropped to z=0 and laid out in a row so they do not overlap."""
+    Objects are dropped to z=0 and packed in rows centred on the build plate (Bambu Studio's
+    plate coordinates start at its front-left corner; 256 mm covers the A1, P1 and X1 plates),
+    so they do not overlap and nothing starts off the plate."""
     out_path = Path(out_path)
     out_path.parent.mkdir(parents=True, exist_ok=True)
     objects, items = [], []
-    x_cursor = 0.0
-    for i, part in enumerate(parts, start=1):
-        v, f = _load_mesh(part['file'])
-        lo, hi = v.min(axis=0), v.max(axis=0)
+    meshes = [_load_mesh(part['file']) for part in parts]
+    bounds = [(v.min(axis=0), v.max(axis=0)) for v, _ in meshes]
+    corners = _layout([(hi[0] - lo[0], hi[1] - lo[1]) for lo, hi in bounds], plate_mm, spacing_mm)
+    for i, (part, (v, f), (lo, hi), (cx, cy)) in enumerate(zip(parts, meshes, bounds, corners), start=1):
         # Keep the exported orientation; only translate onto the plate.
-        offset = np.array([x_cursor - lo[0], -(lo[1] + hi[1]) / 2, -lo[2]])
-        x_cursor += (hi[0] - lo[0]) + spacing_mm
+        offset = np.array([cx - lo[0], cy - lo[1], -lo[2]])
         verts = '\n'.join(f'<vertex x="{a:.9g}" y="{b:.9g}" z="{c:.9g}"/>' for a, b, c in v)
         tris = '\n'.join(f'<triangle v1="{a}" v2="{b}" v3="{c}"/>' for a, b, c in f)
         objects.append(f'<object id="{i}" name={quoteattr(part["name"])} type="model">'
@@ -124,12 +143,32 @@ def _model_settings(parts):
 
 # --------------------------------------------------------------------------- Bambu Studio
 
+def _exe_from_command(cmd):
+    """'"D:\\Bambu Studio\\bambu-studio.exe" "%1"' -> the executable path (quoted or not)."""
+    cmd = (cmd or '').strip()
+    if cmd.startswith('"'):
+        return cmd[1:].split('"', 1)[0]
+    low = cmd.lower()
+    end = low.find('.exe')
+    return cmd[:end + 4] if end >= 0 else cmd.split(' ', 1)[0]
+
+
 def find_bambu_studio():
     env = os.environ.get('EMCOSIM_BAMBU_STUDIO')
     if env and Path(env).exists():
         return env
     if sys.platform == 'win32':
         import winreg
+        # the bambustudio:// link handler names the installed exe wherever it was installed
+        for hive, sub in ((winreg.HKEY_CURRENT_USER, r'Software\Classes\bambustudio\shell\open\command'),
+                          (winreg.HKEY_CLASSES_ROOT, r'bambustudio\shell\open\command')):
+            try:
+                with winreg.OpenKey(hive, sub) as k:
+                    p = _exe_from_command(winreg.QueryValueEx(k, '')[0])
+                    if p and Path(p).exists():
+                        return p
+            except OSError:
+                pass
         keys = [(winreg.HKEY_LOCAL_MACHINE, r'SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths\bambu-studio.exe', ''),
                 (winreg.HKEY_CURRENT_USER, r'SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths\bambu-studio.exe', '')]
         for hive, sub, val in keys:
