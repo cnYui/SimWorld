@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import copy
 import itertools
+import re
 import shutil
 import time
 from pathlib import Path
@@ -299,6 +300,17 @@ def bind_pin(project: Project, pin, actuator=None, role=None, input=None, net=No
             raise ValueError(f'net {net!r} is not on the PCB; nets: {list(pcb["nets"])}')
         report['net_pads'] = pcb['nets'][net]
         report['reaches'] = _net_neighbours(pcb, net)
+    elif net:
+        design = _design_netlist(project)
+        if design is not None:
+            nets, parts = design
+            if net not in nets:
+                raise ValueError(f'net {net!r} is not in the schematic/board; nets: {sorted(nets)}')
+            report['net_pins'] = nets[net]
+            pull = _pull_up(nets, parts, net)
+            if pull:
+                report['pull_up'] = pull
+                warnings = [w for w in warnings if 'pull-up' not in w]
     bindings = [b for b in data.setdefault('bindings', []) if pin_number(b['pin']) != n
                 or ('to' in b) != ('to' in binding)]
     bindings.append(binding)
@@ -307,6 +319,37 @@ def bind_pin(project: Project, pin, actuator=None, role=None, input=None, net=No
     if warnings:
         report['warnings'] = warnings
     return {'binding': binding, **report}
+
+
+def _design_netlist(project):
+    """({net: ['REF.PIN', ...]}, {ref: value}) of the schematic, else the board; None without either."""
+    b = project.data.get('board') or {}
+    try:
+        if b.get('kicad_sch'):
+            from . import eda
+            nl = eda.netlist(project.path(b['kicad_sch']))
+            return nl['nets'], {c['ref']: c.get('value') for c in nl['components']}
+        if b.get('kicad_pcb'):
+            from .importers.kicad import load_kicad_pcb
+            pcb = load_kicad_pcb(project.path(b['kicad_pcb']))
+            return pcb['nets'], {c['ref']: c.get('value') for c in pcb['components']}
+    except Exception:          # no KiCad: the binding still works, only the check is skipped
+        return None
+    return None
+
+
+def _pull_up(nets, parts, net):
+    """A resistor between `net` and a supply-looking net, e.g. 'R4 10k to 3V3'."""
+    supply = re.compile(r'^\+?(3V3|3\.3V|VCC|VDD|VBAT|5V|VBUS|3V)', re.I)
+    pin_net = {p: n for n, pins in nets.items() for p in pins}
+    for p in nets.get(net, []):
+        ref = p.split('.')[0]
+        if not re.match(r'R\d', ref):
+            continue
+        other = [n for q, n in pin_net.items() if q.split('.')[0] == ref and n != net]
+        if other and supply.match(other[0]):
+            return f'{ref} {parts.get(ref) or ""} to {other[0]}'.replace('  ', ' ')
+    return None
 
 
 ESP32_INPUT_ONLY = range(34, 40)

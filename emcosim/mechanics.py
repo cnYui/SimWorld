@@ -9,7 +9,7 @@ from pathlib import Path
 import mujoco
 import numpy as np
 
-EMPTY_MJCF = '<mujoco model="emcosim"><worldbody/></mujoco>'
+EMPTY_MJCF = '<mujoco model="emcosim"><compiler angle="radian"/><worldbody/></mujoco>'
 JOINT_TYPES = {'hinge': mujoco.mjtJoint.mjJNT_HINGE, 'slide': mujoco.mjtJoint.mjJNT_SLIDE,
                'ball': mujoco.mjtJoint.mjJNT_BALL, 'free': mujoco.mjtJoint.mjJNT_FREE}
 
@@ -68,7 +68,11 @@ def build_spec(project_dir, cfg, pcb=None):
                                    axis=j.get('axis', [0, 0, 1]), pos=j.get('pos', [0, 0, 0]))
         if 'range_deg' in j:
             r = j['range_deg']
-            existing.range = [math.radians(r[0]), math.radians(r[1])] if j.get('type', 'hinge') == 'hinge' else r
+            if j.get('type', 'hinge') == 'hinge':
+                # the spec compiles angles in its own unit: degrees unless the MJCF says radian
+                existing.range = list(r) if spec.compiler.degree else [math.radians(r[0]), math.radians(r[1])]
+            else:
+                existing.range = r
             existing.limited = mujoco.mjtLimited.mjLIMITED_TRUE
         if 'range_mm' in j:
             r = j['range_mm']
@@ -185,7 +189,7 @@ class Mechanics:
             q_t, qd_t = target(float(d.time))
             M = float(self.model.dof_M0[da]) or 1e-6         # joint-space inertia at qpos0
             d.qfrc_applied[da] += M * (w * w * (q_t - d.qpos[qa]) + 2 * zeta * w * (qd_t - d.qvel[da])) \
-                + float(d.qfrc_bias[da])
+                + float(d.qfrc_bias[da]) - float(d.qfrc_passive[da])   # cancel the joint's own spring/damping
         for e in self.elements:
             e.apply(d)
         mujoco.mj_step(self.model, d)

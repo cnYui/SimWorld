@@ -294,3 +294,29 @@ def test_freerouting_routes_a_small_board(empty):
     out, img = call_parts(srv, 'board_autoroute', {'engine': 'freerouting', 'passes': 5})
     assert img and out['engine'] == 'freerouting' and out['tracks'] > 0
     assert out['drc']['unconnected'] == 0
+
+
+def test_hinge_range_is_degrees_without_mjcf(empty):
+    """Parts-only projects compile with angle="radian"; range_deg [0, 270] must stay 270 degrees."""
+    import math
+    p, srv = empty
+    call_parts(srv, 'add_shape', {'name': 'knob', 'shape': 'cylinder', 'size_mm': [14, 7], 'mass_kg': 0.002})
+    call(srv, 'define_joint', {'name': 'turn', 'body': 'knob', 'axis': [0, 0, 1], 'range_deg': [0, 270],
+                               'damping': 0.0005})
+    from emcosim.mechanics import Mechanics
+    m = Mechanics(p.root, Project(p.root).data['mechanics'])
+    assert m.model.jnt_range[0][1] == pytest.approx(math.radians(270))
+    m.set_drive('turn', lambda t: (math.radians(108), 0.0))       # passive damping must not stall it
+    for _ in range(3000):
+        m.step({})
+    assert math.degrees(m.data.qpos[m.joints['turn'][0]]) == pytest.approx(108, abs=1)
+
+
+@needs_kicad
+def test_bind_pin_finds_the_pull_up_on_the_schematic(empty):
+    _, srv = empty
+    call_parts(srv, 'schematic_create', DESIGN)
+    out = call(srv, 'bind_pin', {'pin': 'GPIO37', 'input': 'export_btn', 'net': 'BTN_EXPORT'})
+    assert out['pull_up'].startswith('R4') and 'warnings' not in out
+    with pytest.raises(ToolError, match='not in the schematic'):
+        asyncio.run(srv.call_tool('bind_pin', {'pin': 'GPIO39', 'input': 'mode_btn', 'net': 'NOPE'}))
