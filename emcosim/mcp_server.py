@@ -181,14 +181,96 @@ def build_server(project_root=None, link=None):
     def bind_pin(pin: str, actuator: str | None = None, role: str | None = None,
                  input: str | None = None, net: str | None = None, actuator_type: str | None = None,
                  joint: str | None = None, supply_node: str | None = None, preset: str | None = None,
-                 active: str = 'low') -> dict:
-        """Wire an ESP32 pin. Output: pin -> actuator (servo signal, or dc_motor role in_a/in_b);
-        creating the actuator needs actuator_type ('servo'|'dc_motor'), joint, supply_node and
-        optionally preset ('sg90', 'mg90s', 'tt_motor'). Input: input='button1' wires a button
-        to the pin. `net` is checked against the PCB and the copper path is reported."""
+                 active: str = 'low', input_type: str | None = None, knob_range_deg: list[float] | None = None,
+                 value: float | None = None) -> dict:
+        """Wire an ESP32 pin.
+        Output: pin -> actuator (servo signal, or dc_motor role in_a/in_b); creating the actuator needs
+        actuator_type ('servo'|'dc_motor'), joint, supply_node and optionally preset ('sg90', 'mg90s',
+        'tt_motor').
+        Input: input='<name>' wires an input device to the pin. input_type 'button' (default; active
+        'low'|'high', pressed by scenario events) or 'pot' (potentiometer on an ADC pin, GPIO32-39:
+        follows `joint`'s angle over knob_range_deg [min, max], or a fixed `value` 0..1 that scenario
+        events can set with {t, set: inputs.<name>.value, value}).
+        `net` is checked against the PCB. Unusable pins are refused; risky ones come back as warnings.
+        Note: QEMU firmware sees buttons only; analog inputs and IMUs reach the behavior backend."""
+        extra = {k: v for k, v in (('input_type', input_type), ('range_deg', knob_range_deg), ('value', value))
+                 if v is not None}
         return api.bind_pin(prj(), pin, actuator=actuator, role=role, input=input, net=net,
                             actuator_type=actuator_type, joint=joint, supply_node=supply_node,
-                            preset=preset, active=active)
+                            preset=preset, active=active, **extra)
+
+    @tool()
+    def define_probe(name: str, type: str, body: str | None = None, pos: list[float] | None = None,
+                     euler_deg: list[float] | None = None, geoms_a: str | None = None,
+                     geoms_b: str | None = None) -> dict:
+        """Add a measurement to the mechanical model.
+        type 'imu': accelerometer + gyroscope mounted on `body` at pos (metres, body frame) with
+        orientation euler_deg; signals probe.<name>.ax/ay/az (m/s2, gravity included like a real
+        accelerometer), gx/gy/gz (deg/s), a_g (|a| in g); metrics a_g.peak/min; the behavior backend
+        reads it with io.imu(name).
+        type 'contact': force between geoms whose names start with geoms_a and geoms_b (part names work);
+        signal probe.<name>.force_n, metric force_n.peak."""
+        p = prj()
+        if type == 'imu':
+            if not body:
+                raise ValueError('an IMU probe needs body (the part it is mounted on)')
+            cfg = {'type': 'imu', 'body': body, **({'pos': pos} if pos else {}),
+                   **({'euler_deg': euler_deg} if euler_deg else {})}
+        elif type == 'contact':
+            if not (geoms_a and geoms_b):
+                raise ValueError('a contact probe needs geoms_a and geoms_b (geom name prefixes, e.g. part names)')
+            cfg = {'type': 'contact', 'geoms_a': geoms_a, 'geoms_b': geoms_b}
+        else:
+            raise ValueError("probe type: 'imu' or 'contact'")
+        probes = p.data.setdefault('mechanics', {}).setdefault('probes', {})
+        old = probes.get(name)
+        probes[name] = cfg
+        from .mechanics import Mechanics
+        try:
+            mech = Mechanics(p.root, p.data['mechanics'], p.pcb())
+        except Exception as e:
+            if old is None:
+                probes.pop(name)
+            else:
+                probes[name] = old
+            raise ValueError(f'MuJoCo rejected the probe, nothing saved: {e}') from e
+        if type == 'contact':
+            pr = mech.probes[name]
+            if not pr.a or not pr.b:
+                probes.pop(name) if old is None else probes.__setitem__(name, old)
+                names = sorted({mech.model.geom(i).name for i in range(mech.model.ngeom) if mech.model.geom(i).name})
+                raise ValueError(f'no geoms start with {geoms_a if not pr.a else geoms_b!r}; geoms: {names}')
+        p.save()
+        sig = ['ax', 'ay', 'az', 'gx', 'gy', 'gz', 'a_g'] if type == 'imu' else ['force_n']
+        return {'probe': name, **cfg, 'signals': [f'probe.{name}.{k}' for k in sig]}
+
+    @tool()
+    def write_behavior(name: str, code: str) -> dict:
+        """Save a Python model of the firmware as behavior/<name>.py and check that it loads. It defines
+        setup(io) (optional, at each boot) and loop(io, t) (every 1 ms). io: io.read(pin) 0/1,
+        io.adc(pin) 0..4095, io.volts(pin), io.imu(name) -> {ax, ay, az, gx, gy, gz, a_g}, io.write(pin, 0/1),
+        io.pwm(pin, duty, freq), io.servo(pin, pulse_us), io.log(text), io.event(name, **detail),
+        io.export(rows, name='export.csv'), io.state (dict, cleared at boot), io.t, io.params.
+        Run it with a scenario that has mcu_backend: behavior and behavior_script: behavior/<name>.py.
+        Use it for logic QEMU cannot run yet (ADC, IMU over I2C, radio); then port it to the firmware."""
+        from .mcu.behavior import check_script
+        if not re.fullmatch(r'[A-Za-z_][A-Za-z0-9_]*', name):
+            raise ValueError('name: letters, digits and _ only')
+        p = prj()
+        d = p.root / 'behavior'
+        d.mkdir(exist_ok=True)
+        f = d / f'{name}.py'
+        old = f.read_text(encoding='utf-8') if f.exists() else None
+        f.write_text(code, encoding='utf-8')
+        try:
+            out = check_script(f)
+        except Exception:
+            if old is None:
+                f.unlink()
+            else:
+                f.write_text(old, encoding='utf-8')
+            raise
+        return {**out, 'scenario_keys': {'mcu_backend': 'behavior', 'behavior_script': f'behavior/{name}.py'}}
 
     @tool()
     def set_param(path: str, value: Any) -> dict:

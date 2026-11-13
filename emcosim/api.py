@@ -275,7 +275,20 @@ def bind_pin(project: Project, pin, actuator=None, role=None, input=None, net=No
         binding['to'] = f'{actuator}.{role}' if role else actuator
     elif input:
         ins = data.setdefault('inputs', {})
-        ins.setdefault(input, {'type': 'button', 'active': active})
+        itype = params.pop('input_type', None) or (ins.get(input) or {}).get('type') or 'button'
+        if itype == 'button':
+            ins[input] = {**(ins.get(input) or {}), 'type': 'button', 'active': active}
+        elif itype == 'pot':
+            cfg = {'type': 'pot', 'v_ref': params.pop('v_ref', 3.3)}
+            if joint:
+                cfg['joint'] = joint
+                cfg['range_deg'] = params.pop('range_deg', None) or [0, 270]
+            else:
+                cfg['value'] = params.pop('value', 0.5)
+            ins[input] = cfg
+        else:
+            raise ValueError(f"input_type {itype!r}: use 'button' (digital) or 'pot' (analog, ADC)")
+        params.clear()
         binding['from'] = input
     else:
         raise ValueError('give actuator=... or input=...')
@@ -362,6 +375,14 @@ def _mcu_factory(project):
         backend = scenario.get('mcu_backend', mcu.get('backend', 'qemu'))
         if backend == 'scripted':
             return ScriptedMcu(scenario.get('pin_script'))
+        if backend == 'behavior':
+            from .mcu.behavior import BehaviorMcu
+            script = scenario.get('behavior_script') or (mcu.get('behavior') or {}).get('script')
+            if not script:
+                raise ValueError('mcu_backend: behavior needs behavior_script (write one with write_behavior)')
+            return BehaviorMcu(project.path(script), params=(mcu.get('behavior') or {}).get('params'))
+        if backend != 'qemu':
+            raise ValueError(f'mcu_backend {backend!r}: use qemu (real firmware), scripted or behavior')
         fw = mcu.get('firmware') or {}
         if not fw.get('flash'):
             raise ValueError('no firmware imported (import_firmware) and scenario does not use mcu_backend: scripted')
@@ -396,7 +417,11 @@ def run_scenario(project: Project, scenario, overrides=None, tag=None, frame_eve
             'log': info['log'], 'brownout_detector': sim.bod.events,
             'timing': {k: info[k] for k in ('wall_s', 'sim_s', 'substeps', 'dt_mech_s')},
             'mcu_backend': sim.mcu.backend}
+    files = getattr(sim.mcu, 'files', None) or {}
+    meta['files'] = sorted(files)
     rec.finish(meta, sim.mcu.uart, sim.mcu.events)
+    for name, text in files.items():
+        (rec.dir / name).write_text(text, encoding='utf-8')
     return summarize(meta)
 
 
@@ -413,6 +438,9 @@ def summarize(meta):
     return {'run_id': meta['run_id'], 'scenario': meta['scenario']['name'], 'passed': meta['passed'],
             'overrides': meta['overrides'], 'checks': meta['checks'], 'metrics': keep,
             'mcu_events': [f"{e['t']:.3f}s {e['event']} {e['detail']}".strip() for e in meta['mcu_events']][:40],
+            'scenario_events': [f"{e['t']:.3f}s {e.get('detail')}" for e in meta.get('log', [])
+                                if e.get('event') == 'scenario'][:20],
+            'files': meta.get('files') or [],
             'timing': meta['timing']}
 
 

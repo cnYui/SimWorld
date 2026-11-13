@@ -82,6 +82,18 @@ def build_spec(project_dir, cfg, pcb=None):
             if key in j:
                 _set_scalar(existing, attr, j[key])
 
+    for name, pr in (cfg.get('probes') or {}).items():
+        if pr.get('type') == 'imu':
+            b = body(pr.get('body'))
+            if b is spec.worldbody:
+                raise ValueError(f'IMU probe {name}: give the body (part) the sensor is mounted on')
+            b.add_site(name=f'{name}_imu', pos=pr.get('pos', [0, 0, 0]), quat=_quat_from_euler_deg(pr.get('euler_deg')),
+                       size=[0.002, 0, 0], group=4)
+            spec.add_sensor(name=f'{name}_acc', type=mujoco.mjtSensor.mjSENS_ACCELEROMETER,
+                            objtype=mujoco.mjtObj.mjOBJ_SITE, objname=f'{name}_imu')
+            spec.add_sensor(name=f'{name}_gyro', type=mujoco.mjtSensor.mjSENS_GYRO,
+                            objtype=mujoco.mjtObj.mjOBJ_SITE, objname=f'{name}_imu')
+
     if pcb is not None and pcb.get('placement') and pcb.get('board'):
         _add_pcb(spec, body(pcb['placement'].get('parent', 'world')), pcb)
     return spec
@@ -138,6 +150,13 @@ class Mechanics:
                          if e.get('type') == 'bistable']
         self.probes = {name: ContactProbe(m, p) for name, p in (cfg.get('probes') or {}).items()
                        if p.get('type', 'contact') == 'contact'}
+        self.imus = {}
+        for name, p in (cfg.get('probes') or {}).items():
+            if p.get('type') == 'imu':
+                acc = mujoco.mj_name2id(m, mujoco.mjtObj.mjOBJ_SENSOR, f'{name}_acc')
+                gyr = mujoco.mj_name2id(m, mujoco.mjtObj.mjOBJ_SENSOR, f'{name}_gyro')
+                self.imus[name] = (int(m.sensor_adr[acc]), int(m.sensor_adr[gyr]), p.get('noise_g', 0.0))
+        self.drives = {}
         self.extra_torque = {}
         mujoco.mj_forward(m, self.data)
 
@@ -149,11 +168,24 @@ class Mechanics:
         qa, da, _ = self.joints[name]
         return float(self.data.qpos[qa]), float(self.data.qvel[da])
 
+    def set_drive(self, joint, target, hz=15.0, zeta=1.0):
+        """Make a joint follow target(t) -> (q, qd) (m or rad) with a stiff, critically damped
+        servo plus gravity/bias compensation: a stand-in for the person or machine moving it."""
+        if joint not in self.joints:
+            raise KeyError(f'motion: no joint {joint!r}; joints: {sorted(self.joints)}')
+        self.drives[joint] = (target, 2 * math.pi * hz, zeta)
+
     def step(self, torques):
         d = self.data
         d.qfrc_applied[:] = 0
         for name, tau in torques.items():
             d.qfrc_applied[self.joints[name][1]] += tau
+        for name, (target, w, zeta) in self.drives.items():
+            qa, da, _ = self.joints[name]
+            q_t, qd_t = target(float(d.time))
+            M = float(self.model.dof_M0[da]) or 1e-6         # joint-space inertia at qpos0
+            d.qfrc_applied[da] += M * (w * w * (q_t - d.qpos[qa]) + 2 * zeta * w * (qd_t - d.qvel[da])) \
+                + float(d.qfrc_bias[da])
         for e in self.elements:
             e.apply(d)
         mujoco.mj_step(self.model, d)
@@ -173,6 +205,19 @@ class Mechanics:
                 out[f'joint.{name}.mm_s'] = self.data.qvel[da] * 1e3
         for name, p in self.probes.items():
             out[f'probe.{name}.force_n'] = p.force
+        for name, v in self.imu_values().items():
+            for k, x in v.items():
+                out[f'probe.{name}.{k}'] = x
+        return out
+
+    def imu_values(self):
+        sd = self.data.sensordata
+        out = {}
+        for name, (a, g, _) in self.imus.items():
+            ax, ay, az = (float(x) for x in sd[a:a + 3])
+            gx, gy, gz = (math.degrees(float(x)) for x in sd[g:g + 3])
+            out[name] = {'ax': ax, 'ay': ay, 'az': az, 'gx': gx, 'gy': gy, 'gz': gz,
+                         'a_g': math.sqrt(ax * ax + ay * ay + az * az) / 9.80665}
         return out
 
     # -- viewer support --------------------------------------------------------

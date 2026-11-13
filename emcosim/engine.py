@@ -25,7 +25,7 @@ from .electrical.power import BrownoutDetector, PowerNetwork
 from .mechanics import Mechanics
 from .project import get_path, pin_number
 
-RUNTIME_SETTABLE = ('power.sources.',)
+RUNTIME_SETTABLE = ('power.sources.', 'inputs.')
 
 
 class RunCancelled(Exception):
@@ -33,7 +33,8 @@ class RunCancelled(Exception):
 
 
 class Inputs:
-    """External inputs wired to MCU pins: buttons (active low/high)."""
+    """External inputs wired to MCU pins: buttons (active low/high) and potentiometers (analog: a
+    fraction 0..1 of v_ref, from a joint's angle or set by scenario events)."""
 
     def __init__(self, cfg, bindings):
         self.cfg = cfg or {}
@@ -41,17 +42,74 @@ class Inputs:
         for b in bindings:
             if 'from' in b:
                 self.pins[b['from']] = pin_number(b['pin'])
-        self.pressed = {k: False for k in self.cfg}
+        self.pressed = {k: False for k, c in self.cfg.items() if c.get('type', 'button') == 'button'}
+        self.values = {k: float(c.get('value', 0.5)) for k, c in self.cfg.items() if c.get('type') == 'pot'}
 
     def mask(self):
         m = (1 << 40) - 1
         for name, pin in self.pins.items():
             c = self.cfg.get(name, {})
+            if c.get('type', 'button') != 'button':
+                continue
             active_low = c.get('active', 'low') == 'low'
             level = (not self.pressed.get(name)) if active_low else bool(self.pressed.get(name))
             if not level:
                 m &= ~(1 << pin)
         return m
+
+    def update_from(self, mech):
+        for name, c in self.cfg.items():
+            if c.get('type') == 'pot' and c.get('joint'):
+                q, _ = mech.joint_state(c['joint'])
+                lo, hi = c.get('range_deg', [0, 270])
+                self.values[name] = min(1.0, max(0.0, (math.degrees(q) - lo) / ((hi - lo) or 1)))
+
+    def analog(self):
+        out = {}
+        for name, v in self.values.items():
+            if name in self.pins:
+                out[self.pins[name]] = v * float(self.cfg[name].get('v_ref', 3.3))
+        return out
+
+    def signals(self):
+        sig = {f'input.{k}.pressed': float(v) for k, v in self.pressed.items()}
+        for k, v in self.values.items():
+            sig[f'input.{k}.value'] = v
+            sig[f'input.{k}.v'] = v * float(self.cfg[k].get('v_ref', 3.3))
+        return sig
+
+
+def motion_profile(m, joint_type):
+    """target(t) -> (q, qd) in SI units for a scenario motion entry."""
+    slide = joint_type == 'slide'
+    k = 1e-3 if slide else math.pi / 180
+    key = 'mm' if slide else 'deg'
+    amp = float(m.get(f'amplitude_{key}', m.get('amplitude', 0))) * k
+    off = float(m.get(f'offset_{key}', m.get('offset', 0))) * k
+    T = float(m.get('period_s', 2.0))
+    t0 = float(m.get('start_s', 0.0))
+    rest = float(m.get('rest_s', 0.0))
+    count = int(m.get('count', 1))
+    sign = -1.0 if m.get('direction', 'down_first') == 'down_first' else 1.0
+    prof = m.get('profile', 'reps')
+    if prof not in ('reps', 'sine', 'hold'):
+        raise ValueError(f"motion profile {prof!r}: use reps, sine or hold")
+
+    def target(t):
+        if prof == 'hold' or t < t0:
+            return off, 0.0
+        tau = t - t0
+        if prof == 'sine':
+            w = 2 * math.pi / T
+            return off + amp * math.sin(w * tau), amp * w * math.cos(w * tau)
+        cyc = T + rest
+        n = int(tau // cyc)
+        u = tau - n * cyc
+        if n >= count or u > T:
+            return off, 0.0
+        w = 2 * math.pi / T
+        return off + sign * amp * (1 - math.cos(w * u)) / 2, sign * amp * w * math.sin(w * u) / 2
+    return target
 
 
 def _routes(bindings, actuators):
@@ -94,6 +152,12 @@ class Simulation:
         self.mcu = mcu_factory(data, scenario)
         self.frame_every = max(1, int(frame_every_ms / self.step_ms))
         self.events = sorted(scenario.get('events') or [], key=lambda e: e['t'])
+        jtypes = {n: j.get('type', 'hinge') for n, j in (mcfg.get('joints') or {}).items()}
+        for m in scenario.get('motions') or []:
+            if 'joint' not in m:
+                raise ValueError(f'motion {m} needs joint')
+            self.mech.set_drive(m['joint'], motion_profile(m, jtypes.get(m['joint'], 'hinge')),
+                                hz=float(m.get('stiffness_hz', 15.0)))
 
     def _apply_event(self, e, log):
         if 'press' in e:
@@ -106,6 +170,14 @@ class Simulation:
             if not path.startswith(RUNTIME_SETTABLE):
                 raise ValueError(f'{path} cannot change during a run (only {RUNTIME_SETTABLE}); '
                                  'use scenario overrides instead')
+            if path.startswith('inputs.'):
+                _, name, field = path.split('.', 2)
+                if name not in self.inputs.values or field != 'value':
+                    raise ValueError(f'{path}: only inputs.<pot>.value can be set; pots: {sorted(self.inputs.values)}')
+                self.inputs.values[name] = min(1.0, max(0.0, float(e['value'])))
+                self.inputs.cfg[name] = {k: v for k, v in self.inputs.cfg[name].items() if k != 'joint'}
+                log.append({'t': e['t'], 'event': 'scenario', 'detail': {k: v for k, v in e.items() if k != 't'}})
+                return
             _, _, name, field = path.split('.', 3)
             kw = {'v': 'v', 'enabled': 'enabled', 'r_ohm': 'r_ohm'}[field]
             self.power.set_source(name, **{kw: e['value']})
@@ -145,6 +217,9 @@ class Simulation:
                 if rt <= t + 1e-9:
                     self.inputs.pressed[name] = False
                     self._releases.remove((rt, name))
+            self.inputs.update_from(self.mech)
+            if hasattr(self.mcu, 'set_sensors'):
+                self.mcu.set_sensors({'imu': self.mech.imu_values(), 'analog': self.inputs.analog()})
             out = self.mcu.exchange(t, self.inputs.mask(), self.bod.good)
             for pin, act, role in self.routes:
                 sig = _pin_signal(out, pin)
@@ -191,6 +266,7 @@ class Simulation:
                 sig.update(act.signals())
                 sig[f'act.{name}.i_motor_peak'] = peaks.get(name, 0.0)
             sig.update(self.mech.signals())
+            sig.update(self.inputs.signals())
             frame = k % self.frame_every == 0
             recorder.sample(t, sig, self.mech.poses(body_ids) if frame else None,
                             self.mech.data.qpos.copy() if frame else None)
@@ -234,8 +310,11 @@ def compute_metrics(t, cols, mcu_events, log, mech):
             m[f'{key}.max'] = float(np.max(vals))
             m[f'{key}.min'] = float(np.min(vals))
             m[f'{key}.final'] = float(vals[-1])
-        elif key.startswith('probe.'):
+        elif key.startswith('probe.') and key.endswith('.force_n'):
             m[f'{key}.peak'] = float(np.max(vals))
+        elif key.startswith('probe.') and key.endswith('.a_g'):
+            m[f'{key}.peak'] = float(np.max(vals))
+            m[f'{key}.min'] = float(np.min(vals))
     for key in cols:
         if key.startswith('act.') and key.endswith('.torque'):
             name = key.split('.')[1]

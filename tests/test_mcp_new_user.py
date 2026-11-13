@@ -184,3 +184,52 @@ def test_shapes_edit_delete_and_render(empty):
         asyncio.run(srv.call_tool('part_delete', {'name': 'case'}))
     out = call(srv, 'part_delete', {'name': 'case', 'cascade': True})
     assert set(out['deleted_parts']) == {'case', 'knob'}
+
+
+# ------------------------------------------------------------------ sensors, motion, behaviour model
+from pathlib import Path as _Path
+
+REP_COUNTER = (_Path(__file__).parent / 'data' / 'rep_counter_behavior.py')
+
+
+def test_barbell_reps_counted_by_behaviour_model(empty):
+    p, srv = empty
+    call_parts(srv, 'add_shape', {'name': 'bar', 'shape': 'cylinder', 'size_mm': [28, 1200], 'pos': [0, 0, 1.0],
+                                  'euler_deg': [0, 90, 0], 'mass_kg': 20})
+    call_parts(srv, 'add_shape', {'name': 'case', 'shape': 'box', 'size_mm': [48, 26, 14], 'parent': 'bar',
+                                  'pos': [-0.021, 0, -0.35], 'euler_deg': [0, -90, 0], 'mass_kg': 0.03})
+    call(srv, 'define_joint', {'name': 'bar_lift', 'body': 'bar', 'type': 'slide', 'axis': [1, 0, 0],
+                               'range_mm': [-600, 600]})     # bar frame is rotated: its x is world z
+    out = call(srv, 'define_probe', {'name': 'imu', 'type': 'imu', 'body': 'case'})
+    assert 'probe.imu.az' in out['signals']
+    call(srv, 'bind_pin', {'pin': 'GPIO36', 'input': 'weight_knob', 'input_type': 'pot', 'value': 0.3})
+    call(srv, 'bind_pin', {'pin': 'GPIO37', 'input': 'export_btn'})
+    call(srv, 'bind_pin', {'pin': 'GPIO39', 'input': 'mode_btn'})
+    call(srv, 'set_param', {'path': 'power.nodes.vbat', 'value': {'c_f': 1e-5}})
+    call(srv, 'set_param', {'path': 'power.sources.lipo', 'value': {'node': 'vbat', 'v': 3.7, 'r_ohm': 0.3}})
+    with pytest.raises(ToolError, match='loop'):
+        asyncio.run(srv.call_tool('write_behavior', {'name': 'bad', 'code': 'x = 1\n'}))
+    call(srv, 'write_behavior', {'name': 'counter', 'code': REP_COUNTER.read_text(encoding='utf-8')})
+    call(srv, 'write_scenario', {'name': 'bench5', 'scenario_yaml': (
+        'duration_s: 13\nmcu_backend: behavior\nbehavior_script: behavior/counter.py\n'
+        'motions:\n  - {joint: bar_lift, profile: reps, amplitude_mm: 400, period_s: 1.6, count: 5, start_s: 0.5}\n'
+        'events:\n  - {t: 0.2, press: mode_btn, hold_s: 0.1}\n  - {t: 12.0, press: export_btn, hold_s: 0.2}\n'
+        'expect:\n  - {event: rep, eq: 5}\n  - {event: set, eq: 1}\n  - {event: export, eq: 1}\n')})
+    res = call(srv, 'run_scenario', {'name': 'bench5'})
+    assert res['passed'], res['checks']
+    assert res['files'] == ['session.csv']
+    run_dir = p.root / 'runs' / res['run_id']
+    csv_text = (run_dir / 'session.csv').read_text(encoding='utf-8')
+    assert 'press,5,60.0' in csv_text                       # mode pressed once; 0.3 x 200 kg
+    assert res['metrics']['probe.imu.a_g.peak'] > 1.1
+    data = call(srv, 'get_results', {'signals': ['joint.bar_lift.mm', 'input.weight_knob.v'], 'max_points': 50})
+    assert min(data['data']['joint.bar_lift.mm']) == pytest.approx(-400, abs=15)
+
+
+def test_behaviour_errors_point_at_the_line(empty):
+    p, srv = empty
+    call(srv, 'write_behavior', {'name': 'oops', 'code': 'def loop(io, t):\n    io.imu("nope")\n'})
+    call(srv, 'write_scenario', {'name': 's', 'scenario_yaml': 'duration_s: 0.1\nmcu_backend: behavior\n'
+                                                               'behavior_script: behavior/oops.py\n'})
+    with pytest.raises(ToolError, match=r"no IMU probe 'nope'.*line 2"):
+        asyncio.run(srv.call_tool('run_scenario', {'name': 's'}))
