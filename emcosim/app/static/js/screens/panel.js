@@ -27,9 +27,9 @@ export function createPanel(ctx) {
     D.nav = h('nav', { class: 'pn-nav', 'aria-label': '页面' },
       D.navToggle = h('button', { class: 'pn-nav-toggle', onclick: () => setNav(!navCollapsed) }, icon('chevron')),
       h('div', { class: 'pn-nav-brand' }, h('strong', {}, 'SimWorld'), h('span', { class: 'muted small' }, '电子 + 物理仿真')),
-      D.tabSim = navItem('sim', 'cube', '仿真'),
       D.tabPcb = navItem('pcb', 'board', 'PCB 元件'),
       D.tabModel = navItem('model', 'shapes', '建模'),
+      D.tabSim = navItem('sim', 'cube', '仿真'),
       D.projBox = h('div', { class: 'pn-proj' }),
       h('div', { class: 'pn-nav-bottom' }, navItemBtn('settings', '设置', () => showSettings()))),
     h('div', { class: 'pn-main' },
@@ -657,14 +657,22 @@ export function createPanel(ctx) {
     if (ok) openProject(f.value);
   }
   async function newProject() {
-    const f = pathField({ label: '新工程放在哪个文件夹（不存在会自动创建）', kind: 'folder', placeholder: 'D:\\robots\\my_robot' });
-    const name = h('input', { class: 'input', placeholder: '例如 my_robot' });
+    const dir = store.app?.projects_dir || '';
+    const sep = dir.includes('\\') ? '\\' : '/';
+    const name = h('input', { class: 'input', placeholder: '例如 小台灯', value: '我的工程' });
+    const where = h('div', { class: 'hint mono' });
+    const f = pathField({ label: '放在别的文件夹（可不填）', kind: 'folder', placeholder: '不填就放在上面的位置' });
+    const showWhere = () => { where.textContent = '保存到 ' + (f.value || (dir + sep + (name.value.trim() || '我的工程'))); };
+    name.addEventListener('input', showWhere); f.el.addEventListener('input', showWhere); showWhere();
+    const more = h('details', { class: 'pn-new-more' }, h('summary', { class: 'small muted' }, '换个保存位置'), f.el);
+    setTimeout(() => { name.focus(); name.select(); }, 50);
     const ok = await modal({ title: '新建工程',
-      body: [f.el, h('label', { class: 'field' }, '工程名称', name),
-        h('div', { class: 'hint' }, '新工程是空的。之后把 PCB 和 3D 模型交给你的 AI（点“连接 AI”），它会帮你导入、加测试。')],
+      body: [h('label', { class: 'field' }, '工程名称', name), where, more,
+        h('div', { class: 'hint' }, '新工程是空白的，会先打开“建模”页：导入 3D 模型或让 AI 帮你建模，再放 PCB 元件、加测试。')],
       actions: [{ label: '取消', value: false }, { label: '创建', kind: 'primary', handler: async () => {
-        if (!f.value) throw new Error('请填写文件夹');
-        await post('project/new', { path: f.value, name: name.value.trim() || undefined });
+        const n = name.value.trim();
+        if (!n) throw new Error('请填写工程名称');
+        await post('project/new', f.value ? { path: f.value, name: n } : { name: n });
         return true;
       } }] });
     if (ok) await reloadProject();
@@ -679,11 +687,11 @@ export function createPanel(ctx) {
   function renderProjBox() {
     clear(D.projBox);
     const p = store.app?.project;
-    if (!p) return;
     D.projBox.append(
-      h('div', { class: 'pn-proj-label pn-nav-label' }, '当前工程'),
-      h('button', { class: 'pn-nav-item pn-proj-btn', title: `${p}\n点这里打开别的工程`, onclick: openFolder },
-        icon('folder'), h('span', { class: 'pn-nav-label pn-proj-name' }, projectName())));
+      p ? h('div', { class: 'pn-proj-label pn-nav-label' }, '当前工程') : null,
+      p ? h('div', { class: 'pn-proj-cur', title: p }, icon('folder'), h('span', { class: 'pn-nav-label pn-proj-name' }, projectName())) : null,
+      navItemBtn('plus', '新建工程', () => newProject()),
+      navItemBtn('import', '打开工程', () => openFolder()));
   }
 
   function renderWelcome() {

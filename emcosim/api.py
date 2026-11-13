@@ -112,7 +112,7 @@ def model_summary(project: Project):
     try:
         import mujoco
         from .mechanics import Mechanics
-        m = Mechanics(project.root, mech, project.pcb() if project.data.get('pcb') else None).model
+        m = Mechanics(project.root, mech, None).model     # the PCB lives on its own page
     except Exception as e:  # a broken model is shown on the page, not raised
         out['error'] = str(e)
         return out
@@ -120,10 +120,12 @@ def model_summary(project: Project):
              mujoco.mjtJoint.mjJNT_BALL: 'ball', mujoco.mjtJoint.mjJNT_FREE: 'free'}
     geoms = {}
     for g in range(m.ngeom):
-        if m.geom_group[g] <= 2 and m.geom_rgba[g][3] > 0:
+        if m.geom_group[g] <= 2 and m.geom_rgba[g][3] > 0 and not is_pcb_geom(m.geom(g).name):
             b = int(m.geom_bodyid[g])
             geoms[b] = geoms.get(b, 0) + 1
     for b in range(1, m.nbody):
+        if m.body(b).name == 'pcb':
+            continue
         out['bodies'].append({'name': m.body(b).name, 'parent': m.body(int(m.body_parentid[b])).name or 'world',
                               'mass_kg': round(float(m.body_mass[b]), 6), 'geoms': geoms.get(b, 0)})
     cfg_joints = mech.get('joints') or {}
@@ -140,17 +142,22 @@ def model_summary(project: Project):
     return out
 
 
+def is_pcb_geom(name):
+    """PCB geometry: boards baked into the MJCF (pcb_visual_*) or added from the board summary (pcb_*)."""
+    return (name or '').startswith('pcb_')
+
+
 def model_preview(project: Project, out_dir):
     """scene.json / scene.bin / frames.bin of the model at its initial pose (one frame), in the
-    same format as a run, so the page shows the model before anything has been simulated."""
+    same format as a run, so the page shows the model before anything has been simulated.
+    Mechanical parts only: the PCB is shown on the PCB page, not here."""
     from .mechanics import Mechanics
     from .results import write_scene
-    mech = Mechanics(project.root, project.data.get('mechanics') or {},
-                     project.pcb() if project.data.get('pcb') else None)
+    mech = Mechanics(project.root, project.data.get('mechanics') or {}, None)
     ids = mech.visual_bodies()
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
-    write_scene(mech.model, ids, out_dir)
+    write_scene(mech.model, ids, out_dir, skip=is_pcb_geom)
     pose = mech.poses(ids).astype(np.float32)
     with open(out_dir / 'frames.bin', 'wb') as f:
         f.write(np.array([1, len(ids)], dtype=np.int32).tobytes())

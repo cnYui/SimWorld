@@ -77,14 +77,17 @@ def _json_default(o):
     return str(o)
 
 
-def write_scene(model, body_ids, out_dir):
-    """Visual geometry for the viewer: one entry per visible geom, in its body frame."""
+def write_scene(model, body_ids, out_dir, skip=None):
+    """Visual geometry for the viewer: one entry per visible geom, in its body frame.
+    skip(geom_name) -> True leaves a geom out (the 建模 page hides the PCB)."""
     index = {b: i for i, b in enumerate(body_ids)}
     geoms, blobs, offset = [], [], 0
     mesh_ref = {}
     for g in range(model.ngeom):
         b = int(model.geom_bodyid[g])
         if b not in index or model.geom_group[g] > 2 or model.geom_rgba[g][3] <= 0:
+            continue
+        if skip and skip(model.geom(g).name):
             continue
         gt = GEOM_TYPES.get(int(model.geom_type[g]))
         if gt is None:

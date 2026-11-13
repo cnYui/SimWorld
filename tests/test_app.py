@@ -85,6 +85,7 @@ def test_model_page_summary_and_preview(client):
     assert servo['type'] == 'hinge' and servo['range'] == [-40, 40]
     assert any(p['label'] == '按压臂' and p['exists'] for p in m['print_parts'])
     desc = json.loads(_raw(client, 'GET', 'model/scene.json'))
+    assert desc['geoms'] and not any(g['name'].startswith('pcb_') for g in desc['geoms'])
     frames = _raw(client, 'GET', 'model/frames.bin')
     n, nb = (int.from_bytes(frames[i:i + 4], 'little') for i in (0, 4))
     assert n == 1 and nb == len(desc['bodies']) and len(frames) == 8 + 4 + nb * 7 * 4

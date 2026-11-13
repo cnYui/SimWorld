@@ -760,3 +760,8 @@ pre.log { background: var(--sunken); border: 1px solid var(--line); border-radiu
 .pn-model-empty > div:last-child:not(.pn-model-acts) { width: 100%; text-align: left; margin-top: 12px; }
 @media (max-width: 900px) { .pn-model-body { grid-template-columns: 1fr; } }
 .pn-model-info .pn-parts .mono.small { word-break: break-all; }
+
+.pn-proj-cur { display: flex; align-items: center; gap: 10px; padding: 6px 10px; font-weight: 600; min-width: 0; }
+.pn-proj-cur svg { flex: none; width: 18px; height: 18px; }
+.nav-collapsed .pn-proj-cur { justify-content: center; padding: 6px 0; }
+.pn-new-more summary { cursor: pointer; margin: 4px 0; }

@@ -341,7 +341,8 @@ class Handler(BaseHTTPRequestHandler):
                     'recent_projects': [r for r in app.settings.data.get('recent_projects', [])
                                         if (Path(r) / 'project.yaml').exists()],
                     'settings': app.settings.public(), 'qemu': _qemu_status(),
-                    'examples': [str(x) for x in _bundled_examples()]}
+                    'examples': [str(x) for x in _bundled_examples()],
+                    'projects_dir': str(_documents_dir())}
 
         if head == 'project':
             if p[1:] == ['open'] and method == 'POST':
@@ -352,7 +353,17 @@ class Handler(BaseHTTPRequestHandler):
                 dst = Path(b.get('dest') or _documents_dir() / src.name)
                 return {**app.open_project(api.copy_project(src, dst)['root']), 'copied_to': str(dst)}
             if p[1:] == ['new'] and method == 'POST':
-                prj = Project.create(b['path'], b.get('name'))
+                # {path} as before, or just {name}: a new folder under Documents/SimWorld
+                path = b.get('path')
+                if not path:
+                    name = (b.get('name') or '').strip()
+                    stem = re.sub(r'[\\/:*?"<>|\s]+', '_', name).strip('._') or 'project'
+                    path, i = _documents_dir() / stem, 2
+                    while path.exists():
+                        path, i = _documents_dir() / f'{stem}_{i}', i + 1
+                elif (Path(path) / 'project.yaml').exists():
+                    raise ApiError(f'{path} 里已经有一个工程了，换个文件夹或者直接打开它')
+                prj = Project.create(path, b.get('name'))
                 return app.open_project(prj.root)
             if len(p) == 1 and method == 'GET':
                 prj = app.project()
@@ -574,7 +585,7 @@ def _motor_presets():
 
 def _documents_dir():
     docs = Path.home() / 'Documents'
-    d = (docs if docs.exists() else Path.home()) / 'emcosim'
+    d = (docs if docs.exists() else Path.home()) / 'SimWorld'
     d.mkdir(parents=True, exist_ok=True)
     return d
 
