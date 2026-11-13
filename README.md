@@ -45,7 +45,15 @@ Docker（QEMU、ngspice 都装好了）：
     command = "<SimWorld 目录>/.venv/bin/python"
     args = ["-m", "emcosim", "mcp"]
 
-（Windows 上 python 在 .venv\Scripts\python.exe。）MCP 服务通过 %APPDATA%\emcosim\live.json（Linux 是 ~/.config/emcosim/live.json）找到正在运行的页面。
+（Windows 上 python 在 .venv\Scripts\python.exe。）
+
+页面左侧的“MCP 使用说明”用大白话列出每个工具能做什么、什么时候用，可以自己看，也能一键复制整份发给 AI；内容来自 emcosim/mcp_docs.py，工具列表取自正在运行的 MCP 服务，新工具没写说明时测试会失败。
+
+使用规则写成了一个 skill（emcosim/skills/simworld/SKILL.md）：三个页面各管什么（PCB 元件管电路，建模只管产品本身的零件和材料，仿真把产品、板子和测试夹具放在一起测），产品零件和测试夹具怎么分，需求没提到的参数不乱填，AI 只通过工具改工程数据、不改页面代码。`emcosim skill claude` 装到 ~/.claude/skills，`emcosim skill codex` 装到 ~/.codex/skills（Codex 是否读这个目录取决于版本，不确定时让它调用 design_rules 工具，返回的是同一份规则）。“连接 AI”复制的话里已经包含安装这一步。
+
+测试夹具：杠铃、桌面、墙、已有的墙壁开关这类“产品在什么上面测试”的东西，用 add_shape / import_model 的 role="fixture" 做（已有零件用 part_edit 改 role），整体 MJCF 模型在 mechanics.fixtures 里列出 body 名或 geom 名前缀。夹具参与仿真，在仿真页“测试环境”里调参数，建模页不显示。
+
+MCP 服务通过 %APPDATA%\emcosim\live.json（Linux 是 ~/.config/emcosim/live.json）找到正在运行的页面。
 
 内核工具（v0.3）：board_import（经 KiCad 的导入器读 .kicad_pcb、嘉立创EDA 导出的 .epro、Altium、Eagle，加上原 EDA 的网表补齐焊盘网络）、board_drc / board_erc（KiCad 的 DRC/ERC，导入时写入嘉立创两层板工艺规则）、board_netlist、board_edit（用 KiCad 自己的板子模型移元件、改值、改字段、改线宽和间距，每次留 .bak 备份并自动重跑 DRC）、schematic_edit、board_export_3d、circuit_check（用板子的真实网表和 ngspice 重算一次运行的电源路径，和联合仿真对比）、model_info / model_edit（按名字改 MuJoCo 模型的属性，改完必须能被 MuJoCo 编译，否则不保存）。元件查询（内置）：parts_search、part_info、parts_alternatives、board_parts_status 查嘉立创在库元件、实时库存和价格、可替换料，数据来自开源的 PCB Parts MCP（github.com/Averyy/jlcpcb-mcp，MIT 许可，作者公开运行在 pcbparts.dev/mcp）；emcosim 作为它的客户端把这几个工具并进自己的 MCP，用户只需要连一个服务。上游项目实时查询用的是绕过网站反爬的 HTTP 客户端，emcosim 不在本机运行那一部分；EMCOSIM_PARTS_MCP 可以指向自己部署的实例。面板 PCB 页的“现在库存”列也走这条路。需要本机装好 KiCad 9 或 10（kicad.org/download，Windows 默认路径和 winget 的用户目录安装都会自动找到，或设 EMCOSIM_KICAD_CLI）和 ngspice。工具出错时，原因会作为文字返回给 AI（例如“这个工程还没有 PCB，用 board_from_schematic 生成或 board_import 导入”），AI 可以照着改。
 
