@@ -476,7 +476,7 @@ export function createPanel(ctx) {
           h('td', { class: 'mono small' }, (r.created || '').slice(5, 16)),
           h('td', {}, title(r.scenario)),
           h('td', { class: r.passed ? 'ok' : 'bad' }, r.passed ? '通过' : '没通过'),
-          h('td', { class: 'mono small muted' }, Object.entries(r.overrides || {}).map(([k, v]) => `${k}=${v}`).join('，') || '–'),
+          h('td', { class: 'mono small muted' }, Object.entries(r.overrides || {}).map(([k, v]) => `${k}=${v !== null && typeof v === 'object' ? JSON.stringify(v) : v}`).join('，') || '–'),
           h('td', {}, h('button', { class: 'btn sm', onclick: () => { selected = r.scenario; renderTests(); setSimMode('replay'); openRun(r.run_id); } }, '回放')))))));
     if (pickedRuns.size === 2) {
       const [a, b] = [...pickedRuns];
@@ -1152,11 +1152,11 @@ export function createPanel(ctx) {
   function renderProjBox() {
     clear(D.projBox);
     const p = store.app?.project;
-    D.projBox.append(
+    D.projBox.append(...[
       p ? h('div', { class: 'pn-proj-label pn-nav-label' }, '当前工程') : null,
       p ? h('div', { class: 'pn-proj-cur', title: p }, icon('folder'), h('span', { class: 'pn-nav-label pn-proj-name' }, projectName())) : null,
       navItemBtn('plus', '新建工程', () => newProject()),
-      navItemBtn('import', '打开工程', () => openFolder()));
+      navItemBtn('import', '打开工程', () => openFolder())].filter(Boolean));
   }
 
   function renderWelcome() {

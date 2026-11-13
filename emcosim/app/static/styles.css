@@ -1,69 +1,91 @@
-/* emcosim desktop UI — dense engineering-tool styling, light + dark */
+/* SimWorld UI: a quiet desktop instrument, after Apple's Human Interface Guidelines.
+   Colors are semantic tokens with light and dark values; type follows the macOS scale
+   (13 px body, 11 px minimum); cards sit on a grouped background with hairline edges. */
 :root {
   color-scheme: light;
-  --bg: #eef0f3;
+  --bg: #f5f5f7;
+  --sidebar: #ececef;
   --panel: #ffffff;
-  --panel-2: #f7f8fa;
-  --sunken: #f0f2f5;
-  --hover: #eceff3;
-  --line: #dde1e7;
-  --line-strong: #c5cbd3;
-  --text: #1b2027;
-  --text-2: #4c5562;
-  --text-3: #7c8591;
-  --accent: #2a6fd6;
-  --accent-hover: #215fbd;
-  --accent-weak: #e5eefb;
+  --panel-2: #fafafc;
+  --sunken: #f2f2f5;
+  --field: #ffffff;
+  --hover: rgba(0, 0, 0, .05);
+  --line: rgba(0, 0, 0, .09);
+  --line-strong: rgba(0, 0, 0, .17);
+  --text: #1d1d1f;
+  --text-2: #515154;
+  --text-3: #6a6a6f;
+  --accent: #0066cc;
+  --accent-hover: #0058b0;
+  --accent-fill: #0066cc;
+  --accent-weak: #e6f0fc;
   --accent-ink: #ffffff;
-  --ok: #1a7f37;
-  --ok-weak: #e2f3e7;
-  --warn: #9a5b00;
-  --warn-weak: #fcf0d9;
-  --bad: #c42b2b;
-  --bad-weak: #fbe6e6;
-  --changed: #fff4cc;
-  --changed-line: #e2b93b;
-  --s1: #2a78d6; --s2: #eb6834; --s3: #1baf7a; --s4: #eda100;
-  --s5: #e87ba4; --s6: #008300; --s7: #6250d6; --s8: #e34948;
-  --chart-grid: #e9ecf0;
-  --chart-axis: #c5cbd3;
-  --view-bg: #e6eaef;
-  --shadow: 0 1px 2px rgba(20, 28, 40, .06), 0 4px 16px rgba(20, 28, 40, .08);
-  --shadow-pop: 0 8px 28px rgba(20, 28, 40, .18);
-  --radius: 6px;
-  --font: "Segoe UI Variable Text", "Segoe UI", "Microsoft YaHei UI", "Microsoft YaHei", "PingFang SC", "Hiragino Sans GB", "Noto Sans CJK SC", system-ui, -apple-system, sans-serif;
-  --mono: "Cascadia Mono", "Cascadia Code", Consolas, "JetBrains Mono", "SF Mono", ui-monospace, Menlo, "Microsoft YaHei UI", monospace;
+  --ok: #1a7535;
+  --ok-weak: #e4f4e8;
+  --warn: #a64b00;
+  --warn-weak: #fff1df;
+  --bad: #d70015;
+  --bad-weak: #fde7e8;
+  --changed: #fff6d6;
+  --changed-line: #e0a800;
+  --s1: #007aff; --s2: #f56300; --s3: #1f9d4c; --s4: #c98a00;
+  --s5: #e0457b; --s6: #2e8b2e; --s7: #6e56cf; --s8: #e5383b;
+  --chart-grid: rgba(0, 0, 0, .06);
+  --chart-axis: rgba(0, 0, 0, .18);
+  --view-bg: #e8e9ed;
+  --seg-track: rgba(0, 0, 0, .06);
+  --seg-thumb: #ffffff;
+  --btn: #ffffff;
+  --btn-hover: #f4f4f6;
+  --glass: rgba(255, 255, 255, .72);
+  --glass-line: rgba(0, 0, 0, .08);
+  --edge: 0 0 0 .5px rgba(0, 0, 0, .1), 0 1px 2px rgba(0, 0, 0, .04);
+  --btn-edge: 0 0 0 .5px rgba(0, 0, 0, .16), 0 1px 1.5px rgba(0, 0, 0, .07);
+  --shadow: 0 0 0 .5px rgba(0, 0, 0, .08), 0 2px 10px rgba(0, 0, 0, .06);
+  --shadow-pop: 0 0 0 .5px rgba(0, 0, 0, .12), 0 16px 48px rgba(0, 0, 0, .2);
+  --radius: 7px;
+  --radius-card: 12px;
+  --font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC", "Segoe UI Variable Text", "Segoe UI", "Microsoft YaHei UI", "Microsoft YaHei", "Hiragino Sans GB", "Noto Sans CJK SC", system-ui, sans-serif;
+  --mono: "SF Mono", ui-monospace, "Cascadia Mono", "Cascadia Code", Consolas, "JetBrains Mono", Menlo, "Microsoft YaHei UI", monospace;
   --chat-w: 380px;
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     color-scheme: dark;
-    --bg: #131619; --panel: #1b1f24; --panel-2: #20252b; --sunken: #16191d; --hover: #262c33;
-    --line: #2c333b; --line-strong: #3a434d;
-    --text: #e3e7ec; --text-2: #a9b2bd; --text-3: #7a848f;
-    --accent: #4b8cf0; --accent-hover: #69a0f4; --accent-weak: #1b2a40; --accent-ink: #0d1420;
-    --ok: #4cc472; --ok-weak: #15301f; --warn: #e3a440; --warn-weak: #33280f; --bad: #f07070; --bad-weak: #3a1b1d;
-    --changed: #3a3214; --changed-line: #b8902a;
-    --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500;
-    --s5: #d55181; --s6: #2f9a2f; --s7: #9085e9; --s8: #e66767;
-    --chart-grid: #252b32; --chart-axis: #3a434d; --view-bg: #181c21;
-    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 4px 16px rgba(0,0,0,.3);
-    --shadow-pop: 0 8px 28px rgba(0,0,0,.5);
+    --bg: #161618; --sidebar: #1e1e20; --panel: #232325; --panel-2: #2a2a2d; --sunken: #1c1c1e; --field: #1c1c1e;
+    --hover: rgba(255, 255, 255, .07); --line: rgba(255, 255, 255, .1); --line-strong: rgba(255, 255, 255, .19);
+    --text: #f5f5f7; --text-2: #c7c7cc; --text-3: #98989d;
+    --accent: #3d9bff; --accent-hover: #63afff; --accent-fill: #0a6ad1; --accent-weak: #10294a; --accent-ink: #ffffff;
+    --ok: #30d158; --ok-weak: #11301b; --warn: #ff9f0a; --warn-weak: #382810; --bad: #ff453a; --bad-weak: #3d1917;
+    --changed: #383014; --changed-line: #c9a227;
+    --s1: #0a84ff; --s2: #ff8a2a; --s3: #30d158; --s4: #ffd60a;
+    --s5: #ff6b9a; --s6: #5ac85a; --s7: #a594ff; --s8: #ff6961;
+    --chart-grid: rgba(255, 255, 255, .07); --chart-axis: rgba(255, 255, 255, .2); --view-bg: #1f2023;
+    --seg-track: rgba(255, 255, 255, .08); --seg-thumb: #5b5b5f; --btn: #3a3a3d; --btn-hover: #454548;
+    --glass: rgba(36, 36, 38, .7); --glass-line: rgba(255, 255, 255, .1);
+    --edge: 0 0 0 .5px rgba(255, 255, 255, .09);
+    --btn-edge: 0 0 0 .5px rgba(255, 255, 255, .12), 0 1px 1px rgba(0, 0, 0, .3);
+    --shadow: 0 0 0 .5px rgba(255, 255, 255, .08), 0 2px 12px rgba(0, 0, 0, .35);
+    --shadow-pop: 0 0 0 .5px rgba(255, 255, 255, .12), 0 16px 48px rgba(0, 0, 0, .6);
   }
 }
 :root[data-theme="dark"] {
   color-scheme: dark;
-  --bg: #131619; --panel: #1b1f24; --panel-2: #20252b; --sunken: #16191d; --hover: #262c33;
-  --line: #2c333b; --line-strong: #3a434d;
-  --text: #e3e7ec; --text-2: #a9b2bd; --text-3: #7a848f;
-  --accent: #4b8cf0; --accent-hover: #69a0f4; --accent-weak: #1b2a40; --accent-ink: #0d1420;
-  --ok: #4cc472; --ok-weak: #15301f; --warn: #e3a440; --warn-weak: #33280f; --bad: #f07070; --bad-weak: #3a1b1d;
-  --changed: #3a3214; --changed-line: #b8902a;
-  --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500;
-  --s5: #d55181; --s6: #2f9a2f; --s7: #9085e9; --s8: #e66767;
-  --chart-grid: #252b32; --chart-axis: #3a434d; --view-bg: #181c21;
-  --shadow: 0 1px 2px rgba(0,0,0,.3), 0 4px 16px rgba(0,0,0,.3);
-  --shadow-pop: 0 8px 28px rgba(0,0,0,.5);
+  --bg: #161618; --sidebar: #1e1e20; --panel: #232325; --panel-2: #2a2a2d; --sunken: #1c1c1e; --field: #1c1c1e;
+  --hover: rgba(255, 255, 255, .07); --line: rgba(255, 255, 255, .1); --line-strong: rgba(255, 255, 255, .19);
+  --text: #f5f5f7; --text-2: #c7c7cc; --text-3: #98989d;
+  --accent: #3d9bff; --accent-hover: #63afff; --accent-fill: #0a6ad1; --accent-weak: #10294a; --accent-ink: #ffffff;
+  --ok: #30d158; --ok-weak: #11301b; --warn: #ff9f0a; --warn-weak: #382810; --bad: #ff453a; --bad-weak: #3d1917;
+  --changed: #383014; --changed-line: #c9a227;
+  --s1: #0a84ff; --s2: #ff8a2a; --s3: #30d158; --s4: #ffd60a;
+  --s5: #ff6b9a; --s6: #5ac85a; --s7: #a594ff; --s8: #ff6961;
+  --chart-grid: rgba(255, 255, 255, .07); --chart-axis: rgba(255, 255, 255, .2); --view-bg: #1f2023;
+  --seg-track: rgba(255, 255, 255, .08); --seg-thumb: #5b5b5f; --btn: #3a3a3d; --btn-hover: #454548;
+  --glass: rgba(36, 36, 38, .7); --glass-line: rgba(255, 255, 255, .1);
+  --edge: 0 0 0 .5px rgba(255, 255, 255, .09);
+  --btn-edge: 0 0 0 .5px rgba(255, 255, 255, .12), 0 1px 1px rgba(0, 0, 0, .3);
+  --shadow: 0 0 0 .5px rgba(255, 255, 255, .08), 0 2px 12px rgba(0, 0, 0, .35);
+  --shadow-pop: 0 0 0 .5px rgba(255, 255, 255, .12), 0 16px 48px rgba(0, 0, 0, .6);
 }
 
 * { box-sizing: border-box; }
@@ -839,3 +861,248 @@ select.pf-in { width: auto; text-align: left; }
 .pn-guide-table td { line-height: 1.5; }
 .pn-guide-table td.mono { white-space: nowrap; width: 1%; }
 .pn-guide-table td:last-child { width: 32%; }
+
+/* ================================================================== design layer
+   Apple HIG applied to the simple pages: sidebar with accent-tinted icons, segmented controls with
+   a raised thumb, cards on a grouped background, glass only on controls floating over the 3D view,
+   macOS type sizes (13 body, 11 minimum), and answers for reduced motion, reduced transparency and
+   increased contrast. Everything below restyles; nothing changes what a page does. */
+
+body { font-size: 13px; line-height: 1.45; letter-spacing: -.003em; }
+:focus-visible { outline: 3px solid color-mix(in srgb, var(--accent) 55%, transparent); outline-offset: 1px; border-radius: 6px; }
+::-webkit-scrollbar { width: 11px; height: 11px; }
+::-webkit-scrollbar-thumb { background: color-mix(in srgb, var(--text) 22%, transparent); border: 3px solid transparent; border-radius: 8px; background-clip: padding-box; }
+::-webkit-scrollbar-thumb:hover { background-color: color-mix(in srgb, var(--text) 38%, transparent); }
+.small { font-size: 11px; }
+
+/* buttons: filled default, accent primary, plain ghost */
+.btn { height: 28px; padding: 0 12px; border: 0; border-radius: var(--radius); background: var(--btn); box-shadow: var(--btn-edge);
+  color: var(--text); font-weight: 500; transition: background-color .12s, box-shadow .12s; }
+.btn:hover { background: var(--btn-hover); }
+.btn:active:not(:disabled) { filter: brightness(.96); }
+.btn:disabled { opacity: .45; }
+.btn.primary { background: var(--accent-fill); color: var(--accent-ink); box-shadow: 0 1px 1.5px rgba(0, 0, 0, .12); font-weight: 600; }
+.btn.primary:hover:not(:disabled) { background: color-mix(in srgb, var(--accent-fill) 88%, #000); }
+.btn.danger { color: var(--bad); }
+.btn.danger:hover { background: var(--bad-weak); }
+.btn.ghost { background: transparent; box-shadow: none; color: var(--text-2); }
+.btn.ghost:hover { background: var(--hover); color: var(--text); }
+.btn.sm { height: 24px; padding: 0 9px; font-size: 12px; border-radius: 6px; }
+.btn.icon { width: 28px; padding: 0; }
+.btn.icon.sm { width: 24px; }
+.btn.on { background: var(--accent-weak); color: var(--accent); box-shadow: none; }
+
+/* text fields and pop-up menus */
+.input, select.input, textarea.input, .pf-in { border: 0; border-radius: var(--radius); background: var(--field); box-shadow: inset 0 0 0 1px var(--line-strong); color: var(--text); }
+.input:focus, .pf-in:focus { outline: none; box-shadow: inset 0 0 0 1px var(--accent), 0 0 0 3px color-mix(in srgb, var(--accent) 30%, transparent); }
+.pf-in { height: 26px; padding: 0 8px; font-variant-numeric: tabular-nums; }
+.pf-in.saving { box-shadow: inset 0 0 0 1px var(--accent); }
+.pf-in.saved { box-shadow: inset 0 0 0 1px var(--ok); }
+input[type=range] { accent-color: var(--accent); }
+input[type=checkbox], input[type=radio] { accent-color: var(--accent); }
+
+/* segmented controls: grey track, raised thumb on the chosen segment */
+.pn-tabs, .seg-ctl { display: inline-flex; gap: 2px; padding: 2px; border: 0; border-radius: 9px; background: var(--seg-track); overflow: visible; }
+.pn-tabs button, .seg-ctl button { border: 0; border-radius: 7px; background: transparent; color: var(--text); height: 26px; padding: 0 14px;
+  font-size: 13px; font-weight: 500; cursor: pointer; transition: background-color .15s, box-shadow .15s; }
+.pn-tabs button + button, .seg-ctl button { border-left: 0; border-right: 0; }
+.pn-tabs button:hover:not(.active), .seg-ctl button:hover:not(.on) { background: var(--hover); }
+.pn-tabs button.active, .seg-ctl button.on { background: var(--seg-thumb); color: var(--text); font-weight: 600;
+  box-shadow: 0 0 0 .5px rgba(0, 0, 0, .06), 0 1px 3px rgba(0, 0, 0, .14); }
+.pn-tabs.small button { height: 22px; padding: 0 10px; font-size: 12px; border-radius: 6px; }
+
+/* cards on the grouped background */
+.card, .pn-sec, .pn-ck, .pn-circuit-wrap, .pn-model-info, .pn-pcb-table, .pn-chart, .pn-play, .pn-start, .pn-ai-card {
+  border: 0; border-radius: var(--radius-card); background: var(--panel); box-shadow: var(--edge); }
+.pn-sec { padding: 14px 16px; gap: 10px; }
+.pn-sec-head strong, .pn-legend strong, .pn-check-head strong { font-size: 15px; font-weight: 600; letter-spacing: -.01em; }
+.pf-grid { gap: 10px; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); }
+.pf-card { border: 0; border-radius: 10px; background: var(--sunken); padding: 10px 12px; gap: 8px; }
+.pf-head strong { font-size: 13px; }
+.pf-row { font-size: 13px; min-height: 28px; }
+.pf-k { color: var(--text-2); }
+.pf-tag, table.ptable .assume, .notes-list .n.assumed .p::before { font-size: 11px; padding: 0 6px; border-radius: 5px; line-height: 17px; font-weight: 500; }
+.pf-u { color: var(--text-3); }
+.pn-side-title, .pn-proj-label, .section-title { font-size: 11px; font-weight: 600; color: var(--text-3); letter-spacing: .01em; text-transform: none; }
+
+/* banners: tinted, rounded, never colour alone (each carries words) */
+.pn-banner { border-radius: 10px; padding: 9px 14px; font-size: 13px; font-weight: 500; background: var(--sunken); color: var(--text); }
+.pn-banner.ok { background: var(--ok-weak); color: var(--ok); }
+.pn-banner.bad { background: var(--bad-weak); color: var(--bad); }
+.pn-banner.busy { background: var(--accent-weak); color: var(--accent); }
+.note, .banner { border-radius: 8px; }
+
+/* tables: plain header, hairline rows */
+.pn-parts, table.tbl { font-size: 13px; }
+.pn-parts th, table.tbl th { background: color-mix(in srgb, var(--panel) 92%, transparent); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+  color: var(--text-3); font-size: 12px; font-weight: 600; padding: 8px 10px; border-bottom: 1px solid var(--line); }
+.pn-parts td, table.tbl td { padding: 8px 10px; border-bottom: 1px solid var(--line); }
+.pn-parts tr:last-child td { border-bottom: 0; }
+.pn-parts tbody tr:hover td { background: color-mix(in srgb, var(--hover) 60%, transparent); }
+.pn-parts a, a { color: var(--accent); }
+
+/* window: sidebar | content | inspector */
+.screen.panel { background: var(--bg); }
+.pn-nav { background: var(--sidebar); border-right: 1px solid var(--line); padding: 10px 10px 12px; gap: 2px; }
+.pn-nav-brand { padding: 0 8px 14px; gap: 1px; }
+.pn-nav-brand strong { font-size: 17px; font-weight: 700; letter-spacing: -.02em; }
+.pn-nav-brand .small { color: var(--text-3); }
+.pn-nav-item { height: 32px; padding: 0 10px; gap: 9px; border-radius: 8px; font-size: 13px; font-weight: 500; color: var(--text); transition: background-color .12s; }
+.pn-nav-item svg { width: 17px; height: 17px; color: var(--accent); }
+.pn-nav-item:hover { background: var(--hover); color: var(--text); }
+.pn-nav-item.active { background: color-mix(in srgb, var(--accent) 15%, transparent); color: var(--text); font-weight: 600; }
+.pn-nav-toggle { width: 28px; height: 28px; border-radius: 7px; color: var(--text-3); }
+.pn-proj { border-top: 1px solid var(--line); padding-top: 10px; }
+.pn-proj-label { padding: 0 10px 2px; }
+.pn-proj-cur { font-weight: 600; padding: 6px 10px; }
+.pn-proj-cur svg { color: var(--accent); }
+.pn-nav-bottom { border-top: 1px solid var(--line); padding-top: 8px; }
+
+.pn-main { padding: 14px 14px 0 16px; gap: 12px; }
+.pn-sim, .pn-pcb, .pn-model { gap: 12px; }
+.pn-bottom { padding: 10px 14px 14px 16px; gap: 10px; }
+
+.pn-side { background: var(--panel); border-left: 1px solid var(--line); padding: 16px 14px; gap: 18px; }
+.pn-side-sec { gap: 8px; }
+/* tests: a source list, the chosen one filled with the accent */
+.pn-tests { gap: 2px; padding: 4px; border-radius: 12px; background: var(--sunken); }
+.pn-test { border: 0; border-radius: 8px; background: transparent; padding: 8px 10px; font-size: 13px; line-height: 1.35; color: var(--text); transition: background-color .12s; }
+.pn-test:hover { background: var(--hover); }
+.pn-test.active { background: var(--accent-fill); color: var(--accent-ink); font-weight: 600; border: 0; }
+.pn-test.active .pn-pct { color: var(--accent-ink); }
+.pn-tests .btn { margin: 6px 2px 2px; }
+.pn-readout { border: 0; border-radius: 12px; background: var(--sunken); padding: 12px 14px; }
+.pn-state { font-size: 17px; font-weight: 700; letter-spacing: -.01em; margin-bottom: 8px; }
+.pn-state .mono { font-size: 12px; font-weight: 400; color: var(--text-3); }
+.pn-kv { gap: 0; }
+.pn-kv .kv { padding: 5px 0; border-top: 1px solid var(--line); font-size: 13px; }
+.pn-kv .kv:first-child { border-top: 0; }
+.pn-kv .k { color: var(--text-2); }
+.pn-kv .v { font-family: var(--mono); font-size: 12px; }
+.pn-side-empty { border: 0; border-radius: 12px; background: var(--sunken); color: var(--text-2); padding: 12px 14px; }
+.pn-foot { color: var(--text-3); font-size: 11px; }
+
+/* the 3D views and the controls floating over them */
+.pn-view { border-radius: var(--radius-card); box-shadow: var(--edge); }
+.pn-tag, .pn-mtools, .pn-stress-legend { background: var(--glass); color: var(--text); border: .5px solid var(--glass-line);
+  backdrop-filter: blur(20px) saturate(180%); -webkit-backdrop-filter: blur(20px) saturate(180%); box-shadow: 0 2px 10px rgba(0, 0, 0, .1); }
+.pn-tag { left: 12px; top: 12px; border-radius: 999px; padding: 4px 12px; font-size: 12px; font-weight: 500; }
+.pn-mtools { left: 12px; bottom: 12px; border-radius: 12px; padding: 6px; gap: 6px; }
+.pn-stress-legend { left: 12px; bottom: 12px; border-radius: 10px; padding: 6px 10px; }
+.pn-empty-over { color: var(--text-2); font-size: 15px; font-weight: 500; }
+.pn-empty-over svg { color: var(--text-3); }
+
+/* play bar and charts */
+.pn-play { padding: 6px 14px 6px 6px; gap: 12px; }
+.pn-play .btn.icon { width: 30px; height: 30px; border-radius: 50%; background: var(--accent-fill); color: var(--accent-ink); box-shadow: none; font-size: 12px; }
+.pn-play .btn.icon:hover { background: color-mix(in srgb, var(--accent-fill) 88%, #000); }
+.pn-time { font-family: var(--mono); font-size: 12px; color: var(--text-2); }
+.pn-chart { padding: 10px 12px 8px; }
+.pn-legend { font-size: 12px; font-weight: 500; gap: 14px; }
+.pn-chart-empty { inset: 34px 12px 10px; border: 0; border-radius: 8px; background: var(--sunken); color: var(--text-3); }
+
+/* PCB 元件 */
+.pn-pcb-head strong, .pn-model-head strong { font-size: 17px; font-weight: 700; letter-spacing: -.015em; }
+.pn-pcb-img { border: 0; border-radius: var(--radius-card); box-shadow: var(--edge); }
+.pn-check { padding: 14px 16px; border-radius: var(--radius-card); background: var(--panel); box-shadow: var(--edge); margin: 0; }
+.pn-check:empty { display: none; }
+.pn-check-head { gap: 14px; margin-bottom: 8px; }
+.pn-check-list li { padding: 6px 0; }
+.pn-circuit-wrap { padding: 12px 16px; }
+
+/* 建模 */
+.pn-model-info { padding: 14px 16px; gap: 10px; }
+.pn-pl-row { border: 0; border-radius: 8px; padding: 6px 8px; transition: background-color .12s; }
+.pn-pl-row.on { background: color-mix(in srgb, var(--accent) 14%, transparent); border: 0; }
+.pn-pl-sw { width: 14px; height: 14px; border-radius: 4px; border: 0; box-shadow: inset 0 0 0 .5px rgba(0, 0, 0, .25); }
+.pn-pl-name { font-size: 13px; font-weight: 500; }
+.pf-card.flash { box-shadow: 0 0 0 2px var(--accent), 0 0 0 6px var(--accent-weak); }
+
+/* 仿真: strength and history */
+.pn-ck { padding: 14px 16px; gap: 8px; }
+.pn-ck-big { font-size: 13px; }
+.pn-ck-big .n { font-size: 28px; font-weight: 700; letter-spacing: -.02em; }
+
+/* welcome */
+.pn-welcome { border: 0; border-radius: 16px; background: var(--panel); box-shadow: var(--edge); }
+.pn-welcome-in { gap: 12px; padding: 48px 28px; }
+.pn-welcome-logo { width: 64px; height: 64px; border-radius: 16px; background: linear-gradient(180deg, color-mix(in srgb, var(--accent-fill) 80%, #fff), var(--accent-fill));
+  box-shadow: 0 6px 18px color-mix(in srgb, var(--accent) 35%, transparent); }
+.pn-welcome h1 { font-size: 28px; font-weight: 700; letter-spacing: -.025em; }
+.pn-welcome p { color: var(--text-2); font-size: 14px; }
+.pn-start-grid { gap: 12px; }
+.pn-start { padding: 16px; border-radius: 14px; transition: box-shadow .15s, transform .15s; }
+.pn-start:hover { box-shadow: var(--shadow); transform: translateY(-1px); }
+.pn-start.primary { box-shadow: inset 0 0 0 2px var(--accent); }
+.pn-start-ico { width: 36px; height: 36px; border-radius: 10px; }
+.pn-start-txt strong { font-size: 14px; font-weight: 600; }
+.pn-recent-row { border-radius: 8px; padding: 8px 10px; }
+.pn-welcome-ai { border-radius: 12px; padding: 12px 14px; }
+.pn-model-empty h2 { font-size: 22px; font-weight: 700; letter-spacing: -.02em; }
+
+/* MCP 使用说明 */
+.pn-guide { gap: 18px; padding: 10px 8px 28px; }
+.pn-guide-head h2 { font-size: 26px; font-weight: 700; letter-spacing: -.025em; margin-bottom: 6px; }
+.pn-guide-head p { color: var(--text-2); font-size: 14px; }
+.pn-guide-page { font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 999px; }
+.pn-guide-table td.mono { color: var(--accent); font-weight: 500; }
+
+/* sheets, settings, toasts, status bar */
+dialog.modal { border: 0; border-radius: 14px; box-shadow: var(--shadow-pop); background: var(--panel); }
+dialog.modal::backdrop { background: rgba(0, 0, 0, .28); }
+dialog.modal header { border-bottom: 0; padding: 20px 22px 4px; font-size: 17px; font-weight: 700; letter-spacing: -.01em; }
+dialog.modal .body { padding: 12px 22px 16px; gap: 12px; }
+dialog.modal footer { border-top: 0; background: transparent; padding: 4px 22px 20px; border-radius: 0 0 14px 14px; }
+.pn-ai-card { padding: 16px; background: var(--sunken); box-shadow: none; }
+.pn-ai-block pre, .pn-ai-prompt { border: 0; border-radius: 10px; background: var(--sunken); }
+.pn-set-row { min-height: 30px; }
+.pn-set-row .k { color: var(--text-2); }
+.toast { border-radius: 12px; padding: 9px 10px 9px 16px; background: color-mix(in srgb, var(--text) 88%, transparent);
+  backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); font-weight: 500; }
+.toast button { border-radius: 7px; }
+.statusbar { background: var(--sidebar); border-top: 1px solid var(--line); color: var(--text-3); font-size: 11px; }
+.statusbar .path { font-family: var(--mono); }
+
+/* accessibility settings */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+}
+@media (prefers-reduced-transparency: reduce) {
+  .pn-tag, .pn-mtools, .pn-stress-legend, .toast, .pn-parts th, table.tbl th { backdrop-filter: none; -webkit-backdrop-filter: none; background: var(--panel); }
+  .toast { background: var(--text); }
+}
+@media (prefers-contrast: more) {
+  :root { --line: rgba(0, 0, 0, .3); --line-strong: rgba(0, 0, 0, .5); --text-3: var(--text-2); --edge: 0 0 0 1px rgba(0, 0, 0, .35); }
+  :root[data-theme="dark"] { --line: rgba(255, 255, 255, .32); --line-strong: rgba(255, 255, 255, .5); --edge: 0 0 0 1px rgba(255, 255, 255, .35); }
+}
+@media (prefers-contrast: more) and (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) { --line: rgba(255, 255, 255, .32); --line-strong: rgba(255, 255, 255, .5); --text-3: var(--text-2); --edge: 0 0 0 1px rgba(255, 255, 255, .35); }
+}
+
+/* PCB 元件: give the parts list the room, keep short columns on one line */
+.pn-pcb-body { grid-template-columns: minmax(0, .85fr) minmax(0, 1.5fr); gap: 12px; }
+.pn-pcb-table .pn-parts td, .pn-pcb-table .pn-parts th { padding: 8px 8px; }
+.pn-pcb-table .pn-parts td:is(:nth-child(1), :nth-child(4), :nth-child(5), :nth-child(7)),
+.pn-pcb-table .pn-parts th { white-space: nowrap; }
+@media (max-width: 900px) { .pn-pcb-body { grid-template-columns: 1fr; } }
+
+/* MCP 使用说明: each group's table is one card */
+.pn-guide-table { border-collapse: separate; border-spacing: 0; background: var(--panel); border-radius: var(--radius-card); box-shadow: var(--edge); overflow: hidden; }
+.pn-guide-table th { background: var(--panel-2); }
+.pn-guide-sec .pn-sec-head strong { font-size: 17px; font-weight: 700; letter-spacing: -.015em; }
+
+/* parameter cards stand on their own outside a section; history is one card */
+.pf-card { background: var(--panel); box-shadow: var(--edge); }
+.pn-sec .pf-card { background: var(--sunken); box-shadow: none; }
+.pn-history > table.pn-parts { border-collapse: separate; border-spacing: 0; background: var(--panel); border-radius: var(--radius-card); box-shadow: var(--edge); overflow: hidden; }
+.pn-history > table.pn-parts th { background: var(--panel-2); }
+
+/* the board picture sits on black like the render, the schematic on paper white */
+.pn-pcb-img { background: #fff; }
+.pn-pcb-img:has(img[alt="PCB 图"]) { background: #0b0b0c; }
+/* history: the test name and verdict keep readable widths in a narrow window */
+.pn-history > table.pn-parts td:nth-child(3) { min-width: 9em; }
+.pn-history > table.pn-parts td:is(:nth-child(2), :nth-child(4)) { white-space: nowrap; }
+.pn-history > table.pn-parts td:nth-child(5) { overflow-wrap: anywhere; }
+.pn-tests:has(> .pn-side-empty) { padding: 0; background: none; }
+.pn-check-head:only-child { margin-bottom: 0; }
