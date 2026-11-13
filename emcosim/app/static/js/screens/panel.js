@@ -85,8 +85,7 @@ export function createPanel(ctx) {
         h('div', { class: 'pn-side-title' }, '状态'),
         D.readout = h('div', { class: 'pn-readout' })),
       h('div', { class: 'pn-side-sec pn-tools' },
-        h('button', { class: 'btn', onclick: () => showAiSetup(), title: '让你的 Claude Code 或 Codex 来改模型、改板子、跑测试' }, icon('link'), '连接 AI'),
-        h('button', { class: 'btn', onclick: () => ctx.setAdvanced(true), title: '参数表、扫参、打印、设置' }, icon('sliders'), '高级功能')),
+        h('button', { class: 'btn', onclick: () => showAiSetup(), title: '让你的 Claude Code 或 Codex 来改模型、改板子、跑测试' }, icon('link'), '连接 AI')),
       h('div', { class: 'pn-foot muted' }, '电机、电源、开关参数是估计值，没有用实物测过；结果用来比较方案，不当作精确数值。')),
   );
   function setNav(collapsed) {
