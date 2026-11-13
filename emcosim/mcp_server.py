@@ -839,7 +839,11 @@ def build_server(project_root=None, link=None):
         p = prj()
         out = modeling.add_shape(p, name, shape, size_mm, parent=parent, pos=pos, euler_deg=euler_deg,
                                  mass_kg=mass_kg, density=density, rgba=rgba)
-        img = modeling.render(p, p.root / 'mechanics' / 'render.png', target=None, highlight=[name])
+        try:
+            img = modeling.render(p, p.root / 'mechanics' / 'render.png', target=None, highlight=[name])
+        except Exception as e:             # no OpenGL (headless): the part is made, only the picture is missing
+            out['image_error'] = f'{type(e).__name__}: {e} (set MUJOCO_GL=egl or osmesa on a headless machine)'
+            return [json.dumps(out, ensure_ascii=False)]
         out['image'] = img['png']
         return [json.dumps(out, ensure_ascii=False), Image(path=img['png'])]
 

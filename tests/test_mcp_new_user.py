@@ -12,6 +12,20 @@ from emcosim.mcp_server import ToolError, build_server
 from emcosim.project import Project
 
 
+def _gl():
+    try:
+        import mujoco
+        m = mujoco.MjModel.from_xml_string('<mujoco><worldbody><geom size=".1"/></worldbody></mujoco>')
+        r = mujoco.Renderer(m, 32, 32)
+        r.close()
+        return True
+    except Exception:
+        return False
+
+
+HAVE_GL = _gl()
+
+
 @pytest.fixture
 def empty(tmp_path):
     p = Project.create(tmp_path / 'p', 'empty')
@@ -163,7 +177,7 @@ def test_shapes_edit_delete_and_render(empty):
     p, srv = empty
     out, img = call_parts(srv, 'add_shape', {'name': 'bar', 'shape': 'cylinder', 'size_mm': [28, 1200],
                                              'pos': [0, 0, 1.0], 'euler_deg': [0, 90, 0], 'mass_kg': 20})
-    assert img and out['mass_kg'] == 20
+    assert out['mass_kg'] == 20 and (img or not HAVE_GL)
     out, _ = call_parts(srv, 'add_shape', {'name': 'case', 'shape': 'rounded_box', 'size_mm': [48, 26, 14, 4],
                                            'parent': 'bar', 'pos': [-0.021, 0, -0.35], 'euler_deg': [0, -90, 0]})
     assert any('ASSUMED' in w for w in out['warnings'])
@@ -178,8 +192,9 @@ def test_shapes_edit_delete_and_render(empty):
     assert Project(p.root).data['mechanics']['parts']['case']['mass_kg'] == 0.035
     with pytest.raises(ToolError, match='part_edit'):
         asyncio.run(srv.call_tool('model_edit', {'ops': [{'tag': 'body', 'name': 'case', 'attr': 'pos', 'value': [0, 0, 0]}]}))
-    out, img = call_parts(srv, 'render_model', {'target': 'case', 'highlight': ['knob']})
-    assert img and out['camera']['distance_m'] < 0.5
+    if HAVE_GL:
+        out, img = call_parts(srv, 'render_model', {'target': 'case', 'highlight': ['knob']})
+        assert img and out['camera']['distance_m'] < 0.5
     with pytest.raises(ToolError, match='carries'):
         asyncio.run(srv.call_tool('part_delete', {'name': 'case'}))
     out = call(srv, 'part_delete', {'name': 'case', 'cascade': True})
