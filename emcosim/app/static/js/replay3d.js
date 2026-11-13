@@ -89,13 +89,16 @@ export class Replay3D {
     this.frames = null;
   }
 
-  async load(runId) {
+  load(runId) { return this.loadFrom(`run/${runId}`); }
+
+  /** base: an API path that serves scene.json, scene.bin and frames.bin (a run, or `model`). */
+  async loadFrom(base) {
     if (!this.ok) throw new Error(this.error);
     const token = (this._token = {});
     const [desc, blob, fr] = await Promise.all([
-      api(`run/${runId}/scene.json`),
-      api(`run/${runId}/scene.bin`, { as: 'buffer' }),
-      api(`run/${runId}/frames.bin`, { as: 'buffer' }),
+      api(`${base}/scene.json`),
+      api(`${base}/scene.bin`, { as: 'buffer' }),
+      api(`${base}/frames.bin`, { as: 'buffer' }),
     ]);
     if (token !== this._token) return false;     // superseded by a newer load
     this.clear();

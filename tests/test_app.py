@@ -40,6 +40,7 @@ def client(project, tmp_path):
             return e.code, json.loads(e.read() or b'{}')
 
     call.app = app
+    call.app_port = port
     yield call
     httpd.shutdown()
 
@@ -66,6 +67,51 @@ def test_api_requires_token(client):
     assert code == 401
     code, info = client('GET', 'app')
     assert code == 200 and info['project']
+
+
+def _raw(client, method, path):
+    port = client.app_port
+    req = urllib.request.Request(f'http://127.0.0.1:{port}/api/{path}', method=method,
+                                 headers={'X-Emcosim-Token': client.app.token})
+    with urllib.request.urlopen(req, timeout=60) as r:
+        return r.read()
+
+
+def test_model_page_summary_and_preview(client):
+    code, m = client('GET', 'model')
+    assert code == 200 and m['has_model'] and not m['error']
+    assert {b['name'] for b in m['bodies']} >= {'press_arm', 'rocker'}
+    servo = next(j for j in m['joints'] if j['name'] == 'servo_axis')
+    assert servo['type'] == 'hinge' and servo['range'] == [-40, 40]
+    assert any(p['label'] == '按压臂' and p['exists'] for p in m['print_parts'])
+    desc = json.loads(_raw(client, 'GET', 'model/scene.json'))
+    frames = _raw(client, 'GET', 'model/frames.bin')
+    n, nb = (int.from_bytes(frames[i:i + 4], 'little') for i in (0, 4))
+    assert n == 1 and nb == len(desc['bodies']) and len(frames) == 8 + 4 + nb * 7 * 4
+
+
+def test_new_project_upload_model(client, tmp_path):
+    code, _ = client('POST', 'project/new', {'path': str(tmp_path / 'blank'), 'name': 'blank'})
+    assert code == 200
+    code, m = client('GET', 'model')
+    assert code == 200 and not m['has_model']
+    import trimesh
+    stl = trimesh.creation.box(extents=[20, 10, 5]).export(file_type='stl')
+    port = client.app_port
+    req = urllib.request.Request(f'http://127.0.0.1:{port}/api/upload/model?name=my%20box.stl', method='POST', data=stl,
+                                 headers={'X-Emcosim-Token': client.app.token, 'Content-Type': 'application/octet-stream'})
+    with urllib.request.urlopen(req, timeout=60) as r:
+        res = json.loads(r.read())
+    assert res['part'] == 'my_box' and res['mass_kg'] > 0
+    assert (tmp_path / 'blank' / 'mechanics' / 'uploads' / 'my_box.stl').exists()
+    code, m = client('GET', 'model')
+    assert m['has_model'] and [b['name'] for b in m['bodies']] == ['my_box'] and not m['joints']
+    assert json.loads(_raw(client, 'GET', 'model/scene.json'))['bodies'] == ['my_box']
+    req = urllib.request.Request(f'http://127.0.0.1:{port}/api/upload/model?name=x.exe', method='POST', data=b'x',
+                                 headers={'X-Emcosim-Token': client.app.token})
+    with pytest.raises(urllib.error.HTTPError) as e:
+        urllib.request.urlopen(req, timeout=30)
+    assert e.value.code == 400
 
 
 def test_project_param_and_scenario_roundtrip(client, project):

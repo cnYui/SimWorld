@@ -1,6 +1,6 @@
 // The simple panel: pick a test, it runs, and you watch it. One screen, no setup.
 // 3D view + live readout + two charts (angles, contact force).
-import { get, post, authUrl } from '../api.js';
+import { get, post, upload, authUrl } from '../api.js';
 import { store } from '../store.js';
 import { h, icon, clear, toast, toastError, fmtNum, cssVar, modal, copyText, pathField, nativePick } from '../ui.js';
 import { TimeChart } from '../chart.js';
@@ -16,7 +16,7 @@ export function createPanel(ctx) {
   let main3d = null, angleChart = null, forceChart = null;
   let pendingJob = null, selected = null;
 
-  // layout: left nav (collapsible) | centre (3D view or PCB page) | right sidebar (tests, tools, live state)
+  // layout: left nav (collapsible) | centre (3D view, PCB page or 建模 page) | right sidebar (tests, tools, live state)
   //         with the play bar and the two charts fixed under the centre.
   let navCollapsed = false;
   try { navCollapsed = localStorage.getItem('emcosim.panel.nav') === 'collapsed'; } catch { /* storage off */ }
@@ -29,6 +29,7 @@ export function createPanel(ctx) {
       h('div', { class: 'pn-nav-brand' }, h('strong', {}, 'SimWorld'), h('span', { class: 'muted small' }, '电子 + 物理仿真')),
       D.tabSim = navItem('sim', 'cube', '仿真'),
       D.tabPcb = navItem('pcb', 'board', 'PCB 元件'),
+      D.tabModel = navItem('model', 'shapes', '建模'),
       D.projBox = h('div', { class: 'pn-proj' }),
       h('div', { class: 'pn-nav-bottom' }, navItemBtn('settings', '设置', () => showSettings()))),
     h('div', { class: 'pn-main' },
@@ -36,15 +37,16 @@ export function createPanel(ctx) {
       D.banner = h('div', { class: 'pn-banner', hidden: true }),
       D.sim = h('div', { class: 'pn-sim' },
         D.view = h('div', { class: 'pn-view' }, h('span', { class: 'pn-tag' }, '打印件、PCB 与外壳同一场景'),
-          D.viewEmpty = h('div', { class: 'pn-empty-over' }, icon('cube'), h('div', {}, '还没有运行结果'),
-            h('div', { class: 'muted small' }, '在右边选一个测试，跑完会在这里回放 3D 动画')))),
+          D.viewEmpty = h('div', { class: 'pn-empty-over' }, icon('cube'), D.viewEmptyTitle = h('div', {}, '还没有运行结果'),
+            D.viewEmptyText = h('div', { class: 'muted small' }, '在右边选一个测试，跑完会在这里回放 3D 动画')))),
       D.pcb = h('div', { class: 'pn-pcb', hidden: true },
         h('div', { class: 'pn-circuit-wrap' },
           h('div', { class: 'pn-legend' }, h('strong', {}, '电路原理（跟着仿真动）'),
             h('span', { class: 'muted' }, '线越粗电流越大，变红表示电压掉得太低')),
           D.circuit = h('div', { class: 'pn-circuit' })),
         D.check = h('div', { class: 'pn-check' }),
-        D.parts = h('div', { class: 'pn-parts-wrap' }))),
+        D.parts = h('div', { class: 'pn-parts-wrap' })),
+      D.model = h('div', { class: 'pn-model', hidden: true })),
     h('div', { class: 'pn-bottom' },
       D.play = h('div', { class: 'pn-play' },
         D.playBtn = h('button', { class: 'btn icon', 'aria-label': '播放', onclick: () => togglePlay() }, '▶'),
@@ -139,7 +141,7 @@ export function createPanel(ctx) {
     else if (j.status === 'cancelled') { pendingJob = null; setBanner('', ''); }
     renderTests();
   });
-  store.on('project', () => { if (!el.hidden) { renderTests(); renderProjBox(); } });
+  store.on('project', () => { if (!el.hidden) { renderTests(); renderProjBox(); renderSimEmpty(); if (tab === 'model') renderModel(); } });
   let knownRuns = null;
   store.on('runs', () => {
     const ids = store.runs.map((r) => r.run_id);
@@ -162,6 +164,7 @@ export function createPanel(ctx) {
   store.on('files_changed', () => {
     boardCheck = null;
     if (tab === 'pcb') renderCheck();
+    if (tab === 'model') renderModel();
     toast('模型或板子文件刚被改过（可能是 AI 改的）。重新运行测试就能看到效果。', { timeout: 6000 });
   });
 
@@ -434,10 +437,13 @@ export function createPanel(ctx) {
   let tab = 'sim', boards = null, boardImg = 'board';
   function setTab(t) {
     tab = t;
-    if (!store.app?.project) { D.tabSim.classList.toggle('active', t === 'sim'); D.tabPcb.classList.toggle('active', t === 'pcb'); return; }
     D.tabSim.classList.toggle('active', t === 'sim'); D.tabPcb.classList.toggle('active', t === 'pcb');
-    D.sim.hidden = t !== 'sim'; D.pcb.hidden = t !== 'pcb';
+    D.tabModel.classList.toggle('active', t === 'model');
+    el.classList.toggle('tab-model', t === 'model');
+    if (!store.app?.project) return;
+    D.sim.hidden = t !== 'sim'; D.pcb.hidden = t !== 'pcb'; D.model.hidden = t !== 'model';
     if (t === 'pcb') { renderPcb(); renderCircuit(); renderCheck(); }
+    else if (t === 'model') renderModel();
     else main3d?.resize();
   }
 
@@ -505,6 +511,118 @@ export function createPanel(ctx) {
     return td;
   }
 
+  // ------------------------------------------------------------ 建模 page: the 3D model before any simulation
+  let model = null, model3d = null, modelBusy = false;
+  const JOINT_KIND = { hinge: '转动', slide: '滑动', ball: '球铰', free: '自由' };
+  const filePicker = h('input', { type: 'file', accept: '.stl,.step,.stp,.obj', multiple: true, hidden: true,
+    onchange: () => { const files = [...filePicker.files]; filePicker.value = ''; uploadModels(files); } });
+  el.append(filePicker);
+
+  async function uploadModels(files) {
+    if (!files.length || modelBusy) return;
+    modelBusy = true; renderModelHead();
+    const done = [];
+    try {
+      for (const f of files) {
+        toast(`正在导入 ${f.name}…`, { timeout: 3000 });
+        const r = await upload(`upload/model?name=${encodeURIComponent(f.name)}`, f);
+        done.push(r.part);
+      }
+      toast(`已导入 ${done.join('、')}。零件放在原点，没有关节；要让它动起来，可以让 AI 帮你加关节和测试。`, { timeout: 8000 });
+    } catch (e) { toastError(e); }
+    modelBusy = false;
+    if (model3d) model3d._framed = false;     // bring the new parts into view
+    try { await store.loadProject(); } catch { /* shown by renderModel */ }
+    renderModel();
+  }
+
+  function modelActions(primary) {
+    return [
+      h('button', { class: 'btn' + (primary ? ' primary' : ''), disabled: modelBusy, onclick: () => filePicker.click(),
+        title: '支持 STL、STEP、OBJ；单位按毫米' }, icon('import'), modelBusy ? '导入中…' : '导入 3D 模型'),
+      h('button', { class: 'btn', onclick: () => showAiSetup(), title: '连上你的 AI，让它按你的描述建模、加关节' }, icon('link'), '让 AI 帮你建模'),
+    ];
+  }
+
+  let modelHead = null;
+  function renderModelHead() {
+    if (!modelHead || !model) return;
+    const n = model.bodies.length, j = model.joints.length;
+    clear(modelHead).append(
+      h('div', {}, h('strong', {}, '3D 模型'),
+        h('span', { class: 'muted' }, `  ${n} 个零件，${j ? j + ' 个活动关节' : '没有活动关节'}`),
+        model.mjcf ? h('div', { class: 'muted small mono' }, model.mjcf) : null),
+      h('div', { class: 'pn-model-acts' }, ...modelActions(false),
+        h('button', { class: 'btn', title: '重置视角', onclick: () => model3d?.resetView() }, icon('refresh'))));
+  }
+
+  async function renderModel() {
+    if (!store.app?.project) return;
+    try { model = await get('model'); } catch (e) { clear(D.model).append(h('div', { class: 'pn-banner bad' }, e.message)); return; }
+    if (tab !== 'model') return;
+    if (!model.has_model) {
+      clear(D.model).append(h('div', { class: 'pn-model-empty' },
+        h('span', { class: 'pn-start-ico' }, icon('shapes')),
+        h('h2', {}, '从建模开始'),
+        h('p', { class: 'muted' }, '这个工程还没有 3D 模型。把零件的 STL / STEP 文件导进来，或者连上你的 AI，跟它描述想做的东西，让它来建模。',
+          '模型好了以后再放 PCB 元件、加测试，“仿真”页就能跑了。'),
+        h('div', { class: 'pn-model-acts' }, ...modelActions(true)),
+        model.print_parts.length ? printList() : null));
+      return;
+    }
+    const view = D.modelView ||= h('div', { class: 'pn-view pn-model-view' }, h('span', { class: 'pn-tag' }, '初始姿态，拖动可旋转、滚轮缩放'));
+    clear(D.model).append(
+      modelHead = h('div', { class: 'pn-pcb-head pn-model-head' }),
+      h('div', { class: 'pn-model-body' }, view, h('div', { class: 'pn-model-info' },
+        model.error ? h('div', { class: 'pn-banner bad' }, `模型编译失败：${model.error}`) : null,
+        h('div', { class: 'pn-side-title' }, '零件'),
+        h('table', { class: 'pn-parts' },
+          h('thead', {}, h('tr', {}, ['名称', '挂在', '质量'].map((x) => h('th', {}, x)))),
+          h('tbody', {}, model.bodies.map((b) => h('tr', {},
+            h('td', { class: 'mono' }, b.name), h('td', { class: 'mono muted' }, b.parent),
+            h('td', { class: 'num' }, b.mass_kg ? `${fmtNum(b.mass_kg * 1000, 3)} g` : '–'))))),
+        h('div', { class: 'pn-side-title' }, '活动关节'),
+        model.joints.length ? h('table', { class: 'pn-parts' },
+          h('thead', {}, h('tr', {}, ['名称', '方式', '零件', '范围'].map((x) => h('th', {}, x)))),
+          h('tbody', {}, model.joints.map((j) => h('tr', {},
+            h('td', { class: 'mono' }, j.name), h('td', {}, JOINT_KIND[j.type] || j.type), h('td', { class: 'mono muted' }, j.body),
+            h('td', { class: 'num' }, j.range ? (j.type === 'hinge' ? `${j.range[0]}° ~ ${j.range[1]}°` : `${fmtNum(j.range[0] * 1000, 3)} ~ ${fmtNum(j.range[1] * 1000, 3)} mm`) : '不限')))))
+          : h('div', { class: 'pn-side-empty' }, '还没有活动关节，零件都是固定的。可以让 AI 帮你加转轴或滑轨。'),
+        model.print_parts.length ? printList() : null)),
+      h('div', { class: 'muted small' }, '这里显示的是模型本身，还没有跑仿真。改尺寸、加关节、换材料可以直接跟你的 AI 说，改完这里会自动刷新。'));
+    renderModelHead();
+    if (!model3d) {
+      const { Replay3D } = await import('../replay3d.js');
+      model3d = new Replay3D(view);
+      if (!model3d.ok) { view.append(h('div', { class: 'empty' }, model3d.error)); return; }
+    }
+    if (model.error || !model3d.ok) return;
+    try { await model3d.loadFrom('model'); } catch (e) { toastError(e); }
+    model3d.resize();
+  }
+
+  function printList() {
+    return h('div', {},
+      h('div', { class: 'pn-side-title' }, '打印件'),
+      h('table', { class: 'pn-parts' },
+        h('thead', {}, h('tr', {}, ['零件', '材料', '建议打印设置'].map((x) => h('th', {}, x)))),
+        h('tbody', {}, model.print_parts.map((p) => h('tr', {},
+          h('td', {}, h('div', {}, p.label),
+            h('div', { class: 'mono small ' + (p.exists ? 'muted' : 'bad') }, p.exists ? baseName(p.file) : `缺文件 ${p.file}`)),
+          h('td', {}, p.material || '–'),
+          h('td', { class: 'small muted' }, [p.settings.layer_height && `层高 ${p.settings.layer_height} mm`,
+            p.settings.wall_loops && `${p.settings.wall_loops} 层墙`, p.settings.sparse_infill_density && `填充 ${p.settings.sparse_infill_density}`]
+            .filter(Boolean).join('，') || '–'))))));
+  }
+
+  // 仿真 page placeholder: what to do next depends on whether the project has tests yet
+  function renderSimEmpty() {
+    const none = store.app?.project && !scenarios().length;
+    D.viewEmptyTitle.textContent = none ? '还没有仿真' : '还没有运行结果';
+    D.viewEmptyText.textContent = none ? '这个工程还没有测试。先在“建模”和“PCB 元件”里把模型和板子放好，再让 AI 加测试。'
+      : '在右边选一个测试，跑完会在这里回放 3D 动画';
+  }
+
   // ------------------------------------------------------------ lifecycle
   // ------------------------------------------------------------ project: welcome page when none is open
   const baseName = (p) => String(p || '').split(/[\\/]/).filter(Boolean).pop() || '';
@@ -517,7 +635,8 @@ export function createPanel(ctx) {
     await switched();
   }
   async function switched() {
-    resetRun(); selected = null; boards = null; boardCheck = null; knownRuns = null;
+    resetRun(); selected = null; boards = null; boardCheck = null; knownRuns = null; model = null;
+    model3d?.clear(); model3d && (model3d._framed = false);
     await showProject();
   }
   // opened from elsewhere: the AI through MCP (open_project / open_example / new_project) or another tab
@@ -587,15 +706,18 @@ export function createPanel(ctx) {
           icon('folder'), h('span', {}, baseName(r)), h('span', { class: 'muted small mono pn-recent-path' }, r)))) : null));
   }
 
+  let defaultedRoot;
   async function showProject() {
     const has = !!store.app?.project;
     shownRoot = store.app?.project || null;
+    // a project that has nothing to simulate yet opens on 建模, one with tests on 仿真
+    if (has && shownRoot !== defaultedRoot) { defaultedRoot = shownRoot; tab = scenarios().length ? 'sim' : 'model'; }
     el.classList.toggle('no-project', !has);
     D.welcome.hidden = has;
-    D.sim.hidden = !has || tab !== 'sim'; D.pcb.hidden = !has || tab !== 'pcb';
-    renderProjBox(); renderTests(); renderReadout();
+    setTab(tab);
+    D.sim.hidden = !has || tab !== 'sim'; D.pcb.hidden = !has || tab !== 'pcb'; D.model.hidden = !has || tab !== 'model';
+    renderProjBox(); renderTests(); renderReadout(); renderSimEmpty();
     if (!has) { renderWelcome(); return; }
-    if (tab === 'pcb') { renderPcb(); renderCircuit(); renderCheck(); }
     if (!selected) {
       const first = scenarios().find((s) => !s.needs_qemu || store.app?.qemu?.found);
       if (first) pick(first.name, false);

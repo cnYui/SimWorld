@@ -91,6 +91,74 @@ def import_model(project: Project, path, name=None, parent='world', pos=None, eu
     return {'part': name, **{k: info[k] for k in ('mass_kg', 'bounds_m', 'watertight', 'collision')}}
 
 
+MODEL_UPLOAD_TYPES = ('.stl', '.step', '.stp', '.obj')
+
+
+def model_summary(project: Project):
+    """What the 建模 page lists: the mechanical model, its parts and joints, and the print parts."""
+    mech = project.data.get('mechanics') or {}
+    out = {'mjcf': mech.get('mjcf'), 'parts': [], 'bodies': [], 'joints': [], 'print_parts': [], 'error': None}
+    for name, part in (mech.get('parts') or {}).items():
+        out['parts'].append({'name': name, 'file': part.get('file'), 'mass_kg': part.get('mass_kg'),
+                             'parent': part.get('parent', 'world')})
+    for name, pp in ((project.data.get('printing') or {}).get('parts') or {}).items():
+        f = pp.get('file')
+        out['print_parts'].append({'name': name, 'label': pp.get('label') or name, 'file': f,
+                                   'material': pp.get('material'), 'settings': pp.get('settings') or {},
+                                   'exists': bool(f) and project.path(f).is_file()})
+    out['has_model'] = bool(out['mjcf'] or out['parts'])
+    if not out['has_model']:
+        return out
+    try:
+        import mujoco
+        from .mechanics import Mechanics
+        m = Mechanics(project.root, mech, project.pcb() if project.data.get('pcb') else None).model
+    except Exception as e:  # a broken model is shown on the page, not raised
+        out['error'] = str(e)
+        return out
+    types = {mujoco.mjtJoint.mjJNT_HINGE: 'hinge', mujoco.mjtJoint.mjJNT_SLIDE: 'slide',
+             mujoco.mjtJoint.mjJNT_BALL: 'ball', mujoco.mjtJoint.mjJNT_FREE: 'free'}
+    geoms = {}
+    for g in range(m.ngeom):
+        if m.geom_group[g] <= 2 and m.geom_rgba[g][3] > 0:
+            b = int(m.geom_bodyid[g])
+            geoms[b] = geoms.get(b, 0) + 1
+    for b in range(1, m.nbody):
+        out['bodies'].append({'name': m.body(b).name, 'parent': m.body(int(m.body_parentid[b])).name or 'world',
+                              'mass_kg': round(float(m.body_mass[b]), 6), 'geoms': geoms.get(b, 0)})
+    cfg_joints = mech.get('joints') or {}
+    for j in range(m.njnt):
+        name = m.joint(j).name
+        jt = types.get(int(m.jnt_type[j]), 'other')
+        row = {'name': name, 'type': jt, 'body': m.body(int(m.jnt_bodyid[j])).name}
+        if m.jnt_limited[j]:
+            lo, hi = (float(x) for x in m.jnt_range[j])
+            row['range'] = [round(np.degrees(lo), 2), round(np.degrees(hi), 2)] if jt == 'hinge' else [lo, hi]
+        if name in cfg_joints and 'range_deg' in cfg_joints[name]:
+            row['range'] = cfg_joints[name]['range_deg']
+        out['joints'].append(row)
+    return out
+
+
+def model_preview(project: Project, out_dir):
+    """scene.json / scene.bin / frames.bin of the model at its initial pose (one frame), in the
+    same format as a run, so the page shows the model before anything has been simulated."""
+    from .mechanics import Mechanics
+    from .results import write_scene
+    mech = Mechanics(project.root, project.data.get('mechanics') or {},
+                     project.pcb() if project.data.get('pcb') else None)
+    ids = mech.visual_bodies()
+    out_dir = Path(out_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
+    write_scene(mech.model, ids, out_dir)
+    pose = mech.poses(ids).astype(np.float32)
+    with open(out_dir / 'frames.bin', 'wb') as f:
+        f.write(np.array([1, len(ids)], dtype=np.int32).tobytes())
+        f.write(np.zeros(1, dtype=np.float32).tobytes())
+        f.write(pose.tobytes())
+    return out_dir
+
+
 def _relpath(p, root):
     import os
     return os.path.relpath(p, root)

@@ -65,6 +65,7 @@ const ICONS = {
   file: '<path d="M6 3h9l4 4v14H6z"/><path d="M15 3v4h4"/>',
   external: '<path d="M14 4h6v6M20 4l-9 9"/><path d="M18 14v6H4V6h6"/>',
   compare: '<path d="M8 4v16M16 4v16"/><path d="M4 8h4M4 14h4M16 10h4M16 17h4"/>',
+  shapes: '<path d="M7 3.5l4 7H3z"/><circle cx="17" cy="7" r="3.5"/><rect x="4" y="13.5" width="16" height="7" rx="1.2"/>',
   cube: '<path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z"/><path d="M12 12l8-4.5M12 12v9M12 12L4 7.5"/>',
   chip: '<rect x="6" y="6" width="12" height="12" rx="1.5"/><path d="M9 3v3M12 3v3M15 3v3M9 18v3M12 18v3M15 18v3M3 9h3M3 12h3M3 15h3M18 9h3M18 12h3M18 15h3"/>',
   board: '<rect x="3" y="5" width="18" height="14" rx="1.5"/><circle cx="7.5" cy="9.5" r="1.3"/><path d="M11 9.5h6M7.5 11v4h9"/>',

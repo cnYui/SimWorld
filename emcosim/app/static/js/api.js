@@ -40,6 +40,20 @@ export const post = (p, body = {}) => api(p, { method: 'POST', body });
 export const put = (p, body = {}) => api(p, { method: 'PUT', body });
 export const del = (p) => api(p, { method: 'DELETE' });
 
+/** POST a File/Blob as the raw request body (e.g. upload/model?name=part.stl). */
+export async function upload(path, file) {
+  let r;
+  try {
+    r = await fetch('/api/' + path, { method: 'POST', headers: { 'X-Emcosim-Token': token || '', 'Content-Type': 'application/octet-stream' }, body: file });
+  } catch (e) {
+    throw new ApiError('无法连接到 SimWorld 后台（程序是否已关闭？）', 0);
+  }
+  let data = null;
+  try { data = await r.json(); } catch (e) { data = null; }
+  if (!r.ok) throw new ApiError((data && data.error) || `HTTP ${r.status}`, r.status);
+  return data;
+}
+
 const KINDS = ['job', 'job_progress', 'chat', 'project_changed', 'project_opened', 'scenarios_changed',
   'runs_changed', 'auth_changed', 'auth_log'];
 

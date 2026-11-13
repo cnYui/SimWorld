@@ -26,6 +26,9 @@ JSON API (all under /api):
   GET  run/<id>/scene.json|scene.bin|frames.bin|uart.log
   DELETE run/<id>
   POST import/pcb|model|firmware {path, ...}
+  GET  model                     mechanical model summary (bodies, joints, imported and print parts)
+  GET  model/scene.json|scene.bin|frames.bin   the model at its initial pose, for the 建模 page
+  POST upload/model?name=x.stl   raw file body: saved under mechanics/uploads and imported as a part
   POST annotate/joint {...}, annotate/pin {...}
   GET  pcb                       PCB summary (components, nets, board, copper)
   GET  printing                  printable parts + whether Bambu Studio is installed
@@ -44,6 +47,7 @@ import os
 import queue
 import re
 import secrets
+import shutil
 import socket
 import sys
 import threading
@@ -103,6 +107,27 @@ class App:
         self.settings.touch_project(root)
         self.bus.publish('project_opened', {'root': str(root)})
         return {'root': str(root)}
+
+    def model_preview(self, prj: Project):
+        """Preview of the mechanical model, rebuilt when the project file or a model file changes."""
+        files = [prj.root / 'project.yaml']
+        for sub in ('mechanics', 'pcb'):
+            d = prj.root / sub
+            if d.is_dir():
+                files += [f for f in d.rglob('*') if f.is_file() and f.suffix.lower() in
+                          ('.xml', '.obj', '.stl', '.msh', '.yaml', '.png')]
+        sig = (str(prj.root), max((f.stat().st_mtime_ns for f in files), default=0), len(files))
+        with self._lock:
+            if getattr(self, '_preview', None) and self._preview[0] == sig and self._preview[1].exists():
+                return self._preview[1]
+            import tempfile
+            out = Path(tempfile.mkdtemp(prefix='simworld-model-'))
+            api.model_preview(prj, out)
+            old = getattr(self, '_preview', None)
+            self._preview = (sig, out)
+        if old:
+            shutil.rmtree(old[1], ignore_errors=True)
+        return out
 
     def project(self) -> Project:
         if self._root is None:
@@ -235,6 +260,38 @@ class Handler(BaseHTTPRequestHandler):
         except (ValueError, RuntimeError, TypeError) as e:
             self._json({'error': f'{e}'}, 400)
 
+    def _upload(self, p, q):
+        """POST /api/upload/model?name=part.stl with the file as the raw body: saved under
+        mechanics/uploads/ and imported as a part (same as import_model)."""
+        if p != ['model']:
+            raise ApiError('not found', 404)
+        prj = self.app.project()
+        name = Path((q.get('name') or [''])[0]).name
+        suffix = Path(name).suffix.lower()
+        if suffix not in api.MODEL_UPLOAD_TYPES:
+            raise ApiError('只支持 STL、STEP、OBJ 文件')
+        n = int(self.headers.get('Content-Length') or 0)
+        if not n or n > 300 * 1024 * 1024:
+            raise ApiError('文件是空的或超过 300 MB')
+        stem = re.sub(r'[^\w\-]+', '_', Path(name).stem).strip('_') or 'part'
+        part = stem if stem[0].isalpha() else 'part_' + stem
+        taken = set((prj.data.get('mechanics') or {}).get('parts') or {})
+        base, i = part, 2
+        while part in taken:
+            part, i = f'{base}_{i}', i + 1
+        dest = prj.root / 'mechanics' / 'uploads' / f'{part}{suffix}'
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        remaining = n
+        with open(dest, 'wb') as f:
+            while remaining:
+                chunk = self.rfile.read(min(remaining, 1 << 20))
+                if not chunk:
+                    break
+                f.write(chunk)
+                remaining -= len(chunk)
+        units = (q.get('units') or ['mm'])[0]
+        return api.import_model(prj, dest, name=part, units=units if units in ('mm', 'cm', 'm', 'in') else 'mm')
+
     def _static(self, path):
         rel = path.lstrip('/') or 'index.html'
         f = (STATIC / rel).resolve()
@@ -274,8 +331,10 @@ class Handler(BaseHTTPRequestHandler):
     # -- routes ------------------------------------------------------------
     def _route(self, method, p, q):
         app = self.app
-        b = self._body() if method in ('POST', 'PUT') else {}
         head = p[0] if p else ''
+        if head == 'upload' and method == 'POST':
+            return self._upload(p[1:], q)
+        b = self._body() if method in ('POST', 'PUT') else {}
 
         if head == 'app' and method == 'GET':
             return {'version': __version__, 'project': str(app.root) if app.root else None,
@@ -386,6 +445,16 @@ class Handler(BaseHTTPRequestHandler):
             if p[1] == 'pin':
                 b = dict(b)
                 return api.bind_pin(prj, b.pop('pin'), **b)
+
+        if head == 'model' and method == 'GET':
+            prj = app.project()
+            if len(p) == 1:
+                return api.model_summary(prj)
+            if len(p) == 2 and p[1] in ('scene.json', 'scene.bin', 'frames.bin'):
+                d = app.model_preview(prj)
+                self._send((d / p[1]).read_bytes(), RUN_FILES[p[1]])
+                return None
+            raise ApiError('not found', 404)
 
         if head == 'boards' and method == 'GET':
             # Purchasable parts per board: pcb/<board>/parts.json (+ images next to it).

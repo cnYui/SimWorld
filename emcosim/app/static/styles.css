@@ -738,3 +738,25 @@ pre.log { background: var(--sunken); border: 1px solid var(--line); border-radiu
 .pn-ai-card strong { font-size: 15px; }
 .pn-ai-card .btn { margin-top: 6px; justify-content: center; }
 @media (max-width: 560px) { .pn-ai-cards { grid-template-columns: 1fr; } }
+
+/* 建模 page: the model at its initial pose, before anything is simulated */
+.pn-model { flex: 1; min-height: 0; overflow: auto; display: flex; flex-direction: column; gap: 8px; padding-bottom: 10px; }
+.pn-model[hidden] { display: none; }
+.tab-model .pn-bottom, .tab-model .pn-main > .pn-banner { display: none; }
+.pn-model-info .pn-parts .bad { color: var(--bad); }
+.pn-model-head { gap: 12px; flex-wrap: wrap; }
+.pn-model-acts { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.pn-model-body { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(280px, 1fr); gap: 10px; flex: 1; min-height: 420px; }
+.pn-model-view { min-height: 360px; }
+.pn-model-info { overflow: auto; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; }
+.pn-model-info .pn-side-title { margin-top: 4px; }
+.pn-model-info .pn-parts td.bad { color: var(--bad); }
+.pn-model-empty { margin: auto; max-width: 560px; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 32px 16px; }
+.pn-model-empty .pn-start-ico { width: 52px; height: 52px; border-radius: 12px; }
+.pn-model-empty .pn-start-ico svg { width: 26px; height: 26px; }
+.pn-model-empty h2 { margin: 4px 0 0; font-size: 20px; }
+.pn-model-empty p { margin: 0; line-height: 1.6; }
+.pn-model-empty .pn-model-acts { justify-content: center; }
+.pn-model-empty > div:last-child:not(.pn-model-acts) { width: 100%; text-align: left; margin-top: 12px; }
+@media (max-width: 900px) { .pn-model-body { grid-template-columns: 1fr; } }
+.pn-model-info .pn-parts .mono.small { word-break: break-all; }
