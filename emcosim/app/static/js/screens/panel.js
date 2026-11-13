@@ -14,8 +14,8 @@ export function createPanel(ctx) {
   const el = h('section', { class: 'screen panel' });
   const D = {};
   let runId = null, meta = null, sig = {}, dur = 0, tNow = 0, playing = false, lastFrame = 0;
-  let main3d = null, angleChart = null, forceChart = null;
-  let pendingJob = null, selected = null;
+  let main3d = null, angleChart = null, forceChart = null, layout = { generic: false };
+  let pendingJob = null, selected = null, framedFor = null;
 
   // layout: left nav (collapsible) | centre (3D view, PCB page or 建模 page) | right sidebar (tests, tools, live state)
   //         with the play bar and the two charts fixed under the centre.
@@ -56,7 +56,7 @@ export function createPanel(ctx) {
           h('span', { class: 'muted small' }, '改完按回车保存，下次仿真就按新数值算')),
           D.power = h('div', { class: 'pf-grid' })),
         D.wiring = h('div', { class: 'pn-sec' }),
-        h('div', { class: 'pn-circuit-wrap' },
+        D.circuitWrap = h('div', { class: 'pn-circuit-wrap' },
           h('div', { class: 'pn-legend' }, h('strong', {}, '电路原理（跟着仿真动）'),
             h('span', { class: 'muted' }, '线越粗电流越大，变红表示电压掉得太低')),
           D.circuit = h('div', { class: 'pn-circuit' }))),
@@ -67,12 +67,12 @@ export function createPanel(ctx) {
         D.slider = h('input', { type: 'range', min: 0, max: 1000, value: 0, 'aria-label': '时间' }),
         D.time = h('span', { class: 'mono pn-time' }, '0.00 s')),
       h('div', { class: 'pn-charts' },
-        h('div', { class: 'pn-chart' }, h('div', { class: 'pn-legend' },
+        h('div', { class: 'pn-chart' }, D.angleLeg = h('div', { class: 'pn-legend' },
           h('span', { style: { color: 'var(--s2)' } }, '按压臂角度'), h('span', { style: { color: 'var(--s1)' } }, '翘板角度'),
-          h('span', { class: 'muted' }, '角度 / °')), D.angleCv = h('canvas'), h('div', { class: 'pn-chart-empty' }, '运行测试后显示角度曲线')),
-        h('div', { class: 'pn-chart' }, h('div', { class: 'pn-legend' },
+          h('span', { class: 'muted' }, '角度 / °')), D.angleCv = h('canvas'), D.angleEmpty = h('div', { class: 'pn-chart-empty' }, '运行测试后显示角度曲线')),
+        h('div', { class: 'pn-chart' }, D.forceLeg = h('div', { class: 'pn-legend' },
           h('span', { style: { color: 'var(--s3)' } }, '按压接触力'), D.limitLab = h('span', { style: { color: 'var(--bad)' } }, ''),
-          h('span', { class: 'muted' }, '力 / N')), D.forceCv = h('canvas'), h('div', { class: 'pn-chart-empty' }, '运行测试后显示接触力曲线')))),
+          h('span', { class: 'muted' }, '力 / N')), D.forceCv = h('canvas'), D.forceEmpty = h('div', { class: 'pn-chart-empty' }, '运行测试后显示接触力曲线')))),
     h('aside', { class: 'pn-side', 'aria-label': '测试和状态' },
       h('div', { class: 'pn-side-sec' },
         h('div', { class: 'pn-side-title' }, '测试'),
@@ -487,7 +487,8 @@ export function createPanel(ctx) {
     runId = id;
     try {
       meta = await get(`run/${id}`);
-      const want = SIGS.filter((n) => (meta.signals || []).includes(n));
+      layout = runLayout(meta.signals || []);
+      const want = layout.generic ? layout.want : SIGS.filter((n) => (meta.signals || []).includes(n));
       sig = await get(`run/${id}/signals?names=${encodeURIComponent(want.join(','))}&n=4000`);
     } catch (e) { setBanner('bad', `打不开结果：${e.message}`); return; }
     if (runId !== id) return;
@@ -495,6 +496,7 @@ export function createPanel(ctx) {
     summarize();
     drawCharts();
     await ensure3d();
+    if (main3d && framedFor !== store.app?.project) { main3d._framed = false; framedFor = store.app?.project; }
     const loads = [];
     if (main3d?.ok) loads.push(main3d.load(id));
     await Promise.allSettled(loads);
@@ -530,12 +532,59 @@ export function createPanel(ctx) {
     return c ? c.target : null;
   }
 
+  // A project that is not the switch-robot example gets charts and a readout built from the
+  // signals its run recorded: joints on the first chart, probes (force, else acceleration, else
+  // supply voltages) on the second, and every joint/probe/input/event in the readout.
+  const SERIES = ['--s2', '--s1', '--s3', '--s4', '--s5', '--s6'];
+  function runLayout(names) {
+    if (names.includes('joint.servo_axis.deg') || names.includes('probe.press.force_n')) return { generic: false };
+    const pick = (re) => names.filter((n) => re.test(n));
+    const joints = [...pick(/^joint\.[^.]+\.mm$/), ...pick(/^joint\.[^.]+\.deg$/)].slice(0, 4);
+    const forces = pick(/^probe\.[^.]+\.force_n$/), accel = pick(/^probe\.[^.]+\.a_g$/), nodes = pick(/^node\.[^.]+\.v$/);
+    const second = forces.length ? { sigs: forces.slice(0, 3), unit: 'N', label: '接触力', what: '力 / N' }
+      : accel.length ? { sigs: accel.slice(0, 3), unit: 'g', label: '加速度', what: '加速度 / g' }
+        : { sigs: [...nodes, ...pick(/^mcu\.rail_v$/)].slice(0, 4), unit: 'V', label: '电压', what: '电压 / V' };
+    const inputs = pick(/^input\.[^.]+\.(value|pressed)$/);
+    const want = [...new Set([...joints, ...second.sigs, ...inputs, ...forces, ...accel, ...nodes,
+      ...pick(/^mcu\.(rail_v|powered|resets)$/)])];
+    return { generic: true, joints, second, inputs, want };
+  }
+  const nice = (n) => n.replace(/^(joint|probe|input|node)\./, '').replace(/\.(deg|mm|force_n|a_g|value|pressed|v)$/, '');
+  const unitOf = (n) => (n.endsWith('.mm') ? 'mm' : n.endsWith('.deg') ? '°' : n.endsWith('.force_n') ? 'N' : n.endsWith('.a_g') ? 'g' : n.endsWith('.v') ? 'V' : '');
+
+  function legend(div, items, what) {
+    clear(div).append(...items.map(([label, color]) => h('span', { style: { color } }, label)), h('span', { class: 'muted' }, what));
+  }
+
+  function drawGeneric(t) {
+    const js = layout.joints.map((n, i) => ({ t, y: sig[n] || [], color: cssVar(SERIES[i % SERIES.length]), label: nice(n), width: 2 }));
+    angleChart.opts.unit = [...new Set(layout.joints.map(unitOf))].join(' / ');
+    angleChart.setSeries(js);
+    legend(D.angleLeg, js.map((s, i) => [`${s.label} (${unitOf(layout.joints[i])})`, s.color]), layout.joints.length ? '关节位置' : '这个工程没有活动关节');
+    D.angleEmpty.textContent = '这个工程没有活动关节';
+    const sec = layout.second;
+    const ps = sec.sigs.map((n, i) => ({ t, y: sig[n] || [], color: cssVar(SERIES[(i + 2) % SERIES.length]), label: nice(n), width: 1.5 }));
+    forceChart.opts.unit = sec.unit;
+    forceChart.setSeries(ps);
+    legend(D.forceLeg, ps.map((s) => [`${sec.label} ${s.label}`, s.color]), sec.what);
+    D.forceEmpty.textContent = '这个运行没有探针或电压信号';
+  }
+
+  function restoreLegacyLegends() {
+    legend(D.angleLeg, [['按压臂角度', 'var(--s2)'], ['翘板角度', 'var(--s1)']], '角度 / °');
+    clear(D.forceLeg).append(h('span', { style: { color: 'var(--s3)' } }, '按压接触力'),
+      D.limitLab = h('span', { style: { color: 'var(--bad)' } }, ''), h('span', { class: 'muted' }, '力 / N'));
+    angleChart.opts.unit = '°'; forceChart.opts.unit = 'N';
+  }
+
   function drawCharts() {
     angleChart ||= new TimeChart(D.angleCv, { onSeek: (t) => { stop(); setTime(t); }, unit: '°' });
     forceChart ||= new TimeChart(D.forceCv, { onSeek: (t) => { stop(); setTime(t); }, unit: 'N' });
     const t = sig.t || [];
     const xr = dur ? [0, dur] : null;
     angleChart.opts.xRange = xr; forceChart.opts.xRange = xr;
+    if (layout.generic) { drawGeneric(t); return; }
+    restoreLegacyLegends();
     angleChart.setSeries([
       { t, y: sig['joint.servo_axis.deg'] || [], color: cssVar('--s2'), label: '按压臂', width: 2 },
       { t, y: sig['joint.rocker_axis.deg'] || [], color: cssVar('--s1'), label: '翘板', width: 2 },
@@ -575,8 +624,15 @@ export function createPanel(ctx) {
   }
 
   // ------------------------------------------------------------ live circuit
+  function exampleCircuit() {
+    const a = store.project?.data?.actuators || {};
+    return !!a.servo1 && (store.project?.data?.power?.nodes || {}).v5_servo !== undefined;
+  }
+
   function renderCircuit() {
     if (!D.circuit) return;
+    D.circuitWrap && (D.circuitWrap.hidden = !exampleCircuit());
+    if (!exampleCircuit()) return;
     if (!runId) { D.circuit.innerHTML = '<div class="pn-side-empty">先在右边选一个测试，跑完这里的电路会跟着仿真动。</div>'; return; }
     const bench = !!sig['node.usb5v.v'];
     const v = (n) => at(n, tNow);
@@ -629,6 +685,7 @@ export function createPanel(ctx) {
       clear(D.readout).append(h('div', { class: 'pn-side-empty' }, store.app?.project ? '选一个测试，跑完这里会显示开关状态、角度、受力和供电电压。' : '打开工程并运行测试后，这里显示实时状态。'));
       return;
     }
+    if (layout.generic) { renderGenericReadout(); return; }
     const rocker = at('joint.rocker_axis.deg', tNow), arm = at('joint.servo_axis.deg', tNow);
     const f = at('probe.press.force_n', tNow), tq = at('act.servo1.torque', tNow), tgt = at('act.servo1.target_deg', tNow);
     const v5 = sig['node.usb5v.v'] ? at('node.usb5v.v', tNow) : at('node.vin5.v', tNow);
@@ -650,6 +707,32 @@ export function createPanel(ctx) {
     );
   }
   const kv = (k, v, cls = '') => h('div', { class: 'kv ' + cls }, h('span', { class: 'k' }, k), h('span', { class: 'v mono' }, v));
+
+  function renderGenericReadout() {
+    const fmt = (v, d) => (v === null || v === undefined ? '–' : v.toFixed(d));
+    const rows = [];
+    for (const n of layout.joints) rows.push(kv(nice(n), `${fmt(at(n, tNow), n.endsWith('.mm') ? 1 : 1)} ${unitOf(n)}`));
+    for (const n of layout.second.sigs) rows.push(kv(nice(n), `${fmt(at(n, tNow), 2)} ${unitOf(n)}`));
+    for (const n of layout.inputs) {
+      const v = at(n, tNow);
+      rows.push(kv(nice(n), n.endsWith('.pressed') ? (v ? '按下' : '松开') : `${fmt(v === null ? null : v * 100, 0)} %`));
+    }
+    const rail = at('mcu.rail_v', tNow), powered = at('mcu.powered', tNow), resets = at('mcu.resets', tNow);
+    if (rail !== null) rows.push(kv('单片机供电', `${rail.toFixed(2)} V`, powered === 0 ? 'bad' : ''));
+    // events the firmware (or its behaviour model) reported up to now, e.g. rep / set / export
+    const counts = {};
+    for (const e of meta?.mcu_events || []) {
+      if (e.t <= tNow + 1e-9 && !['boot', 'ready'].includes(e.event)) counts[e.event] = (counts[e.event] || 0) + 1;
+    }
+    const evs = Object.entries(counts);
+    clear(D.readout).append(
+      h('div', { class: 'pn-state' }, evs.length ? evs.map(([k, v]) => `${k} ×${v}`).join('  ') : '运行中',
+        h('span', { class: 'mono' }, `t=${tNow.toFixed(2)} s`)),
+      h('div', { class: 'pn-kv' }, ...rows),
+      (meta?.files || []).length ? h('div', { class: 'muted small' }, `导出文件：${meta.files.join('、')}`) : null,
+      powered === 0 ? h('div', { class: 'pn-warn' }, '单片机掉电了。') : resets > 0 ? h('div', { class: 'pn-warn' }, `单片机已经重启 ${resets} 次。`) : null,
+    );
+  }
 
   function play() {
     if (!dur) return;
@@ -696,7 +779,7 @@ export function createPanel(ctx) {
       try { boards = await get('boards'); } catch (e) { clear(D.parts).append(h('div', { class: 'pn-banner bad' }, e.message)); return; }
     }
     const b = boards[0];
-    if (!b) { clear(D.parts).append(h('div', { class: 'pn-banner' }, '这个工程还没有元件清单（pcb/<板名>/parts.json）。')); return; }
+    if (!b) { clear(D.parts).append(h('div', { class: 'pn-banner' }, '这个工程还没有原理图和板子。让你的 AI 用 schematic_create 画原理图、board_from_schematic 生成 PCB，或者用 board_import 导入现成的板子。')); return; }
     const total = b.parts.reduce((n, p) => n + (p.qty || 0), 0);
     const img = b.images?.[boardImg];
     clear(D.parts).append(
@@ -717,11 +800,14 @@ export function createPanel(ctx) {
               h('td', {}, p.role || ''),
               h('td', { class: 'num' }, String(p.qty)),
               h('td', {}, p.mount === 'THT' ? '插件' : '贴片', h('div', { class: 'muted small' }, p.jlc_library || '')),
-              liveCell(p.lcsc),
-              h('td', {}, h('a', { href: shopUrl(p.lcsc), class: 'mono', title: `在立创商城打开 ${p.lcsc}`,
-                onclick: (e) => { e.preventDefault(); openShop(shopUrl(p.lcsc)); } }, p.lcsc, ' ↗'))))))),
+              p.lcsc ? liveCell(p.lcsc) : h('td', { class: 'muted' }, '–'),
+              p.lcsc ? h('td', {}, h('a', { href: shopUrl(p.lcsc), class: 'mono', title: `在立创商城打开 ${p.lcsc}`,
+                onclick: (e) => { e.preventDefault(); openShop(shopUrl(p.lcsc)); } }, p.lcsc, ' ↗'))
+                : h('td', { class: 'muted small' }, '未填立创料号')))))),
       ),
-      h('div', { class: 'muted small' }, `料号是 ${b.checked_at} 在嘉立创 EDA 和立创商城核对的；“现在库存”是打开这页时实时查的（数据来自开源的 PCB Parts MCP，MIT 许可）。点料号会打开立创商城对应的商品。整板也可以直接把 Gerber、BOM、坐标文件上传到嘉立创下单贴片。`),
+      h('div', { class: 'muted small' }, b.source === 'design'
+        ? '元件清单和图片来自这个工程的原理图和板子（AI 用 schematic_create / board_from_schematic 生成，或 board_import 导入），改完会自动更新。“现在库存”是打开这页时实时查的（数据来自开源的 PCB Parts MCP，MIT 许可）。'
+        : `料号是 ${b.checked_at} 在嘉立创 EDA 和立创商城核对的；“现在库存”是打开这页时实时查的（数据来自开源的 PCB Parts MCP，MIT 许可）。点料号会打开立创商城对应的商品。整板也可以直接把 Gerber、BOM、坐标文件上传到嘉立创下单贴片。`),
     );
   }
 

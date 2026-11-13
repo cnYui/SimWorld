@@ -152,6 +152,55 @@ def _qemu_status():
         return {'found': False, 'error': str(e)}
 
 
+def _design_board(prj):
+    """The PCB page's parts list and pictures for a board designed in SimWorld (schematic_create /
+    board_from_schematic / board_import), when there is no hand-made parts.json."""
+    b = prj.data.get('board') or {}
+    src = b.get('kicad_sch') or b.get('kicad_pcb')
+    if not src:
+        return None
+    d = (prj.root / src).parent
+    if not d.is_relative_to(prj.root / 'pcb'):
+        return None
+    images = {}
+    try:
+        from ..design import render
+        for key, rel, fn in (('schematic', b.get('kicad_sch'), render.schematic_png),
+                             ('board', b.get('kicad_pcb'), render.board_png)):
+            if not rel or not (prj.root / rel).exists():
+                continue
+            png = d / f'page_{key}.png'
+            if not png.exists() or png.stat().st_mtime < (prj.root / rel).stat().st_mtime:
+                fn(prj.root / rel, png, 1400)
+            images[key] = png.name
+    except Exception:          # pictures are a convenience; the parts list still shows
+        pass
+    parts = {}
+    try:
+        if b.get('kicad_sch'):
+            from .. import eda
+            nl = eda.netlist(prj.root / b['kicad_sch'])
+            rows = [(c['ref'], c.get('value') or '', c.get('footprint') or '',
+                     next((v for k, v in (c.get('fields') or {}).items() if k.lower() == 'lcsc'), None))
+                    for c in nl['components'] if not c['ref'].startswith('#')]
+        else:
+            from ..importers.kicad import load_kicad_pcb
+            rows = [(c['ref'], c.get('value') or '', c.get('footprint') or '', c.get('lcsc'))
+                    for c in load_kicad_pcb(prj.root / b['kicad_pcb'])['components']]
+    except Exception:
+        rows = []
+    for ref, value, fp, lcsc in rows:
+        key = (value, fp, lcsc)
+        e = parts.setdefault(key, {'refs': [], 'name': value, 'manufacturer': fp.split(':', 1)[-1], 'role': '',
+                                    'qty': 0, 'lcsc': lcsc, 'jlc_library': '',
+                                    'mount': 'THT' if re.search(r'THT|PinHeader|PinSocket', fp)
+                                    else 'SMD'})
+        e['refs'].append(ref)
+        e['qty'] += 1
+    return {'id': d.name, 'board': d.name, 'source': 'design', 'images': images,
+            'parts': sorted(parts.values(), key=lambda e: e['refs'][0]), 'checked_at': None}
+
+
 def _scenario_info(project, texts):
     """Title / description / whether QEMU is needed, for the simple panel."""
     import yaml
@@ -492,6 +541,10 @@ class Handler(BaseHTTPRequestHandler):
                     d = json.loads(f.read_text(encoding='utf8'))
                     d['id'] = f.parent.name
                     out.append(d)
+                if not out:
+                    d = _design_board(app.project())
+                    if d:
+                        out.append(d)
                 return out
             if len(p) == 3 and re.fullmatch(r'[\w\-]+', p[1]) and re.fullmatch(r'[\w\-]+\.(png|jpg|jpeg|svg)', p[2]):
                 f = root / p[1] / p[2]
