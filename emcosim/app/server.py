@@ -547,14 +547,14 @@ class Handler(BaseHTTPRequestHandler):
             prj = app.project()
             if not (prj.data.get('circuit') or {}).get('netlist'):
                 raise ApiError('这个工程还没有设置电路检查（project.yaml 里的 circuit.netlist）')
-            if not find_ngspice():
-                raise ApiError('没有找到 ngspice。运行 scripts\\setup 安装后再试。', 409)
             run_id = b.get('run_id')
             if not run_id:
                 runs = [r for r in RunStore(prj.root).list() if '-sweep' not in r['run_id']]
                 if not runs:
                     raise ApiError('还没有仿真结果。电路检查要用一次仿真里的舵机和单片机电流，先在“仿真”页跑一个测试。', 409)
                 run_id = runs[0]['run_id']
+            if not find_ngspice():
+                raise ApiError('没有找到 ngspice。运行 scripts\\setup 安装后再试。', 409)
             res = board_spice.check(prj, run_id)
             res['scenario'] = RunStore(prj.root).meta(run_id).get('scenario', {}).get('name')
             return res
