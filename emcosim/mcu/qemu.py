@@ -187,7 +187,9 @@ class ScriptedMcu:
     backend = 'scripted'
 
     def __init__(self, script):
-        self.script = sorted(script or [], key=lambda e: e['t'])
+        from ..project import pin_number
+        self.script = sorted(({**e, 'pin': pin_number(e['pin'])} if 'pin' in e else e for e in script or []),
+                             key=lambda e: e['t'])
         self.state = {}
         self.uart, self.events = [], []
         self.resets = 0

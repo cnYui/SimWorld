@@ -70,6 +70,10 @@ def build_spec(project_dir, cfg, pcb=None):
             r = j['range_deg']
             existing.range = [math.radians(r[0]), math.radians(r[1])] if j.get('type', 'hinge') == 'hinge' else r
             existing.limited = mujoco.mjtLimited.mjLIMITED_TRUE
+        if 'range_mm' in j:
+            r = j['range_mm']
+            existing.range = [r[0] * 1e-3, r[1] * 1e-3]
+            existing.limited = mujoco.mjtLimited.mjLIMITED_TRUE
         if 'range' in j:
             existing.range = j['range']
             existing.limited = mujoco.mjtLimited.mjLIMITED_TRUE
@@ -166,6 +170,7 @@ class Mechanics:
                 out[f'joint.{name}.dps'] = math.degrees(self.data.qvel[da])
             elif jt == mujoco.mjtJoint.mjJNT_SLIDE:
                 out[f'joint.{name}.mm'] = self.data.qpos[qa] * 1e3
+                out[f'joint.{name}.mm_s'] = self.data.qvel[da] * 1e3
         for name, p in self.probes.items():
             out[f'probe.{name}.force_n'] = p.force
         return out

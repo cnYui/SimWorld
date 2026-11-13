@@ -78,8 +78,13 @@ def find_python():
             if py:
                 return py[0]
     for py in ('/usr/bin/python3', shutil.which('python3')):
-        if py and subprocess.run([py, '-c', 'import pcbnew'], capture_output=True).returncode == 0:
-            return py
+        if not py or not os.path.isfile(py):
+            continue
+        try:
+            if subprocess.run([py, '-c', 'import pcbnew'], capture_output=True, timeout=60).returncode == 0:
+                return py
+        except (OSError, subprocess.SubprocessError):
+            continue
     return None
 
 
@@ -87,8 +92,15 @@ def status():
     cli = find_cli()
     out = {'kicad_cli': cli, 'kicad_python': find_python(), 'version': None}
     if cli:
-        r = subprocess.run([cli, 'version'], capture_output=True, text=True)
-        out['version'] = (r.stdout.strip().splitlines() or [None])[-1]
+        try:
+            r = subprocess.run([cli, 'version'], capture_output=True, text=True, timeout=60)
+            out['version'] = (r.stdout.strip().splitlines() or [None])[-1]
+        except (OSError, subprocess.SubprocessError) as e:
+            out['error'] = f'kicad-cli did not run: {e}'
+    if not cli:
+        out['hint'] = ('KiCad was not found, so board_import, board_drc, board_erc, board_edit, schematic tools '
+                       'and board_render cannot run. Install KiCad 9 or 10 (kicad.org/download; Windows: '
+                       'winget install -e --id KiCad.KiCad) or set EMCOSIM_KICAD_CLI to kicad-cli.')
     return out
 
 
@@ -292,9 +304,13 @@ def read_netlist(path):
     text = path.read_text(encoding='utf-8', errors='replace')
     if text.lstrip().startswith('<'):
         root = ET.fromstring(text)
-        comps = {c.get('ref'): {'value': c.findtext('value'),
-                                **{f.get('name'): f.text for f in c.iter('field') if f.text}}
-                 for c in root.iter('comp')}
+        comps = {}
+        for c in root.iter('comp'):
+            fields = {f.get('name'): f.text for f in c.iter('field') if f.text}
+            lcsc = next((v for k, v in fields.items()
+                         if k.lower() in ('lcsc', 'lcsc part', 'jlcpcb part', 'supplier part')), None)
+            comps[c.get('ref')] = {'value': c.findtext('value'), 'footprint': c.findtext('footprint'),
+                                   **fields, **({'lcsc': lcsc} if lcsc else {})}
         nets = {n.get('name'): [f'{p.get("ref")}-{p.get("pin")}' for p in n.iter('node')] for n in root.iter('net')}
         return {'components': comps, 'nets': nets}
     if not text.startswith('PROTEL NETLIST'):
@@ -347,6 +363,16 @@ path, ops = sys.argv[1], json.loads(open(sys.argv[2], encoding='utf-8').read())
 board = pcbnew.LoadBoard(path)
 mm = pcbnew.FromMM
 done = []
+def field(f, name):                      # KiCad 9: GetFieldByName; KiCad 10: GetField(name)
+    for m in ('GetFieldByName', 'GetField'):
+        if hasattr(f, m):
+            try:
+                r = getattr(f, m)(name)
+            except TypeError:
+                continue
+            if r is not None:
+                return r
+    return next((x for x in f.GetFields() if x.GetName() == name), None)
 def fp(ref):
     f = board.FindFootprintByReference(ref)
     if f is None:
@@ -362,9 +388,11 @@ for op in ops:
     elif k == 'set_value':
         f = fp(op['ref']); done.append({**op, 'was': f.GetValue()}); f.SetValue(op['value'])
     elif k == 'set_field':
-        f = fp(op['ref']); was = f.GetFieldText(op['field']) if f.HasFieldByName(op['field']) else None
+        f = fp(op['ref']); fld = field(f, op['field']); was = fld.GetText() if fld is not None else None
         f.SetField(op['field'], op['value']); done.append({**op, 'was': was})
-        if was is None: f.GetFieldByName(op['field']).SetVisible(False)
+        if was is None:
+            fld = field(f, op['field'])
+            if fld is not None: fld.SetVisible(False)
     elif k == 'track_width':
         n = 0
         for t in board.GetTracks():

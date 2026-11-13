@@ -65,8 +65,11 @@ def import_pcb(project: Project, path, placement=None, dsn=None, bom=None):
             'note': note}
 
 
+DEFAULT_DENSITY = 1240.0       # kg/m3, about PLA; only used when neither mass nor density is given
+
+
 def import_model(project: Project, path, name=None, parent='world', pos=None, euler_deg=None,
-                 units='mm', density=1240.0, mass_kg=None, collision='hull', rgba=None):
+                 units='mm', density=None, mass_kg=None, collision='hull', rgba=None):
     """STL/STEP/OBJ part, or an MJCF (.xml) used as the mechanical base model."""
     path = Path(path)
     if path.suffix.lower() == '.xml':
@@ -79,16 +82,35 @@ def import_model(project: Project, path, name=None, parent='world', pos=None, eu
                 'joints': [m.joint(i).name for i in range(m.njnt)]}
     from .importers.mesh import import_mesh
     name = name or path.stem
+    warnings = []
+    assumed_density = mass_kg is None and density is None
+    if assumed_density:
+        density = DEFAULT_DENSITY
+    parts = project.data.setdefault('mechanics', {}).setdefault('parts', {})
+    if name in parts:
+        warnings.append(f'part {name!r} already existed and was replaced (old file {parts[name].get("source")})')
+    if parent not in (None, 'world') and parent not in parts and not project.data['mechanics'].get('mjcf'):
+        raise ValueError(f'parent {parent!r} is not a part of this project; parts: {sorted(parts) or "none"} '
+                         '(use "world" for a part fixed in space)')
     info = import_mesh(path, project.root / 'mechanics' / 'meshes', name, units=units, density=density,
                        collision=collision, mass_kg=mass_kg)
     info.update({'parent': parent, 'pos': pos or [0, 0, 0]})
+    if assumed_density:
+        info['mass_assumed'] = True
+        warnings.append(f'mass {info["mass_kg"] * 1000:.1f} g is ASSUMED: no mass_kg or density was given, so the '
+                        f'solid volume was multiplied by {DEFAULT_DENSITY:.0f} kg/m3 (about PLA, 100 % infill). '
+                        'Pass mass_kg (measured or from the datasheet) or density when it matters.')
     if euler_deg:
         info['euler_deg'] = euler_deg
     if rgba:
         info['rgba'] = rgba
-    project.data.setdefault('mechanics', {}).setdefault('parts', {})[name] = info
+    parts[name] = info
     project.save()
-    return {'part': name, **{k: info[k] for k in ('mass_kg', 'bounds_m', 'watertight', 'collision')}}
+    out = {'part': name, **{k: info[k] for k in ('mass_kg', 'bounds_m', 'watertight', 'collision')},
+           'units': {'pos': 'm', 'bounds_m': 'm', 'mesh': units}}
+    if warnings:
+        out['warnings'] = warnings
+    return out
 
 
 MODEL_UPLOAD_TYPES = ('.stl', '.step', '.stp', '.obj')
@@ -201,20 +223,31 @@ def import_firmware(project: Project, path, name='firmware', params=None):
 # -------------------------------------------------------------- annotate ----
 
 def define_joint(project: Project, name, body, type='hinge', axis=None, pos=None, range_deg=None,
-                 **extra):
+                 range_mm=None, **extra):
+    if type not in ('hinge', 'slide', 'ball', 'free'):
+        raise ValueError(f"joint type {type!r}: use 'hinge' (rotates, range_deg) or 'slide' (moves, range_mm)")
     j = {'body': body, 'type': type}
     if axis is not None:
         j['axis'] = axis
     if pos is not None:
         j['pos'] = pos
+    if type == 'slide' and range_deg is not None and range_mm is None:
+        raise ValueError('a slide joint moves in a straight line: give its travel as range_mm '
+                         '(millimetres), not range_deg')
+    if type == 'hinge' and range_mm is not None:
+        raise ValueError('a hinge joint rotates: give its range as range_deg')
     if range_deg is not None:
         j['range_deg'] = range_deg
+    if range_mm is not None:
+        j['range_mm'] = range_mm
     j.update({k: v for k, v in extra.items() if v is not None})
     project.data.setdefault('mechanics', {}).setdefault('joints', {})[name] = j
     project.save()
     from .mechanics import Mechanics
     mech = Mechanics(project.root, project.data['mechanics'], project.pcb())
-    return {'joint': name, 'joints_in_model': list(mech.joints)}
+    units = {'hinge': 'range in degrees; signals joint.<name>.deg and .dps',
+             'slide': 'range in millimetres; signals joint.<name>.mm and .mm_s'}.get(type, '')
+    return {'joint': name, 'joints_in_model': list(mech.joints), 'units': units}
 
 
 def bind_pin(project: Project, pin, actuator=None, role=None, input=None, net=None,
@@ -224,6 +257,8 @@ def bind_pin(project: Project, pin, actuator=None, role=None, input=None, net=No
     type information is given. With a PCB, `net` is checked and the copper path
     from the MCU connector to the actuator connector is reported."""
     n = pin_number(pin)
+    warnings = esp32_pin_check(n, 'output' if actuator else 'input', input_type=params.get('input_type'),
+                               active=active)
     binding = {'pin': f'GPIO{n}'}
     if net:
         binding['net'] = net
@@ -256,7 +291,40 @@ def bind_pin(project: Project, pin, actuator=None, role=None, input=None, net=No
     bindings.append(binding)
     data['bindings'] = bindings
     project.save()
+    if warnings:
+        report['warnings'] = warnings
     return {'binding': binding, **report}
+
+
+ESP32_INPUT_ONLY = range(34, 40)
+ESP32_FLASH = range(6, 12)
+ESP32_ADC1 = range(32, 40)
+ESP32_ADC2 = (0, 2, 4, 12, 13, 14, 15, 25, 26, 27)
+ESP32_STRAP = (0, 2, 5, 12, 15)
+
+
+def esp32_pin_check(n, direction, input_type=None, active='low'):
+    """Errors for pins that cannot work, warnings for ones that need care (ESP32 / ESP32-PICO)."""
+    if n in ESP32_FLASH:
+        raise ValueError(f'GPIO{n} is wired to the SPI flash on ESP32 modules and cannot be used')
+    if n > 39 or n in (20, 24, 28, 29, 30, 31):
+        raise ValueError(f'GPIO{n} does not exist on the ESP32')
+    if direction == 'output' and n in ESP32_INPUT_ONLY:
+        raise ValueError(f'GPIO{n} is input-only on the ESP32 (GPIO34-39); pick an output-capable pin')
+    w = []
+    if input_type == 'pot':
+        if n in ESP32_ADC2:
+            w.append(f'GPIO{n} is on ADC2, which cannot be read while Wi-Fi or Bluetooth is on; '
+                     'prefer ADC1 (GPIO32-39)')
+        elif n not in ESP32_ADC1:
+            w.append(f'GPIO{n} has no ADC; an analog input needs GPIO32-39 (ADC1)')
+    elif direction == 'input' and n in ESP32_INPUT_ONLY and active == 'low':
+        w.append(f'GPIO{n} (34-39) has no internal pull-up: an active-low button needs an external '
+                 'pull-up resistor (e.g. 10 k to 3V3) on the board')
+    if n in ESP32_STRAP:
+        w.append(f'GPIO{n} is a boot strapping pin; make sure what is wired to it does not hold it at the '
+                 'wrong level during reset')
+    return w
 
 
 def _net_neighbours(pcb, net):

@@ -230,7 +230,7 @@ def compute_metrics(t, cols, mcu_events, log, mech):
             m[key.replace('.i_motor_peak', '.peak_current_a')] = float(np.max(vals))
         elif key.endswith('.i_supply'):
             m[key.replace('.i_supply', '.mean_supply_a')] = float(np.mean(vals))
-        elif key.startswith('joint.') and key.endswith('.deg'):
+        elif key.startswith('joint.') and (key.endswith('.deg') or key.endswith('.mm')):
             m[f'{key}.max'] = float(np.max(vals))
             m[f'{key}.min'] = float(np.min(vals))
             m[f'{key}.final'] = float(vals[-1])
