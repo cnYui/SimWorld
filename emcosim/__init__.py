@@ -1,3 +1,3 @@
 """emcosim: lock-step electronics + physics co-simulation (ESP32 firmware in QEMU,
 equivalent power/motor models, MuJoCo mechanics)."""
-__version__ = "0.2.0"
+__version__ = "0.3.0"

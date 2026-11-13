@@ -1,7 +1,7 @@
 ; Inno Setup script for the emcosim Windows installer.
-; Build after PyInstaller:  iscc /DAppVersion=0.2.0 packaging\windows\emcosim.iss
+; Build after PyInstaller:  iscc /DAppVersion=0.3.0 packaging\windows\emcosim.iss
 #ifndef AppVersion
-  #define AppVersion "0.2.0"
+  #define AppVersion "0.3.0"
 #endif
 #define SrcDir "..\..\dist\emcosim"
 
