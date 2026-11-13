@@ -38,7 +38,12 @@ def build_server(project_root=None, link=None):
         'Parameters are dotted paths into project.yaml (e.g. power.sources.adapter.r_ohm, '
         'actuators.servo1.preset, mechanics.elements.rocker_detent.peak_force_n, '
         'firmware.press_angle_deg). All model values marked "assumed" in project.yaml are '
-        'not measurements.'))
+        'not measurements. Page rules (call design_rules for the full text): PCB 元件 = everything '
+        'electrical; 建模 = the product\'s own parts and materials only; 仿真 = product + PCB + test '
+        'fixtures running tests. Things the product is tested on (a barbell, a table, a wall) are '
+        'fixtures: add them with role="fixture" and only when a test needs them. Leave parameters the '
+        'user did not ask about at their defaults. Never write page code: fill project data with these '
+        'tools and the page shows it.'))
 
     tool = _reporting_tool(mcp)
 
@@ -70,6 +75,14 @@ def build_server(project_root=None, link=None):
             return {**res, 'page': 'switched'}
         except AppLink.Unavailable:
             return None
+
+    @tool()
+    def design_rules() -> str:
+        """How to work in SimWorld: which page each piece of work belongs to (PCB 元件 / 建模 / 仿真),
+        product parts versus test fixtures, and filling project data instead of writing page code.
+        Read it once before designing."""
+        from .skill import skill_text
+        return skill_text()
 
     @tool()
     def current_project() -> dict:
@@ -148,14 +161,16 @@ def build_server(project_root=None, link=None):
     def import_model(path: str, name: str | None = None, parent: str = 'world',
                      pos: list[float] | None = None, euler_deg: list[float] | None = None,
                      units: str = 'mm', density: float | None = None, mass_kg: float | None = None,
-                     collision: str = 'hull') -> dict:
+                     collision: str = 'hull', role: str = 'product') -> dict:
         """Import an STL/STEP/OBJ part as a body under `parent` (a .xml MJCF instead becomes the base
         mechanical model). pos is in metres relative to the parent, euler_deg in degrees (xyz); `units`
         is the unit of the mesh file. mass_kg or density (kg/m3) sets the mass; with neither, the mass is
         estimated from the solid volume and flagged as assumed. Importing a name that exists replaces it.
-        collision: 'hull' (convex hull) or 'none'. To make simple shapes without a file use add_shape."""
+        collision: 'hull' (convex hull) or 'none'. role: 'product' (part of what is designed, shown on
+        the 建模 page) or 'fixture' (what it is tested on, e.g. a barbell or a table: 仿真 page only).
+        To make simple shapes without a file use add_shape."""
         return api.import_model(prj(), path, name=name, parent=parent, pos=pos, euler_deg=euler_deg,
-                                units=units, density=density, mass_kg=mass_kg, collision=collision)
+                                units=units, density=density, mass_kg=mass_kg, collision=collision, role=role)
 
     @tool()
     def import_firmware(path: str, name: str = 'firmware') -> dict:
@@ -854,17 +869,19 @@ def build_server(project_root=None, link=None):
     def add_shape(name: str, shape: str, size_mm: list[float], parent: str = 'world',
                   pos: list[float] | None = None, euler_deg: list[float] | None = None,
                   mass_kg: float | None = None, density: float | None = None,
-                  rgba: list[float] | None = None) -> list:
+                  rgba: list[float] | None = None, role: str = 'product') -> list:
         """Make a part from a simple shape, centred on its own origin, with no CAD file:
         box [x, y, z] | rounded_box [x, y, z, corner_r] | cylinder [d, h] | tube [d_out, d_in, h] |
         sphere [d] | capsule [d, h]; sizes in mm, cylinder/tube/capsule axis along z. pos (metres) and
         euler_deg place it relative to `parent` (a part, or world). mass_kg or density sets the mass;
         otherwise it is estimated as solid PLA and flagged. Returns a picture of the model with the new
-        part highlighted. Collisions use the convex hull (a tube collides as a full cylinder)."""
+        part highlighted. Collisions use the convex hull (a tube collides as a full cylinder).
+        role: 'product' (default, shown on the 建模 page) or 'fixture' for something the product is
+        tested on or with (barbell, weight plate, table, wall): simulated, shown only on 仿真."""
         from . import modeling
         p = prj()
         out = modeling.add_shape(p, name, shape, size_mm, parent=parent, pos=pos, euler_deg=euler_deg,
-                                 mass_kg=mass_kg, density=density, rgba=rgba)
+                                 mass_kg=mass_kg, density=density, rgba=rgba, role=role)
         try:
             img = modeling.render(p, p.root / 'mechanics' / 'render.png', target=None, highlight=[name])
         except Exception as e:             # no OpenGL (headless): the part is made, only the picture is missing
@@ -876,12 +893,14 @@ def build_server(project_root=None, link=None):
     @tool()
     def part_edit(name: str, pos: list[float] | None = None, euler_deg: list[float] | None = None,
                   parent: str | None = None, mass_kg: float | None = None, rgba: list[float] | None = None,
-                  label: str | None = None) -> dict:
+                  label: str | None = None, role: str | None = None) -> dict:
         """Move, re-parent, re-weigh or recolour a part (pos in metres relative to its parent,
-        euler_deg in degrees, mass in kg). MuJoCo must still compile, otherwise nothing is saved."""
+        euler_deg in degrees, mass in kg), or mark it role='fixture' / 'product' (fixtures are what
+        the product is tested on; the 建模 page hides them). MuJoCo must still compile, otherwise
+        nothing is saved."""
         from . import modeling
         return modeling.part_edit(prj(), name, pos=pos, euler_deg=euler_deg, parent=parent, mass_kg=mass_kg,
-                                  rgba=rgba, label=label)
+                                  rgba=rgba, label=label, role=role)
 
     @tool()
     def part_delete(name: str, cascade: bool = False) -> dict:

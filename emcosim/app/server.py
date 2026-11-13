@@ -566,6 +566,8 @@ class Handler(BaseHTTPRequestHandler):
 
         if head == 'ai_setup' and method == 'GET':
             return _ai_setup(app.root)
+        if head == 'mcp_guide' and method == 'GET':
+            return _mcp_guide()
 
         if head == 'board' and p[1:] == ['check'] and method == 'POST':
             from .. import eda
@@ -731,6 +733,25 @@ def make_server(app: App, host='127.0.0.1', port=0):
         return _Server((host, 0), handler)
 
 
+_GUIDE = {}
+
+
+def _mcp_guide():
+    """The 'MCP 使用说明' page: every tool of the MCP server in plain words, plus Markdown to copy."""
+    if 'g' not in _GUIDE:
+        from ..mcp_docs import GROUPS, guide_markdown, mcp_guide
+        try:
+            import asyncio
+            from ..mcp_server import build_server
+            from .link import AppLink
+            tools = [(t.name, t.description) for t in asyncio.run(build_server(None, link=AppLink({})).list_tools())]
+        except Exception:      # MCP package missing: the written guide still lists the tools
+            tools = [(t, '') for _, _, _, rows in GROUPS for t, _, _ in rows]
+        sections = mcp_guide(tools)
+        _GUIDE['g'] = {'sections': sections, 'markdown': guide_markdown(sections), 'count': len(tools)}
+    return {**_GUIDE['g'], 'setup': _ai_setup()}
+
+
 def _ai_setup(root=None):
     """How to connect Claude Code / Codex to the MCP server, with this machine's paths. The MCP
     server follows the project open in the page (app/link.py), so no project is baked in."""
@@ -746,23 +767,30 @@ def _ai_setup(root=None):
     codex = f'[mcp_servers.emcosim]\ncommand = {json.dumps(cmd[0])}\nargs = [{toml_list}]'
     claude = claude.replace('claude mcp add emcosim', 'claude mcp add -s user emcosim', 1)
     codex_cfg = str(Path.home() / '.codex' / 'config.toml')
+    skill = lambda target: ' '.join(q(x) for x in [*cmd, 'skill', target])  # noqa: E731
     about = (
         '说明：你操作的就是我浏览器里开着的 SimWorld 页面。我可以直接跟你说“打开示例工程”“打开 D:\\xxx 这个工程”'
         '“新建一个工程”，你用 open_example、open_project、new_project，页面会跟着切过去。'
         '工程打开后，你可以改 3D 模型（model_edit）、用 KiCad 检查和修改 PCB（board_drc、board_edit）、'
         '跑电路检查（circuit_check）和仿真测试（run_scenario），结果会出现在页面上，还能查嘉立创元件（parts_search、part_info）。'
-        '改动前先告诉我要改什么。')
+        '设计前先读 SimWorld 的规则（skill 或 design_rules 工具），改动前先告诉我要改什么。')
     after = ('配好后：如果你现在就能调用 emcosim 的工具，调用 current_project，告诉我连上了、页面里现在打开的是哪个工程；'
              '如果要重启会话才生效，告诉我重启后说“检查 SimWorld”。\n\n')
     prompt_claude = (
         '请帮我把本机的 SimWorld 电子+物理仿真平台接到你这里（MCP 服务，stdio，服务名 emcosim）。\n\n'
         '在终端运行下面这条命令（已经装过 emcosim 的话先运行 claude mcp remove -s user emcosim）：\n'
-        f'{claude}\n\n' + after + about)
+        f'{claude}\n\n'
+        '再运行下面这条命令，装上 SimWorld 的使用规则（skill：三个页面各管什么、产品零件和测试夹具怎么分）：\n'
+        f'{skill("claude")}\n\n' + after + about)
     prompt_codex = (
         '请帮我把本机的 SimWorld 电子+物理仿真平台接到你这里（MCP 服务，stdio，服务名 emcosim）。\n\n'
         f'打开 {codex_cfg}（没有就新建），加入下面这段；已有 [mcp_servers.emcosim] 就整段替换：\n'
-        f'{codex}\n\n' + after + about)
-    return {'claude_code': claude, 'codex': codex, 'project': str(root) if root else None, 'codex_config': codex_cfg,
+        f'{codex}\n\n'
+        '再运行下面这条命令，装上 SimWorld 的使用规则（skill：三个页面各管什么、产品零件和测试夹具怎么分）；'
+        '如果你不读 ~/.codex/skills，就在开始设计前调用 emcosim 的 design_rules 工具读同样的规则：\n'
+        f'{skill("codex")}\n\n' + after + about)
+    return {'claude_code': claude, 'codex': codex, 'skill_claude_code': skill('claude'), 'skill_codex': skill('codex'),
+            'project': str(root) if root else None, 'codex_config': codex_cfg,
             'prompt_claude_code': prompt_claude, 'prompt_codex': prompt_codex}
 
 

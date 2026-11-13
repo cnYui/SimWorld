@@ -383,3 +383,43 @@ def test_board_parts_status_reports_a_wrong_lcsc(empty, monkeypatch):
     out = call(srv, 'board_parts_status')
     assert out['mismatches'] and out['mismatches'][0]['ref'] == 'R1'
     assert any('value 4.7k' in x for x in out['mismatches'][0]['problems'])
+
+
+def test_fixtures_stay_off_the_model_page(empty, tmp_path):
+    """A barbell is what the counter is tested on, not part of it: simulated, but the 建模 page
+    shows only the product parts (the strap on the bar stays a product part)."""
+    p, srv = empty
+    call_parts(srv, 'add_shape', {'name': 'bar', 'shape': 'cylinder', 'size_mm': [28, 1200], 'pos': [0, 0, 1.0],
+                                  'euler_deg': [0, 90, 0], 'mass_kg': 20, 'role': 'fixture'})
+    call_parts(srv, 'add_shape', {'name': 'case', 'shape': 'box', 'size_mm': [48, 26, 14], 'parent': 'bar',
+                                  'pos': [-0.021, 0, -0.35], 'euler_deg': [0, -90, 0], 'mass_kg': 0.03})
+    call_parts(srv, 'add_shape', {'name': 'plate', 'shape': 'cylinder', 'size_mm': [450, 50], 'parent': 'bar',
+                                  'pos': [0, 0, 0.5], 'mass_kg': 20})
+    with pytest.raises(ToolError, match='role'):
+        asyncio.run(srv.call_tool('add_shape', {'name': 'x', 'shape': 'box', 'size_mm': [1, 1, 1], 'role': 'jig'}))
+    out = call(srv, 'part_edit', {'name': 'plate', 'role': 'fixture'})
+    assert out['changed']['role'] == {'old': 'product', 'new': 'fixture'}
+    call(srv, 'define_joint', {'name': 'bar_lift', 'body': 'bar', 'type': 'slide', 'axis': [1, 0, 0],
+                               'range_mm': [-600, 600]})
+    prj = Project(p.root)
+    m = api.model_summary(prj)
+    assert [b['name'] for b in m['bodies']] == ['case'] and [x['name'] for x in m['parts']] == ['case']
+    assert {f['name'] for f in m['fixtures']} == {'bar', 'plate'} and m['fixture_joints'] == ['bar_lift']
+    assert m['joints'] == []
+    api.model_preview(prj, tmp_path / 'pv')
+    desc = json.loads((tmp_path / 'pv' / 'scene.json').read_text())
+    assert {g['name'] for g in desc['geoms']} == {'case_visual'}
+    info = call(srv, 'model_info', {'tag': 'part'})
+    assert {x['name']: x['role'] for x in info['part']} == {'bar': 'fixture', 'case': 'product', 'plate': 'fixture'}
+    call(srv, 'part_edit', {'name': 'plate', 'role': 'product'})
+    assert 'role' not in Project(p.root).data['mechanics']['parts']['plate']
+
+
+def test_design_rules_and_skill_install(empty, tmp_path):
+    from emcosim.skill import install_skill
+    _, srv = empty
+    res = asyncio.run(srv.call_tool('design_rules', {}))
+    text = json.dumps(res, ensure_ascii=False, default=str)
+    assert 'fixture' in text and '建模' in text and 'PCB 元件' in text
+    out = install_skill(tmp_path / 'skills')
+    assert out.read_text(encoding='utf8').startswith('---\nname: simworld\n')

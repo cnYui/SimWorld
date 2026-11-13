@@ -73,14 +73,16 @@ def _need(shape, s, n):
 
 
 def add_shape(project: Project, name, shape, size_mm, parent='world', pos=None, euler_deg=None, mass_kg=None,
-              density=None, rgba=None, collision='hull'):
+              density=None, rgba=None, collision='hull', role='product'):
+    if role not in api.PART_ROLES:
+        raise ValueError(f"role must be one of {api.PART_ROLES}, not {role!r}")
     m = _mesh(shape, size_mm)
     d = project.root / 'mechanics' / 'shapes'
     d.mkdir(parents=True, exist_ok=True)
     stl = d / f'{name}.stl'
     m.export(stl)
     out = api.import_model(project, stl, name=name, parent=parent, pos=pos, euler_deg=euler_deg, units='mm',
-                           density=density, mass_kg=mass_kg, collision=collision, rgba=rgba)
+                           density=density, mass_kg=mass_kg, collision=collision, rgba=rgba, role=role)
     project.data['mechanics']['parts'][name]['shape'] = {'type': shape, 'size_mm': [float(v) for v in size_mm]}
     project.save()
     return {**out, 'shape': shape, 'size_mm': size_mm}
@@ -97,9 +99,18 @@ def part_edit(project: Project, name, **changes):
         raise ValueError(f'no part {name!r}; parts: {sorted(parts) or "none"}')
     before = dict(parts[name])
     done = {}
-    for k in ('pos', 'euler_deg', 'parent', 'mass_kg', 'rgba', 'label'):
+    for k in ('pos', 'euler_deg', 'parent', 'mass_kg', 'rgba', 'label', 'role'):
         v = changes.get(k)
         if v is None:
+            continue
+        if k == 'role':
+            if v not in api.PART_ROLES:
+                raise ValueError(f"role must be one of {api.PART_ROLES}, not {v!r}")
+            done[k] = {'old': before.get('role', 'product'), 'new': v}
+            if v == 'fixture':
+                parts[name]['role'] = 'fixture'
+            else:
+                parts[name].pop('role', None)
             continue
         if k == 'parent' and v not in ('world',) and v not in parts:
             raise ValueError(f'parent {v!r} is not a part; parts: {sorted(parts)}')
@@ -114,7 +125,7 @@ def part_edit(project: Project, name, **changes):
                 scale = float(v) / float(before['mass_kg'])
                 parts[name]['inertia_kg_m2'] = (np.asarray(parts[name]['inertia_kg_m2']) * scale).tolist()
     if not done:
-        raise ValueError('nothing to change: give pos, euler_deg, parent, mass_kg, rgba or label')
+        raise ValueError('nothing to change: give pos, euler_deg, parent, mass_kg, rgba, label or role')
     try:
         _check_compiles(project)
     except Exception as e:
@@ -215,7 +226,8 @@ def model_summary(project: Project, tag=None):
                         'euler_deg': v.get('euler_deg'), 'mass_kg': v.get('mass_kg'),
                         'mass_source': 'assumed (default density)' if v.get('mass_assumed') else
                         ('given' if v.get('density_kg_m3') is None else f'density {v.get("density_kg_m3")} kg/m3'),
-                        'shape': v.get('shape'), 'source': v.get('source'), 'bounds_m': v.get('bounds_m')}
+                        'shape': v.get('shape'), 'source': v.get('source'), 'bounds_m': v.get('bounds_m'),
+                        'role': v.get('role', 'product')}
                        for n, v in parts.items()]
     out['units'] = 'metres, kg, degrees for hinge joints, mm for slide joints'
     out['model'] = 'MJCF + parts' if (project.data.get('mechanics') or {}).get('mjcf') else 'parts'

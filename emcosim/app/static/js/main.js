@@ -69,12 +69,14 @@ function fromHash() {
   else show(advanced ? (store.app?.project ? 'overview' : 'start') : 'panel');
 }
 
-// Simple mode (default): only the panel. Advanced mode shows the navigation rail
-// with parameters, sweeps, printing and settings.
+// Only the simple panel is shown. The advanced screens (navigation rail with parameters, sweeps,
+// printing, settings) are hidden: their features are moving into the panel pages, and the code
+// stays until that is done. A browser that had advanced mode switched on is brought back too.
+const ADVANCED_ENABLED = false;
 let advanced = false;
-try { advanced = localStorage.getItem('emcosim.advanced') === '1'; } catch (e) { /* ignore */ }
+try { localStorage.removeItem('emcosim.advanced'); } catch (e) { /* ignore */ }
 function setAdvanced(on) {
-  advanced = !!on;
+  advanced = ADVANCED_ENABLED && !!on;
   try { localStorage.setItem('emcosim.advanced', advanced ? '1' : '0'); } catch (e) { /* ignore */ }
   document.getElementById('app').classList.toggle('simple', !advanced);
   renderStatus();

@@ -83,8 +83,9 @@ DEFAULT_DENSITY = 1240.0       # kg/m3, about PLA; only used when neither mass n
 
 
 def import_model(project: Project, path, name=None, parent='world', pos=None, euler_deg=None,
-                 units='mm', density=None, mass_kg=None, collision='hull', rgba=None):
-    """STL/STEP/OBJ part, or an MJCF (.xml) used as the mechanical base model."""
+                 units='mm', density=None, mass_kg=None, collision='hull', rgba=None, role='product'):
+    """STL/STEP/OBJ part, or an MJCF (.xml) used as the mechanical base model. role: 'product' (what
+    is being designed, shown on the 建模 page) or 'fixture' (what it is tested on, 仿真 page only)."""
     path = Path(path)
     if path.suffix.lower() == '.xml':
         rel = Path(_relpath(path.resolve(), project.root))
@@ -95,6 +96,8 @@ def import_model(project: Project, path, name=None, parent='world', pos=None, eu
         return {'mjcf': str(rel), 'bodies': [m.body(i).name for i in range(m.nbody)],
                 'joints': [m.joint(i).name for i in range(m.njnt)]}
     from .importers.mesh import import_mesh
+    if role not in PART_ROLES:
+        raise ValueError(f"role must be one of {PART_ROLES}, not {role!r}")
     name = name or path.stem
     warnings = []
     assumed_density = mass_kg is None and density is None
@@ -118,9 +121,11 @@ def import_model(project: Project, path, name=None, parent='world', pos=None, eu
         info['euler_deg'] = euler_deg
     if rgba:
         info['rgba'] = rgba
+    if role == 'fixture':
+        info['role'] = 'fixture'
     parts[name] = info
     project.save()
-    out = {'part': name, **{k: info[k] for k in ('mass_kg', 'bounds_m', 'watertight', 'collision')},
+    out = {'part': name, 'role': role, **{k: info[k] for k in ('mass_kg', 'bounds_m', 'watertight', 'collision')},
            'units': {'pos': 'm', 'bounds_m': 'm', 'mesh': units}}
     if warnings:
         out['warnings'] = warnings
@@ -141,7 +146,12 @@ def model_summary(project: Project):
     for name, part in (mech.get('parts') or {}).items():
         labels.setdefault(name, {'label': part.get('label') or name, 'print': part.get('print')})
     out['labels'] = labels
+    fixture = fixture_test(project)
+    out['fixtures'] = [{'name': n, 'label': (labels.get(n) or {}).get('label') or n} for n in fixture_names(project)]
+    out['fixture_joints'] = []
     for name, part in (mech.get('parts') or {}).items():
+        if fixture(None, name):
+            continue
         out['parts'].append({'name': name, 'file': part.get('file'), 'mass_kg': part.get('mass_kg'),
                              'parent': part.get('parent', 'world')})
     for name, pp in ((project.data.get('printing') or {}).get('parts') or {}).items():
@@ -168,11 +178,12 @@ def model_summary(project: Project):
              mujoco.mjtJoint.mjJNT_BALL: 'ball', mujoco.mjtJoint.mjJNT_FREE: 'free'}
     geoms = {}
     for g in range(m.ngeom):
-        if m.geom_group[g] <= 2 and m.geom_rgba[g][3] > 0 and not is_pcb_geom(m.geom(g).name):
+        if m.geom_group[g] <= 2 and m.geom_rgba[g][3] > 0 and not is_pcb_geom(m.geom(g).name) \
+                and not fixture(m.geom(g).name, m.body(int(m.geom_bodyid[g])).name):
             b = int(m.geom_bodyid[g])
             geoms[b] = geoms.get(b, 0) + 1
     for b in range(1, m.nbody):
-        if m.body(b).name == 'pcb':
+        if m.body(b).name == 'pcb' or fixture(None, m.body(b).name):
             continue
         out['bodies'].append({'name': m.body(b).name, 'parent': m.body(int(m.body_parentid[b])).name or 'world',
                               'mass_kg': round(float(m.body_mass[b]), 6), 'geoms': geoms.get(b, 0)})
@@ -181,6 +192,9 @@ def model_summary(project: Project):
         name = m.joint(j).name
         jt = types.get(int(m.jnt_type[j]), 'other')
         row = {'name': name, 'type': jt, 'body': m.body(int(m.jnt_bodyid[j])).name}
+        if fixture(None, row['body']):
+            out['fixture_joints'].append(name)
+            continue
         if m.jnt_limited[j]:
             lo, hi = (float(x) for x in m.jnt_range[j])
             row['range'] = [round(np.degrees(lo), 2), round(np.degrees(hi), 2)] if jt == 'hinge' else [lo, hi]
@@ -195,17 +209,45 @@ def is_pcb_geom(name):
     return (name or '').startswith('pcb_')
 
 
+PART_ROLES = ('product', 'fixture')
+
+
+def fixture_test(project: Project):
+    """Test fixtures are the things a product is tested on or with (a barbell, a table, a wall, a
+    wall switch), not part of what is designed. They are simulated but not shown on the 建模 page.
+    A part is one when its record has role: fixture; an MJCF model lists them under
+    mechanics.fixtures (body names or geom-name prefixes). Returns test(geom_name, body_name)."""
+    mech = project.data.get('mechanics') or {}
+    bodies = {n for n, p in (mech.get('parts') or {}).items() if (p or {}).get('role') == 'fixture'}
+    keys = [str(k) for k in (mech.get('fixtures') or [])]
+
+    def test(geom, body=None):
+        if body in bodies or body in keys:
+            return True
+        g = geom or ''
+        return any(g == k or g.startswith(k + '_') for k in keys)
+    return test
+
+
+def fixture_names(project: Project):
+    """Fixture parts and mechanics.fixtures entries, for the pages and the AI."""
+    mech = project.data.get('mechanics') or {}
+    return sorted({n for n, p in (mech.get('parts') or {}).items() if (p or {}).get('role') == 'fixture'}
+                  | {str(k) for k in (mech.get('fixtures') or [])})
+
+
 def model_preview(project: Project, out_dir):
     """scene.json / scene.bin / frames.bin of the model at its initial pose (one frame), in the
     same format as a run, so the page shows the model before anything has been simulated.
-    Mechanical parts only: the PCB is shown on the PCB page, not here."""
+    Product parts only: the PCB is shown on the PCB page and test fixtures on the 仿真 page."""
     from .mechanics import Mechanics
     from .results import write_scene
     mech = Mechanics(project.root, project.data.get('mechanics') or {}, None)
     ids = mech.visual_bodies()
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
-    write_scene(mech.model, ids, out_dir, skip=is_pcb_geom)
+    fixture = fixture_test(project)
+    write_scene(mech.model, ids, out_dir, skip=lambda g, b: is_pcb_geom(g) or fixture(g, b))
     pose = mech.poses(ids).astype(np.float32)
     with open(out_dir / 'frames.bin', 'wb') as f:
         f.write(np.array([1, len(ids)], dtype=np.int32).tobytes())

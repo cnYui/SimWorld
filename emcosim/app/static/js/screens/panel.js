@@ -4,7 +4,7 @@ import { get, post, upload, authUrl } from '../api.js';
 import { store } from '../store.js';
 import { h, icon, clear, toast, toastError, fmtNum, cssVar, modal, copyText, pathField, nativePick } from '../ui.js';
 import { TimeChart } from '../chart.js';
-import { powerCards, printCards, mechCards } from './pfields.js';
+import { powerCards, printCards, mechCards, fixtureCards } from './pfields.js';
 
 const SIGS = ['source.charger.i', 'branch.f1.i', 'node.v5_servo.v', 'act.servo1.i_supply', 'act.servo1.pulse_us',
   'joint.servo_axis.deg', 'joint.rocker_axis.deg', 'probe.press.force_n', 'act.servo1.torque',
@@ -31,14 +31,17 @@ export function createPanel(ctx) {
       D.tabPcb = navItem('pcb', 'board', 'PCB 元件'),
       D.tabModel = navItem('model', 'shapes', '建模'),
       D.tabSim = navItem('sim', 'cube', '仿真'),
+      D.tabGuide = h('button', { class: 'pn-nav-item', title: 'MCP 使用说明：AI 能用的每个工具做什么、什么时候用', onclick: () => showGuide(true) },
+        icon('file'), h('span', { class: 'pn-nav-label' }, 'MCP 使用说明')),
       D.projBox = h('div', { class: 'pn-proj' }),
       h('div', { class: 'pn-nav-bottom' }, navItemBtn('settings', '设置', () => showSettings()))),
     h('div', { class: 'pn-main' },
       D.welcome = h('div', { class: 'pn-welcome', hidden: true }),
+      D.guide = h('div', { class: 'pn-guide', hidden: true }),
       D.banner = h('div', { class: 'pn-banner', hidden: true }),
       D.sim = h('div', { class: 'pn-sim' },
         D.simModes = h('div', { class: 'pn-tabs pn-sim-modes', role: 'tablist' },
-          ...[['replay', '运动回放'], ['stress', '强度和应力'], ['history', '历史结果']].map(([m, l]) =>
+          ...[['replay', '运动回放'], ['stress', '强度和应力'], ['env', '测试环境'], ['history', '历史结果']].map(([m, l]) =>
             h('button', { 'data-mode': m, role: 'tab', onclick: () => setSimMode(m) }, l))),
         D.view = h('div', { class: 'pn-view' }, h('span', { class: 'pn-tag' }, '打印件、PCB 与外壳同一场景'),
           D.viewEmpty = h('div', { class: 'pn-empty-over' }, icon('cube'), D.viewEmptyTitle = h('div', {}, '还没有运行结果'),
@@ -47,6 +50,7 @@ export function createPanel(ctx) {
           D.stressView = h('div', { class: 'pn-view pn-stress-view' }, D.stressTag = h('span', { class: 'pn-tag' }, '3D 参考图：颜色是应力'),
             D.stressLegend = h('div', { class: 'pn-stress-legend', hidden: true })),
           D.stressInfo = h('div', { class: 'pn-stress-info' })),
+        D.env = h('div', { class: 'pn-history pn-env', hidden: true }),
         D.history = h('div', { class: 'pn-history', hidden: true })),
       D.pcb = h('div', { class: 'pn-pcb', hidden: true },
         D.parts = h('div', { class: 'pn-parts-wrap' }),
@@ -81,8 +85,7 @@ export function createPanel(ctx) {
         h('div', { class: 'pn-side-title' }, '状态'),
         D.readout = h('div', { class: 'pn-readout' })),
       h('div', { class: 'pn-side-sec pn-tools' },
-        h('button', { class: 'btn', onclick: () => showAiSetup(), title: '让你的 Claude Code 或 Codex 来改模型、改板子、跑测试' }, icon('link'), '连接 AI'),
-        h('button', { class: 'btn', onclick: () => ctx.setAdvanced(true), title: '参数表、扫参、打印、设置' }, icon('sliders'), '高级功能')),
+        h('button', { class: 'btn', onclick: () => showAiSetup(), title: '让你的 Claude Code 或 Codex 来改模型、改板子、跑测试' }, icon('link'), '连接 AI')),
       h('div', { class: 'pn-foot muted' }, '电机、电源、开关参数是估计值，没有用实物测过；结果用来比较方案，不当作精确数值。')),
   );
   function setNav(collapsed) {
@@ -156,7 +159,7 @@ export function createPanel(ctx) {
     else if (j.status === 'cancelled') { pendingJob = null; setBanner('', ''); }
     renderTests();
   });
-  store.on('project', () => { if (!el.hidden) { renderTests(); renderProjBox(); renderSimEmpty(); if (tab === 'model') renderModel(); if (tab === 'pcb') { renderPower(); renderWiring(); } } });
+  store.on('project', () => { if (!el.hidden) { renderTests(); renderProjBox(); renderSimEmpty(); if (tab === 'model') renderModel(); if (tab === 'sim' && simMode === 'env') renderEnv(); if (tab === 'pcb') { renderPower(); renderWiring(); } } });
   let knownRuns = null;
   store.on('runs', () => {
     const ids = store.runs.map((r) => r.run_id);
@@ -326,11 +329,27 @@ export function createPanel(ctx) {
   function setSimMode(m) {
     simMode = m;
     for (const b of D.simModes.children) { const on = b.dataset.mode === m; b.classList.toggle('active', on); b.setAttribute('aria-selected', String(on)); }
-    D.view.hidden = m !== 'replay'; D.stress.hidden = m !== 'stress'; D.history.hidden = m !== 'history';
+    D.view.hidden = m !== 'replay'; D.stress.hidden = m !== 'stress'; D.history.hidden = m !== 'history'; D.env.hidden = m !== 'env';
     el.classList.toggle('sim-other', m !== 'replay');
     if (m === 'stress') loadChecks();
+    else if (m === 'env') renderEnv();
     else if (m === 'history') renderHistory();
     else main3d?.resize();
+  }
+
+  // test fixtures (barbell, table, wall...): what the product is tested on, set up here and not on 建模
+  async function renderEnv() {
+    let m;
+    try { m = await get('model'); } catch (e) { clear(D.env).append(h('div', { class: 'pn-banner bad' }, e.message)); return; }
+    if (simMode !== 'env') return;
+    const names = [...new Set((m.fixtures || []).map((f) => f.label))];
+    const cards = fixtureCards(m.fixture_joints || []);
+    clear(D.env).append(
+      h('div', { class: 'pn-sec-head' }, h('strong', {}, '测试夹具和环境'),
+        h('span', { class: 'muted small' }, '产品在什么上面测试：杠铃、桌面、墙、开关等。它们参与仿真，但不是要设计的零件，所以不在“建模”页里。')),
+      names.length ? h('div', {}, '这个工程的夹具：', names.join('、'))
+        : h('div', { class: 'pn-side-empty' }, '这个工程还没有测试夹具。测试需要的桌面、杠铃、墙这些，让 AI 加测试时一起放进来（它会把它们标成夹具）。'),
+      cards.length ? h('div', { class: 'pf-grid' }, ...cards) : null);
   }
 
   const MODE_ZH = { in_plane: '层内断裂', interlayer_normal: '层与层被拉开', interlayer_shear: '层与层错开', interlayer_combined: '层间综合' };
@@ -754,6 +773,7 @@ export function createPanel(ctx) {
   // ------------------------------------------------------------ PCB parts page
   let tab = 'sim', boards = null, boardImg = 'board';
   function setTab(t) {
+    showGuide(false);
     tab = t;
     D.tabSim.classList.toggle('active', t === 'sim'); D.tabPcb.classList.toggle('active', t === 'pcb');
     D.tabModel.classList.toggle('active', t === 'model');
@@ -765,6 +785,46 @@ export function createPanel(ctx) {
     if (t === 'pcb') renderPcbPage();
     else if (t === 'model') renderModel();
     else main3d?.resize();
+  }
+
+  // ------------------------------------------------------------ MCP 使用说明: every MCP tool in plain words
+  let guide = null;
+  function showGuide(on) {
+    D.guide.hidden = !on;
+    el.classList.toggle('show-guide', on);
+    D.tabGuide.classList.toggle('active', on);
+    if (on) {
+      for (const b of [D.tabSim, D.tabPcb, D.tabModel]) b.classList.remove('active');
+      renderGuide();
+    } else {
+      const t = typeof tab === 'string' ? tab : 'sim';
+      D.tabSim.classList.toggle('active', t === 'sim'); D.tabPcb.classList.toggle('active', t === 'pcb');
+      D.tabModel.classList.toggle('active', t === 'model');
+    }
+  }
+
+  async function renderGuide() {
+    if (!guide) {
+      clear(D.guide).append(h('div', { class: 'muted' }, '读取中…'));
+      try { guide = await get('mcp_guide'); } catch (e) { clear(D.guide).append(h('div', { class: 'pn-banner bad' }, e.message)); return; }
+    }
+    const g = guide;
+    clear(D.guide).append(
+      h('div', { class: 'pn-guide-head' },
+        h('div', {}, h('h2', {}, 'MCP 使用说明'),
+          h('p', { class: 'muted' }, `SimWorld 把建模、PCB、仿真的能力做成了 ${g.count} 个工具，通过 MCP 交给你自己的 AI（Claude Code、Codex）。`,
+            '你跟 AI 说想做什么，它会挑合适的工具去做，结果会出现在这个页面上。下面是每个工具能做什么、什么时候用；可以自己看，也可以整份复制发给 AI。')),
+        h('div', { class: 'pn-model-acts' },
+          h('button', { class: 'btn primary', onclick: () => copyText(g.markdown, '已复制，可以直接发给你的 AI') }, icon('copy'), '复制全文给 AI'),
+          h('button', { class: 'btn', onclick: () => showAiSetup() }, icon('link'), '还没连 AI？'))),
+      ...g.sections.map((sec) => h('section', { class: 'pn-guide-sec' },
+        h('div', { class: 'pn-sec-head' }, h('strong', {}, sec.title),
+          sec.page && sec.page !== '全部' && sec.page !== sec.title ? h('span', { class: 'pn-guide-page' }, `${sec.page}页`) : null,
+          h('span', { class: 'muted small' }, sec.intro)),
+        h('table', { class: 'pn-parts pn-guide-table' },
+          h('thead', {}, h('tr', {}, ['工具', '能做什么', '什么时候用'].map((x) => h('th', {}, x)))),
+          h('tbody', {}, sec.tools.map((t) => h('tr', {},
+            h('td', { class: 'mono' }, t.name), h('td', {}, t.what), h('td', { class: 'muted' }, t.when || '–'))))))));
   }
 
   function openShop(url) {
@@ -900,6 +960,8 @@ export function createPanel(ctx) {
         model.error ? h('div', { class: 'pn-banner bad' }, `模型编译失败：${model.error}`) : null,
         h('div', { class: 'pn-side-title' }, '零件', h('span', { class: 'muted small' }, '  点一下在 3D 里标出来，眼睛按钮单独看')),
         D.partList = h('div', { class: 'pn-plist' }),
+        model.fixtures?.length ? h('div', { class: 'muted small' },
+          `测试用的 ${[...new Set(model.fixtures.map((f) => f.label))].join('、')} 不是要设计的零件，在“仿真”页的“测试环境”里。`) : null,
         h('div', { class: 'pn-side-title' }, '活动关节'),
         model.joints.length ? h('table', { class: 'pn-parts' },
           h('thead', {}, h('tr', {}, ['名称', '方式', '零件', '范围'].map((x) => h('th', {}, x)))),
@@ -987,7 +1049,7 @@ export function createPanel(ctx) {
         h('button', { class: 'btn sm primary', onclick: () => sendPrint(true) }, icon('send'), '发到 Bambu Studio')) : null));
     D.modelMat.hidden = !pc.length;
     if (pc.length) D.modelMat.append(h('div', { class: 'pf-grid' }, ...pc));
-    const mc = mechCards(store.project?.presets, model.gear_defaults);
+    const mc = mechCards(store.project?.presets, model.gear_defaults, model.fixture_joints || []);
     clear(D.modelMech).append(h('div', { class: 'pn-sec-head' }, h('strong', {}, '机构参数'),
       h('span', { class: 'muted small' }, '电机型号、齿轮、开关手感、开始角度')), h('div', { class: 'pf-grid' }, ...mc));
     D.modelMech.hidden = !mc.length;

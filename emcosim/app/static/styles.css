@@ -824,3 +824,18 @@ select.pf-in { width: auto; text-align: left; }
 .pn-pl-row .btn.sm { height: 22px; padding: 0 6px; }
 .pn-pl-row .btn svg { width: 14px; height: 14px; }
 .pf-card.flash { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-weak); transition: box-shadow 0.2s; }
+
+/* MCP 使用说明: a full-width document instead of the page's views */
+.show-guide .pn-main > :not(.pn-guide), .show-guide .pn-bottom, .show-guide .pn-side { display: none !important; }
+.screen.panel.show-guide { grid-template-areas: "nav main main" "nav main main"; }
+.pn-guide { flex: 1; min-height: 0; overflow: auto; display: flex; flex-direction: column; gap: 14px; padding: 8px 6px 24px; max-width: 1100px; }
+.pn-guide[hidden] { display: none; }
+.pn-guide-head { display: flex; gap: 16px; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; }
+.pn-guide-head h2 { margin: 0 0 4px; font-size: 20px; }
+.pn-guide-head p { margin: 0; max-width: 720px; line-height: 1.6; }
+.pn-guide-sec { display: flex; flex-direction: column; gap: 6px; }
+.pn-guide-sec .pn-sec-head { display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; }
+.pn-guide-page { font-size: 12px; padding: 1px 7px; border-radius: 10px; background: var(--accent-weak); color: var(--accent); }
+.pn-guide-table td { line-height: 1.5; }
+.pn-guide-table td.mono { white-space: nowrap; width: 1%; }
+.pn-guide-table td:last-child { width: 32%; }

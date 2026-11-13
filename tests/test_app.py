@@ -80,14 +80,16 @@ def _raw(client, method, path):
 def test_model_page_summary_and_preview(client):
     code, m = client('GET', 'model')
     assert code == 200 and m['has_model'] and not m['error']
-    assert {b['name'] for b in m['bodies']} >= {'press_arm', 'rocker'}
+    names = {b['name'] for b in m['bodies']}
+    assert 'press_arm' in names and 'rocker' not in names            # the wall switch is a test fixture
+    assert {'wall', 'rocker'} <= {f['name'] for f in m['fixtures']} and 'rocker_axis' in m['fixture_joints']
     servo = next(j for j in m['joints'] if j['name'] == 'servo_axis')
     assert servo['type'] == 'hinge' and servo['range'] == [-40, 40]
     assert any(p['label'] == '按压臂' and p['exists'] for p in m['print_parts'])
     assert m['materials']['PETG']['layer_strength_mpa'] > 0
     assert m['labels']['arm'] == {'label': '按压臂', 'print': 'press_arm'} and m['labels']['plate']['label'] == '开关面板'
     desc = json.loads(_raw(client, 'GET', 'model/scene.json'))
-    assert desc['geoms'] and not any(g['name'].startswith('pcb_') for g in desc['geoms'])
+    assert desc['geoms'] and not any(g['name'].startswith(('pcb_', 'wall', 'rocker', 'plate')) for g in desc['geoms'])
     frames = _raw(client, 'GET', 'model/frames.bin')
     n, nb = (int.from_bytes(frames[i:i + 4], 'little') for i in (0, 4))
     assert n == 1 and nb == len(desc['bodies']) and len(frames) == 8 + 4 + nb * 7 * 4

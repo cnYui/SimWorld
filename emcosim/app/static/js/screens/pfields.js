@@ -125,8 +125,9 @@ export function printCards(materials) {
   }).filter(Boolean);
 }
 
-/** Mechanism settings: servo model, switch feel, start angles. */
-export function mechCards(presets, gearDefaults) {
+/** Mechanism settings: servo model, switch feel, start angles. Joints in `skip` belong to test
+ *  fixtures and are edited on the 仿真 page (fixtureCards). */
+export function mechCards(presets, gearDefaults, skip = []) {
   const d = store.project?.data || {};
   const cards = [];
   for (const [name, a] of Object.entries(d.actuators || {})) {
@@ -148,21 +149,49 @@ export function mechCards(presets, gearDefaults) {
     }
   }
   for (const [name, e] of Object.entries(d.mechanics?.elements || {})) {
-    if (e.type !== 'bistable') continue;
+    if (e.type !== 'bistable' || skip.includes(e.joint)) continue;
     cards.push(paramCard(`开关手感 ${name}`, [
       { path: `mechanics.elements.${name}.stable_deg`, label: '翘板停的角度', unit: '°' },
       { path: `mechanics.elements.${name}.peak_force_n`, label: '按过去要的力', unit: 'N' },
       { path: `mechanics.elements.${name}.lever_m`, label: '按压点到转轴', unit: 'mm', scale: 1e-3 },
     ], { sub: e.joint ? `关节 ${e.joint}` : '' }));
   }
-  const init = d.mechanics?.initial_deg || {};
-  if (Object.keys(init).length) {
-    cards.push(paramCard('开始时的角度', Object.keys(init).map((j) => ({ path: `mechanics.initial_deg.${j}`, label: j, unit: '°' }))));
+  const init = Object.keys(d.mechanics?.initial_deg || {}).filter((j) => !skip.includes(j));
+  if (init.length) {
+    cards.push(paramCard('开始时的角度', init.map((j) => ({ path: `mechanics.initial_deg.${j}`, label: j, unit: '°' }))));
   }
   for (const [name, part] of Object.entries(d.mechanics?.parts || {})) {
+    if (part.role === 'fixture') continue;
     cards.push(paramCard(`导入零件 ${name}`, [
       { path: `mechanics.parts.${name}.mass_kg`, label: '质量', unit: 'g', scale: 1e-3 },
     ], { sub: part.source || part.file }));
+  }
+  return cards.filter(Boolean);
+}
+
+// ------------------------------------------------------------ 仿真 page: test fixtures
+
+/** What the product is tested on: switch feel and start angles of fixture joints, fixture masses. */
+export function fixtureCards(fixtureJoints = []) {
+  const d = store.project?.data || {};
+  const cards = [];
+  for (const [name, e] of Object.entries(d.mechanics?.elements || {})) {
+    if (e.type !== 'bistable' || !fixtureJoints.includes(e.joint)) continue;
+    cards.push(paramCard(`开关手感 ${name}`, [
+      { path: `mechanics.elements.${name}.stable_deg`, label: '翘板停的角度', unit: '°' },
+      { path: `mechanics.elements.${name}.peak_force_n`, label: '按过去要的力', unit: 'N' },
+      { path: `mechanics.elements.${name}.lever_m`, label: '按压点到转轴', unit: 'mm', scale: 1e-3 },
+    ], { sub: e.joint ? `关节 ${e.joint}` : '' }));
+  }
+  const init = Object.keys(d.mechanics?.initial_deg || {}).filter((j) => fixtureJoints.includes(j));
+  if (init.length) {
+    cards.push(paramCard('夹具开始时的角度', init.map((j) => ({ path: `mechanics.initial_deg.${j}`, label: j, unit: '°' }))));
+  }
+  for (const [name, part] of Object.entries(d.mechanics?.parts || {})) {
+    if (part.role !== 'fixture') continue;
+    cards.push(paramCard(`夹具 ${part.label || name}`, [
+      { path: `mechanics.parts.${name}.mass_kg`, label: '质量', unit: 'g', scale: 1e-3 },
+    ], { sub: part.shape ? `${part.shape.type} ${part.shape.size_mm.join(' × ')} mm` : (part.source || part.file) }));
   }
   return cards.filter(Boolean);
 }
