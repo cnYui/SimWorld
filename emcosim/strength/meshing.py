@@ -23,6 +23,9 @@ import numpy as np
 _MEM_CACHE: dict = {}
 
 
+_DLL_DIRS = {}
+
+
 def _ftetwild():
     """Return the compiled fTetWild wrapper module of `pytetwild`.
 
@@ -36,6 +39,11 @@ def _ftetwild():
     libs = [f for f in glob.glob(os.path.join(d, 'PyfTetWildWrapper*')) if f.endswith(('.so', '.pyd'))]
     if not libs:
         raise ImportError(f'pytetwild extension not found in {d}')
+    # Windows wheels are built with delvewheel: the bundled DLLs sit in ../pytetwild.libs and the
+    # package __init__ we skip is what normally adds that folder to the DLL search path.
+    dll_dir = os.path.normpath(os.path.join(d, os.pardir, 'pytetwild.libs'))
+    if os.name == 'nt' and os.path.isdir(dll_dir) and dll_dir not in _DLL_DIRS:
+        _DLL_DIRS[dll_dir] = os.add_dll_directory(dll_dir)
     s2 = importlib.util.spec_from_file_location('PyfTetWildWrapper', libs[0])
     mod = importlib.util.module_from_spec(s2)
     s2.loader.exec_module(mod)

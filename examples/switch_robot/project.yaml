@@ -53,6 +53,27 @@ power:
 mechanics:
   timestep_s: 0.000125
   parts: {}
+  # names the 建模 page shows for the parts of the MJCF (geom name prefix -> name); geoms that share
+  # a name are one part there. `print` links a part to its entry under printing.parts.
+  part_labels:
+    wall: 墙
+    plate: 开关面板
+    frame: {label: 86 盒框, print: frame}
+    cradle: {label: 舵机支架, print: servo_cradle}
+    servo: 舵机
+    shaft: 舵机输出轴
+    arm: {label: 按压臂, print: press_arm}
+    rocker: 开关翘板
+    servo_lead: 舵机线
+    j3_plug: 舵机线
+    socket_plate: 插座
+    socket_slot: 插座
+    charger: 充电头
+    charger_usb: 充电头
+    usb_cable: USB 线
+    usb_plug: USB 线
+    case: {label: 网关盒, print: gateway_case}
+    lid: {label: 网关盒盖, print: gateway_lid}
   joints:
     servo_axis:
       body: press_arm

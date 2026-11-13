@@ -405,8 +405,8 @@ class Handler(BaseHTTPRequestHandler):
                     import skfem  # noqa: F401
                     from ..strength.meshing import _ftetwild
                     _ftetwild()
-                except ImportError:
-                    raise ApiError('强度检测要的有限元库还没装。运行 scripts\\setup 后再试。', 409)
+                except ImportError as e:
+                    raise ApiError(f'强度检测要的有限元库还没装好（{e}）。运行 scripts\\setup 后再试。', 409)
                 return app.jobs.submit('strength', part=b['part'], run_id=b.get('run_id'))
             if p[1:] == ['sweep'] and method == 'POST':
                 app.project()

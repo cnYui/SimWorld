@@ -98,6 +98,13 @@ def model_summary(project: Project):
     """What the 建模 page lists: the mechanical model, its parts and joints, and the print parts."""
     mech = project.data.get('mechanics') or {}
     out = {'mjcf': mech.get('mjcf'), 'parts': [], 'bodies': [], 'joints': [], 'print_parts': [], 'error': None}
+    labels = {}
+    for key, v in (mech.get('part_labels') or {}).items():
+        v = v if isinstance(v, dict) else {'label': v}
+        labels[str(key)] = {'label': str(v.get('label') or key), 'print': v.get('print')}
+    for name, part in (mech.get('parts') or {}).items():
+        labels.setdefault(name, {'label': part.get('label') or name, 'print': part.get('print')})
+    out['labels'] = labels
     for name, part in (mech.get('parts') or {}).items():
         out['parts'].append({'name': name, 'file': part.get('file'), 'mass_kg': part.get('mass_kg'),
                              'parent': part.get('parent', 'world')})

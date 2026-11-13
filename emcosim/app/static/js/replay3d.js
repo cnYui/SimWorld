@@ -116,6 +116,8 @@ export class Replay3D {
       const mesh = new THREE.Mesh(geo, mat);
       mesh.position.fromArray(g.pos);
       mesh.quaternion.copy(quat(g.quat));
+      mesh.userData.geom = g.name || '';
+      mesh.userData.body = desc.bodies[g.body];
       this.bodies[g.body].add(mesh);
     }
     const head = new Int32Array(fr, 0, 2);

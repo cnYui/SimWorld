@@ -115,6 +115,7 @@ export function printCards(materials) {
       { path: `${base}.settings.wall_loops`, label: '墙层数', unit: '层' },
       { path: `${base}.settings.sparse_infill_density`, label: '填充', unit: '%', pct: true },
     ], { sub: (pp.file || '').split(/[\\/]/).pop() });
+    card?.setAttribute('data-print', name);
     const m = materials?.[pp.material];
     if (card && m) {
       card.append(h('div', { class: 'muted small' },

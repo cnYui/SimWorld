@@ -806,3 +806,21 @@ select.pf-in { width: auto; text-align: left; }
 .pn-ck-big.bad, td.bad { color: var(--bad); }
 .pn-history tr.cur td { background: var(--accent-weak); }
 @media (max-width: 900px) { .pn-stress { grid-template-columns: 1fr; } }
+
+/* 建模 page: part toolbar over the 3D view and the clickable part list */
+.pn-mtools { position: absolute; left: 8px; bottom: 8px; z-index: 1; display: flex; gap: 6px; align-items: center; flex-wrap: wrap;
+  background: color-mix(in srgb, var(--panel) 88%, transparent); border: 1px solid var(--line); border-radius: 8px; padding: 5px 6px; }
+.pn-mtools .btn[hidden] { display: none; }
+.pn-mt-range { display: flex; align-items: center; gap: 6px; font-size: 12px; padding: 0 4px; color: var(--text-2); }
+.pn-mt-range svg { width: 16px; height: 16px; }
+.pn-mt-range input { width: 120px; accent-color: var(--accent); }
+.pn-plist { display: flex; flex-direction: column; gap: 2px; }
+.pn-pl-row { display: flex; align-items: center; gap: 8px; padding: 5px 6px; border-radius: 6px; cursor: pointer; border: 1px solid transparent; }
+.pn-pl-row:hover { background: var(--hover); }
+.pn-pl-row.on { background: var(--accent-weak); border-color: var(--accent); }
+.pn-pl-row.dim { opacity: 0.45; }
+.pn-pl-sw { width: 12px; height: 12px; border-radius: 3px; flex: none; border: 1px solid rgba(0, 0, 0, 0.2); }
+.pn-pl-name { flex: 1; min-width: 0; display: flex; flex-direction: column; font-size: 13px; }
+.pn-pl-row .btn.sm { height: 22px; padding: 0 6px; }
+.pn-pl-row .btn svg { width: 14px; height: 14px; }
+.pf-card.flash { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-weak); transition: box-shadow 0.2s; }

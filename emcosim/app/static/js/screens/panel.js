@@ -807,17 +807,13 @@ export function createPanel(ctx) {
         model.print_parts.length ? printList() : null));
       return;
     }
-    const view = D.modelView ||= h('div', { class: 'pn-view pn-model-view' }, h('span', { class: 'pn-tag' }, '初始姿态，拖动可旋转、滚轮缩放'));
+    const view = D.modelView ||= modelViewBox();
     clear(D.model).append(
       modelHead = h('div', { class: 'pn-pcb-head pn-model-head' }),
       h('div', { class: 'pn-model-body' }, view, h('div', { class: 'pn-model-info' },
         model.error ? h('div', { class: 'pn-banner bad' }, `模型编译失败：${model.error}`) : null,
-        h('div', { class: 'pn-side-title' }, '零件'),
-        h('table', { class: 'pn-parts' },
-          h('thead', {}, h('tr', {}, ['名称', '挂在', '质量'].map((x) => h('th', {}, x)))),
-          h('tbody', {}, model.bodies.map((b) => h('tr', {},
-            h('td', { class: 'mono' }, b.name), h('td', { class: 'mono muted' }, b.parent),
-            h('td', { class: 'num' }, b.mass_kg ? `${fmtNum(b.mass_kg * 1000, 3)} g` : '–'))))),
+        h('div', { class: 'pn-side-title' }, '零件', h('span', { class: 'muted small' }, '  点一下在 3D 里标出来，眼睛按钮单独看')),
+        D.partList = h('div', { class: 'pn-plist' }),
         h('div', { class: 'pn-side-title' }, '活动关节'),
         model.joints.length ? h('table', { class: 'pn-parts' },
           h('thead', {}, h('tr', {}, ['名称', '方式', '零件', '范围'].map((x) => h('th', {}, x)))),
@@ -825,19 +821,73 @@ export function createPanel(ctx) {
             h('td', { class: 'mono' }, j.name), h('td', {}, JOINT_KIND[j.type] || j.type), h('td', { class: 'mono muted' }, j.body),
             h('td', { class: 'num' }, j.range ? (j.type === 'hinge' ? `${j.range[0]}° ~ ${j.range[1]}°` : `${fmtNum(j.range[0] * 1000, 3)} ~ ${fmtNum(j.range[1] * 1000, 3)} mm`) : '不限')))))
           : h('div', { class: 'pn-side-empty' }, '还没有活动关节，零件都是固定的。可以让 AI 帮你加转轴或滑轨。'))),
-      h('div', { class: 'muted small' }, '这里显示的是模型本身，还没有跑仿真。改尺寸、加关节、换材料可以直接跟你的 AI 说，改完这里会自动刷新。'),
+      h('div', { class: 'muted small' }, '这里显示的是模型本身，还没有跑仿真。拆开和拖动只改变看的角度，不会改模型；改尺寸、加关节、换材料可以直接跟你的 AI 说，改完这里会自动刷新。'),
       D.modelMat = h('div', { class: 'pn-sec' }),
       D.modelMech = h('div', { class: 'pn-sec' }));
     renderModelParams();
     renderModelHead();
     if (!model3d) {
-      const { Replay3D } = await import('../replay3d.js');
-      model3d = new Replay3D(view);
+      const { ModelView } = await import('../modelview.js');
+      model3d = new ModelView(view, { onSelect: () => { renderPartList(); syncModelTools(); } });
       if (!model3d.ok) { view.append(h('div', { class: 'empty' }, model3d.error)); return; }
     }
     if (model.error || !model3d.ok) return;
-    try { await model3d.loadFrom('model'); } catch (e) { toastError(e); }
+    try { await model3d.loadFrom('model', model.labels || {}); } catch (e) { toastError(e); }
+    model3d.explode(Number(D.explode.value) / 100);
+    renderPartList();
+    syncModelTools();
     model3d.resize();
+  }
+
+  // the 3D box on the 建模 page, with its own small toolbar: pull apart, show all, put back
+  function modelViewBox() {
+    const view = h('div', { class: 'pn-view pn-model-view' },
+      h('span', { class: 'pn-tag' }, '点零件选中，按住零件可以拖开；拖空白处转视角，滚轮缩放'));
+    D.explode = h('input', { type: 'range', min: 0, max: 100, value: 0, 'aria-label': '拆开程度',
+      oninput: () => { model3d?.explode(Number(D.explode.value) / 100); model3d?.fitAll(); syncModelTools(); } });
+    view.append(D.modelTools = h('div', { class: 'pn-mtools' },
+      h('label', { class: 'pn-mt-range', title: '把零件从装配位置往外拉开' }, icon('explode'), h('span', {}, '拆开'), D.explode),
+      D.btnShowAll = h('button', { class: 'btn sm', onclick: () => { model3d?.isolate(null); renderPartList(); syncModelTools(); } }, icon('eye'), '显示全部'),
+      D.btnLayout = h('button', { class: 'btn sm', title: '零件全部回到装配位置', onclick: () => { model3d?.resetLayout(); D.explode.value = 0; model3d?.fitAll(); renderPartList(); syncModelTools(); } }, icon('undo'), '装回去'),
+      h('button', { class: 'btn sm', title: '看全部', onclick: () => model3d?.fitAll() }, icon('target'))));
+    return view;
+  }
+
+  function syncModelTools() {
+    if (!D.modelTools || !model3d) return;
+    D.btnShowAll.hidden = !model3d.isolated;
+    D.btnLayout.hidden = !model3d.moved && !model3d.isolated;
+    D.explode.value = String(Math.round(model3d.explodeF * 100));
+  }
+
+  function renderPartList() {
+    if (!D.partList || !model3d?.ok) return;
+    const parts = [...model3d.parts].sort((a, b) => a.fixed - b.fixed);
+    const pp = Object.fromEntries((model.print_parts || []).map((p) => [p.name, p]));
+    clear(D.partList).append(...parts.map((p) => {
+      const print = p.print && pp[p.print];
+      const sub = [p.fixed ? '固定在场景里' : null, print ? `打印件，${print.material || '未选材料'}` : null,
+        p.drag.lengthSq() > 0 ? '已挪开' : null].filter(Boolean).join('，');
+      const row = h('div', { class: 'pn-pl-row' + (model3d.selected === p.key ? ' on' : '') + (model3d.isolated && model3d.isolated !== p.key ? ' dim' : ''),
+        title: [...p.stems].join(', '),
+        onclick: () => { model3d.select(model3d.selected === p.key ? null : p.key); } },
+        h('span', { class: 'pn-pl-sw', style: { background: p.color || '#999' } }),
+        h('span', { class: 'pn-pl-name' }, h('span', {}, p.label), sub ? h('span', { class: 'muted small' }, sub) : null),
+        print ? h('button', { class: 'btn sm ghost', title: '到下面改它的材料和打印设置',
+          onclick: (e) => { e.stopPropagation(); jumpToPrint(p.print); } }, '材料') : null,
+        h('button', { class: 'btn sm ghost' + (model3d.isolated === p.key ? ' on' : ''), title: model3d.isolated === p.key ? '显示全部' : '只看这一个',
+          onclick: (e) => { e.stopPropagation(); model3d.isolate(model3d.isolated === p.key ? null : p.key); renderPartList(); syncModelTools(); } }, icon('eye')));
+      return row;
+    }));
+    D.partList.querySelector('.pn-pl-row.on')?.scrollIntoView({ block: 'nearest' });
+  }
+
+  function jumpToPrint(name) {
+    const card = D.modelMat?.querySelector(`[data-print="${CSS.escape(name)}"]`);
+    if (!card) return;
+    card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    card.classList.add('flash');
+    setTimeout(() => card.classList.remove('flash'), 1400);
   }
 
   // materials, print settings and mechanism parameters, edited in place
@@ -903,7 +953,7 @@ export function createPanel(ctx) {
     resetRun(); selected = null; boards = null; boardCheck = null; knownRuns = null; model = null;
     checks = null; gears = null; stressPart = null; pickedRuns.clear(); metaCache.clear(); stress3d?.clear();
     if (simMode !== 'replay') setSimMode('replay');
-    model3d?.clear(); model3d && (model3d._framed = false);
+    model3d?.forget(); if (D.explode) D.explode.value = 0;
     await showProject();
   }
   // opened from elsewhere: the AI through MCP (open_project / open_example / new_project) or another tab

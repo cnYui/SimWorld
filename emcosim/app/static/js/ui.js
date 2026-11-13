@@ -89,6 +89,9 @@ const ICONS = {
   clock: '<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/>',
   wave: '<path d="M3 12h3l2-6 4 12 3-9 2 3h4"/>',
   printer: '<path d="M7 9V4h10v5"/><rect x="3" y="9" width="18" height="8" rx="1.5"/><path d="M7 14h10v6H7z"/><path d="M17.5 11.5h.5"/>',
+  eye: '<path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z"/><circle cx="12" cy="12" r="2.8"/>',
+  explode: '<rect x="9.5" y="9.5" width="5" height="5" rx="1"/><path d="M4 4l3.5 3.5M20 4l-3.5 3.5M4 20l3.5-3.5M20 20l-3.5-3.5"/><path d="M4 4h3M4 4v3M20 4h-3M20 4v3M4 20h3M4 20v-3M20 20h-3M20 20v-3"/>',
+  target: '<circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="2"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/>',
   user: '<circle cx="12" cy="8" r="3.5"/><path d="M5 20c1-4 4-5.5 7-5.5s6 1.5 7 5.5"/>',
 };
 
