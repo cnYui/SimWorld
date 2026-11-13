@@ -610,6 +610,32 @@ def build_server(project_root=None, link=None):
         return [json.dumps(out, ensure_ascii=False), Image(path=img['png'])]
 
     @tool()
+    def board_autoroute(engine: str = 'auto', passes: int = 20, nets: list[str] | None = None,
+                        width_mm: float = 0.25, clearance_mm: float = 0.2) -> list:
+        """Route the board's unconnected nets. engine 'freerouting' (installed under tools/freerouting or
+        EMCOSIM_FREEROUTING; uses the board's net classes, `passes` optimisation passes, ~10-60 s), 'grid'
+        (built-in two-layer maze router for small sparse boards; width_mm/clearance_mm; nets limits it;
+        nets that have a zone are left to the zone), or 'auto' (freerouting if installed). Existing
+        tracks are kept. Place parts first (board_edit move, board_render); add a GND zone with
+        board_edit add_zone before routing. Returns what was routed, DRC and a picture; the previous board
+        is kept as a .bak file."""
+        from . import eda
+        from .design import autoroute
+        from .design.render import board_png
+        f = board_file()
+        kw = {'width_mm': width_mm, 'clearance_mm': clearance_mm, **({'nets': nets} if nets else {})}
+        res = autoroute.autoroute(f, engine=engine, passes=passes, **kw)
+        drc = eda.drc(f, limit=12)
+        img = board_png(f, f.parent / 'board_both.png', side='both',
+                        drc_items=[i for i in drc['items'] if i['type'] != 'unconnected_items'])
+        out = {**res, 'drc': drc, 'image': img['png']}
+        if drc['unconnected']:
+            out['next'] = (f"{drc['unconnected']} connections are still open: move crowded parts apart "
+                           '(board_edit move), enlarge the outline, raise passes, or add tracks by hand '
+                           '(board_edit add_track / add_via), then run board_autoroute again')
+        return [json.dumps(out, ensure_ascii=False), Image(path=img['png'])]
+
+    @tool()
     def board_render(view: str = '2d', side: str = 'top', show_drc: bool = True, focus: str | None = None,
                      width_px: int = 1400) -> list:
         """Picture of the board. view '2d': copper, pads, tracks, vias, zones and outline, with

@@ -278,9 +278,21 @@ for fp in board.GetFootprints():
         fp.SetValue(c['value'])
         fp.Value().SetVisible(False)              # data only; keep the silkscreen as drawn
     for field, key in (('LCSC', 'lcsc'), ('MPN', 'mpn'), ('Manufacturer', 'manufacturer')):
-        if c.get(key) and not (fp.HasFieldByName(field) and fp.GetFieldText(field)):
+        cur = None
+        for m in ('GetFieldByName', 'GetField'):          # KiCad 9 / KiCad 10
+            if cur is None and hasattr(fp, m):
+                try:
+                    cur = getattr(fp, m)(field)
+                except TypeError:
+                    pass
+        if c.get(key) and not (cur is not None and cur.GetText()):
             fp.SetField(field, c[key])
-            fp.GetFieldByName(field).SetVisible(False)
+            for m in ('GetFieldByName', 'GetField'):
+                try:
+                    getattr(fp, m)(field).SetVisible(False)
+                    break
+                except (AttributeError, TypeError):
+                    continue
 ds = board.GetDesignSettings()
 if 'clearance_mm' in rules:
     ds.m_NetSettings.GetDefaultNetclass().SetClearance(pcbnew.FromMM(rules['clearance_mm']))

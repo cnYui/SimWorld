@@ -135,6 +135,12 @@ for f in todo:
     f.SetPosition(V(spot[0] + ox, spot[1] + oy))
     occupied.append((spot[0], spot[1], spot[0] + w, spot[1] + h))
 
+if not exists:                 # JLCPCB two-layer capability as the board's own constraints and defaults
+    ds = board.GetDesignSettings()
+    ds.m_TrackMinWidth = mm(0.127); ds.m_MinClearance = mm(0.102)
+    ds.m_ViasMinSize = mm(0.45); ds.m_MinThroughDrill = mm(0.3)
+    nc = ds.m_NetSettings.GetDefaultNetclass()
+    nc.SetTrackWidth(mm(0.25)); nc.SetClearance(mm(0.2)); nc.SetViaDiameter(mm(0.6)); nc.SetViaDrill(mm(0.3))
 pcbnew.SaveBoard(out, board)
 pos = {f.GetReference(): [round(ToMM(f.GetPosition().x), 3), round(ToMM(f.GetPosition().y), 3),
                           f.GetOrientationDegrees()] for f in board.GetFootprints()}
@@ -198,11 +204,36 @@ def from_schematic(sch_path, pcb_path, width_mm=None, height_mm=None, positions=
     if 'error' in res:
         raise ValueError(res['error'])
     pcb_path.with_suffix('.kicad_dru').write_text(eda.JLC_RULES, encoding='utf-8')
-    pro = pcb_path.with_suffix('.kicad_pro')
-    if not pro.exists():
-        pro.write_text(json.dumps({'meta': {'filename': pro.name, 'version': 3}}, indent=2), encoding='utf-8')
+    jlc_project_settings(pcb_path.with_suffix('.kicad_pro'))
     res['outline_mm'] = {'x': origin[0], 'y': origin[1], 'width': float(width_mm), 'height': float(height_mm)}
     return res
+
+
+JLC_BOARD = {'min_track_width': 0.127, 'min_clearance': 0.102, 'min_via_diameter': 0.45,
+             'min_through_hole_diameter': 0.3, 'min_copper_edge_clearance': 0.3, 'min_hole_to_hole': 0.254}
+JLC_NETCLASS = {'track_width': 0.25, 'clearance': 0.2, 'via_diameter': 0.6, 'via_drill': 0.3}
+
+
+def jlc_project_settings(pro):
+    """Board setup constraints and the Default net class in the .kicad_pro (KiCad keeps them there, not
+    in the .kicad_pcb), so DRC and the autorouter use JLCPCB two-layer limits instead of KiCad's
+    defaults (which reject 0.15 mm neck-downs that JLCPCB makes)."""
+    pro = Path(pro)
+    try:
+        data = json.loads(pro.read_text(encoding='utf-8')) if pro.exists() else {}
+    except ValueError:
+        data = {}
+    data.setdefault('meta', {'filename': pro.name, 'version': 3})
+    rules = data.setdefault('board', {}).setdefault('design_settings', {}).setdefault('rules', {})
+    rules.update(JLC_BOARD)
+    ns = data.setdefault('net_settings', {'meta': {'version': 5}})
+    classes = ns.setdefault('classes', [])
+    default = next((c for c in classes if c.get('name') == 'Default'), None)
+    if default is None:
+        default = {'name': 'Default', 'priority': 2147483647}
+        classes.append(default)
+    default.update(JLC_NETCLASS)
+    pro.write_text(json.dumps(data, indent=2), encoding='utf-8')
 
 
 def _fp_area(fid):

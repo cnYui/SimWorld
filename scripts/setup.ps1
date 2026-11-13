@@ -58,7 +58,7 @@ if (-not $NoKicad) {
   if ($kicad) { Write-Host "found $kicad" }
   elseif (Have 'winget') {
     winget install -e --id KiCad.KiCad --accept-package-agreements --accept-source-agreements
-  } else { Write-Host 'winget not found: install KiCad 9 from https://www.kicad.org/download/windows/' }
+  } else { Write-Host 'winget not found: install KiCad 9 or 10 from https://www.kicad.org/download/windows/' }
 }
 
 Say 'ngspice'
@@ -77,6 +77,22 @@ else {
     Remove-Item $arc
   } catch {
     Write-Host "ngspice not installed ($_). Circuit checks are skipped until it is there; everything else works." -ForegroundColor Yellow
+  }
+}
+
+Say 'freerouting (PCB autorouter)'
+$fr = Join-Path $Tools 'freerouting'
+$FreeroutingVersion = '2.5.0'
+if (Get-ChildItem -Path $fr -Filter '*.jar' -ErrorAction SilentlyContinue) { Write-Host 'already in toolsreerouting' }
+elseif (-not (Have 'java')) {
+  Write-Host 'Java not found: board_autoroute uses the built-in grid router until Java 21+ is installed and this script runs again.' -ForegroundColor Yellow
+} else {
+  try {
+    New-Item -ItemType Directory -Force $fr | Out-Null
+    # the jar, not freerouting-cli: the native CLI build of 2.5.0 crashes on Windows
+    Fetch "https://github.com/freerouting/freerouting/releases/download/v$FreeroutingVersion/freerouting-$FreeroutingVersion.jar" (Join-Path $fr "freerouting-$FreeroutingVersion.jar")
+  } catch {
+    Write-Host "freerouting not installed ($_). board_autoroute falls back to the built-in grid router." -ForegroundColor Yellow
   }
 }
 
@@ -101,11 +117,13 @@ Say 'Check'
 from emcosim import eda
 from emcosim.toolpaths import find_ngspice
 from emcosim.mcu.qemu import find_qemu
+from emcosim.design.autoroute import find_freerouting
 try:
     q = find_qemu()[0]
 except RuntimeError:
     q = None
-for name, v in (('KiCad', eda.find_cli()), ('ngspice', find_ngspice()), ('QEMU', q)):
+fr = find_freerouting()
+for name, v in (('KiCad', eda.find_cli()), ('ngspice', find_ngspice()), ('QEMU', q), ('freerouting', fr and fr[-1])):
     print(f'{name:8s} {v or "NOT FOUND"}')
 '@ | & $venvPy -
 Write-Host "`nDone. Start the app: scripts\start.cmd  (opens in your browser)"

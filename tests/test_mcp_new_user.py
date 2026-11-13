@@ -269,3 +269,28 @@ def test_circuit_check_on_generated_schematic(empty):
                                                                       'pins': {'in': '9', 'out': '5', 'gnd': '2'}}}})
     res = call(srv, 'circuit_check')
     assert not res['trustworthy'] and any('3V3 has no DC path' in w for w in res['warnings'])
+
+
+@needs_kicad
+def test_grid_autoroute_connects_a_small_board(empty):
+    p, srv = empty
+    call_parts(srv, 'schematic_create', LED_BOARD)
+    call_parts(srv, 'board_from_schematic', {'width_mm': 24, 'height_mm': 14})
+    before = call(srv, 'board_drc')['unconnected']
+    out, img = call_parts(srv, 'board_autoroute', {'engine': 'grid'})
+    assert img and out['engine'] == 'grid' and not out['failed']
+    assert out['drc']['unconnected'] < before and out['drc']['unconnected'] == 0
+
+
+from emcosim.design.autoroute import find_freerouting as _find_fr
+
+
+@needs_kicad
+@pytest.mark.skipif(_find_fr() is None, reason='freerouting not installed (tools/freerouting or EMCOSIM_FREEROUTING)')
+def test_freerouting_routes_a_small_board(empty):
+    p, srv = empty
+    call_parts(srv, 'schematic_create', LED_BOARD)
+    call_parts(srv, 'board_from_schematic', {'width_mm': 24, 'height_mm': 14})
+    out, img = call_parts(srv, 'board_autoroute', {'engine': 'freerouting', 'passes': 5})
+    assert img and out['engine'] == 'freerouting' and out['tracks'] > 0
+    assert out['drc']['unconnected'] == 0
