@@ -360,21 +360,25 @@ def build_server(project_root=None, link=None):
         return {'board': prj().data.get('board'), 'kicad': eda.status(), 'ngspice': find_ngspice()}
 
     @tool()
-    def board_import(path: str, netlist: str | None = None, name: str | None = None) -> dict:
-        """Bring a board in through KiCad's importers: .kicad_pcb as is, or EasyEDA Pro .epro (export it
-        from 嘉立创EDA: File > Export > project), Altium .PcbDoc, Eagle .brd. `netlist` is that EDA's
-        netlist export (EasyEDA: Protel 2.0 .net) and fills in pad nets the importer misses. Writes
-        pcb/<name>/<name>.kicad_pcb plus JLCPCB DRC rules and records it as board.kicad_pcb."""
+    def board_import(path: str, netlist: str | None = None, name: str | None = None,
+                     schematic: str | None = None) -> dict:
+        """Bring an existing board in through KiCad's importers: .kicad_pcb as is, or EasyEDA Pro .epro
+        (export it from 嘉立创EDA: File > Export > project), Altium .PcbDoc, Eagle .brd. `netlist` is that
+        EDA's netlist export (EasyEDA: Protel 2.0 .net) and fills in pad nets the importer misses;
+        `schematic` is the board's KiCad .kicad_sch (enables board_erc). Writes pcb/<name>/<name>.kicad_pcb
+        plus JLCPCB DRC rules. To design a board from nothing use schematic_create and board_from_schematic."""
         from . import eda
+        import shutil
         p = prj()
         root = p.root
         src = Path(path).expanduser().resolve()
+        if not src.exists():
+            raise FileNotFoundError(src)
         name = name or re.sub(r'[^A-Za-z0-9_-]+', '_', src.stem).strip('_').lower()
         out_dir = root / 'pcb' / name
         out_dir.mkdir(parents=True, exist_ok=True)
         dst = out_dir / f'{name}.kicad_pcb'
         if src.suffix.lower() == '.kicad_pcb':
-            import shutil
             shutil.copy2(src, dst)
             res = {'file': str(dst)}
         else:
@@ -383,16 +387,154 @@ def build_server(project_root=None, link=None):
         if netlist:
             nl = Path(netlist).expanduser().resolve()
             entry['netlist'] = nl.relative_to(root).as_posix() if nl.is_relative_to(root) else str(nl)
+        if schematic:
+            sch = Path(schematic).expanduser().resolve()
+            if not sch.exists():
+                raise FileNotFoundError(sch)
+            shutil.copy2(sch, out_dir / f'{name}.kicad_sch')
+            entry['kicad_sch'] = (out_dir / f'{name}.kicad_sch').relative_to(root).as_posix()
         p.data['board'] = {**(p.data.get('board') or {}), **entry}
         p.save()
         return {**res, 'board': p.data['board'], 'drc': eda.drc(dst, limit=15)}
 
     @tool()
-    def board_drc(limit: int = 40) -> dict:
-        """KiCad design rule check of the project's board (JLCPCB limits when imported with them).
-        Returns counts and the first findings with positions in mm."""
+    def board_drc(limit: int = 40, severity: str | None = None, types: list[str] | None = None) -> dict:
+        """KiCad design rule check of the project's board (JLCPCB two-layer limits). Returns counts,
+        by_type (count per finding type) and findings with positions in mm, errors first. severity
+        ('error'|'warning') and types (e.g. ['clearance', 'unconnected_items']) filter the list.
+        board_render(show_drc=true) draws them on the board."""
         from . import eda
-        return eda.drc(board_file(), limit=limit)
+        return eda.drc(board_file(), limit=limit, severity=severity, types=types)
+
+    # ------------------------------------------------------- design from nothing (KiCad libraries)
+    @tool()
+    def symbol_search(query: str, limit: int = 20) -> list:
+        """Search KiCad's installed symbol libraries (words must all match name, description or
+        keywords), e.g. "ESP32-PICO", "LDO 3.3", "LSM6DS3", "USB C receptacle", "potentiometer".
+        Returns Library:Name ids for schematic_create, with the default footprint if the symbol has one."""
+        from .design import kicad_libs
+        hits = kicad_libs.search_symbols(query, limit)
+        return {'symbols': hits, **({} if hits else {'hint': 'no match: try fewer or shorter words, '
+                                                             'e.g. the part family ("LSM6DS3", "AMS1117")'})}
+
+    @tool()
+    def symbol_info(symbol: str) -> dict:
+        """Pins of a library symbol (number, name, electrical type) and its default footprint, so nets
+        can be written as REF.PIN. symbol: Library:Name from symbol_search."""
+        from .design import kicad_libs
+        return kicad_libs.symbol_info(symbol)
+
+    @tool()
+    def footprint_search(query: str, limit: int = 20) -> dict:
+        """Search KiCad's footprint libraries by words in Library:Name, e.g. "R_0402", "SOT-23-5",
+        "QFN-48 7x7", "USB_C 6P", "JST_SH 1x02". Returns ids and the pads of the first match."""
+        from .design import kicad_libs
+        ids = kicad_libs.search_footprints(query, limit)
+        out = {'footprints': ids}
+        if ids:
+            out['pads_of_first'] = kicad_libs.footprint_pads(ids[0])
+        return out
+
+    def _design_dir(p, name=None):
+        b = p.data.get('board') or {}
+        cur = b.get('kicad_sch') or b.get('kicad_pcb')
+        if cur and not name:
+            return (p.root / cur).parent, Path(cur).stem
+        name = re.sub(r'[^A-Za-z0-9_-]+', '_', name or p.data.get('name') or 'board').strip('_').lower() or 'board'
+        if not re.search(r'[a-z]', name):
+            name = 'board'
+        return p.root / 'pcb' / name, name
+
+    @tool()
+    def schematic_create(components: list[dict], nets: dict[str, list[str]], name: str | None = None) -> list:
+        """Write the project's KiCad schematic from parts and nets (replaces an existing one; then run
+        board_from_schematic to bring the board in line).
+        components: [{"ref": "U1", "symbol": "MCU_Espressif:ESP32-PICO-V3-02", "value": "...",
+                      "footprint": "Lib:Name" (needed when the symbol has none), "lcsc": "C908392",
+                      "fields": {...}}]
+        nets: {"3V3": ["U1.3", "C3.1", ...], "GND": [...]}: pins as REF.PIN (pin number, or a unique pin
+        name). Pins in no net get no-connect flags; power nets without a source get PWR_FLAG.
+        Runs KiCad ERC, checks KiCad's own netlist against `nets`, and returns a picture."""
+        from . import eda
+        from .design import schematic
+        from .design.render import schematic_png
+        p = prj()
+        d, stem = _design_dir(p, name)
+        sch = d / f'{stem}.kicad_sch'
+        report = schematic.write(sch, components, nets, project_name=stem, title=p.data.get('name'))
+        p.data['board'] = {**(p.data.get('board') or {}), 'kicad_sch': sch.relative_to(p.root).as_posix()}
+        p.data['board'].pop('netlist', None)
+        p.save()
+        erc = eda.erc(sch, limit=25)
+        got = eda.netlist(sch)['nets']
+        want = report.pop('_nets')
+        mismatch = [{'net': n, 'asked': pins, 'kicad': sorted(got.get(n, []))}
+                    for n, pins in want.items() if pins != sorted(got.get(n, []))]
+        img = schematic_png(sch, d / 'schematic.png')
+        out = {'schematic': str(sch), **report, 'erc': erc,
+               'netlist_check': 'KiCad netlist matches nets' if not mismatch else {'differs': mismatch},
+               'image': img['png'],
+               'next': 'board_from_schematic (then board_render, board_edit, board_drc)'}
+        return [json.dumps(out, ensure_ascii=False), Image(path=img['png'])]
+
+    @tool()
+    def schematic_render(focus: str | None = None, width_px: int = 1800) -> list:
+        """Picture of the project's schematic (symbols with pin numbers and names, wires, net labels,
+        no-connect flags). focus: a reference such as "U1" to zoom on it."""
+        from .design.render import schematic_png
+        f = board_file('kicad_sch')
+        img = schematic_png(f, f.parent / (f'schematic_{focus}.png' if focus else 'schematic.png'),
+                            width_px=width_px, focus=focus)
+        return [json.dumps(img), Image(path=img['png'])]
+
+    @tool()
+    def board_from_schematic(width_mm: float | None = None, height_mm: float | None = None,
+                             positions: dict[str, list[float]] | None = None,
+                             reset_outline: bool = False) -> list:
+        """Create the PCB from the schematic, or update it like KiCad's "Update PCB from Schematic"
+        (parts that stay keep their place and tracks; new parts are packed into free space).
+        width_mm/height_mm: board outline (default: sized from the parts; the outline is only replaced on
+        a new board or with reset_outline). positions: {"U1": [x_mm, y_mm, rot_deg]} to place parts
+        (board origin is at x=100, y=100 mm). Writes JLCPCB rules, runs DRC, returns a picture."""
+        from . import eda
+        from .design import board as dboard
+        from .design.render import board_png
+        p = prj()
+        sch = board_file('kicad_sch')
+        pcb = sch.with_suffix('.kicad_pcb')
+        res = dboard.from_schematic(sch, pcb, width_mm, height_mm, positions, reset_outline=reset_outline)
+        p.data['board'] = {**(p.data.get('board') or {}), 'kicad_pcb': pcb.relative_to(p.root).as_posix(),
+                           'rules': 'JLCPCB 2-layer (kicad_dru)'}
+        p.save()
+        drc = eda.drc(pcb, limit=12)
+        img = board_png(pcb, pcb.parent / 'board_top.png',
+                        drc_items=[i for i in drc['items'] if i['type'] != 'unconnected_items'])
+        res.pop('positions', None)
+        out = {'board': str(pcb), **res, 'drc': drc, 'image': img['png'],
+               'next': ('Place parts with board_edit move (look at board_render), then connect the nets: '
+                        'board_autoroute or board_edit add_track/add_via, and a GND zone with add_zone.')}
+        return [json.dumps(out, ensure_ascii=False), Image(path=img['png'])]
+
+    @tool()
+    def board_render(view: str = '2d', side: str = 'top', show_drc: bool = True, focus: str | None = None,
+                     width_px: int = 1400) -> list:
+        """Picture of the board. view '2d': copper, pads, tracks, vias, zones and outline, with
+        reference designators and (show_drc) numbered red circles at DRC findings, listed in drc_marked;
+        side top|bottom|both; focus a reference ("U1") or [x0, y0, x1, y1] mm to zoom. The result gives
+        origin_mm and mm_per_px to turn pixels into board coordinates. view '3d': KiCad's 3D render."""
+        from . import eda
+        from .design.render import board_3d_png, board_png
+        f = board_file()
+        if view == '3d':
+            img = board_3d_png(f, f.parent / f'board_3d_{side}.png', side=side, width_px=width_px,
+                               height_px=int(width_px * 0.6))
+        else:
+            items = []
+            if show_drc:
+                items = [i for i in eda.drc(f, limit=60)['items'] if i['type'] != 'unconnected_items']
+            img = board_png(f, f.parent / f'board_{side}.png', width_px=width_px, side=side, drc_items=items,
+                            focus=focus)
+        return [json.dumps(img, ensure_ascii=False), Image(path=img['png'])]
 
     @tool()
     def board_erc(limit: int = 40) -> dict:
@@ -425,14 +567,21 @@ def build_server(project_root=None, link=None):
 
     @tool()
     def board_edit(ops: list[dict]) -> dict:
-        """Edit the board with KiCad and re-run DRC. ops, applied in order:
+        """Edit the board with KiCad and re-run DRC. Coordinates in mm (board_render shows them). ops,
+        applied in order (any failure leaves the board unchanged):
         {"op": "move", "ref": "C1", "x_mm": 130, "y_mm": 108, "rot_deg": 90} |
+        {"op": "flip", "ref": "SW1"} (other side) |
         {"op": "set_value", "ref": "R5", "value": "220"} |
         {"op": "set_field", "ref": "R5", "field": "LCSC", "value": "C22962"} |
+        {"op": "add_track", "net": "3V3", "points": [[x, y], [x, y], ...], "width_mm": 0.3, "layer": "F.Cu"} |
+        {"op": "add_via", "net": "GND", "x_mm": 120, "y_mm": 110, "size_mm": 0.6, "drill_mm": 0.3} |
+        {"op": "delete_tracks", "net": "VBAT", "layer": "F.Cu"|"B.Cu"|"via"} or {"op": "delete_tracks", "all": true} |
+        {"op": "add_zone", "net": "GND", "layer": "B.Cu", "outline": [[x, y], ...]} (default: whole board) |
+        {"op": "delete_zones", "net": "GND"} or {"all": true} |
+        {"op": "outline", "x_mm": 100, "y_mm": 100, "width_mm": 44, "height_mm": 22} |
         {"op": "track_width", "net": "V5_SERVO", "width_mm": 1.0} |
-        {"op": "netclass_width", "netclass": "Default", "width_mm": 0.3} |
-        {"op": "clearance", "mm": 0.15}.
-        The previous board is kept as <file>.bak-<time>."""
+        {"op": "netclass_width", "netclass": "Default", "width_mm": 0.3} | {"op": "clearance", "mm": 0.15}.
+        Zones are refilled. The previous board is kept as <file>.bak-<time>."""
         from . import eda
         f = board_file()
         res = eda.edit_pcb(f, ops)

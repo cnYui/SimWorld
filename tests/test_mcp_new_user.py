@@ -88,3 +88,71 @@ def test_esp32_pin_checks(empty):
     assert any('pull-up' in w for w in out['warnings'])
     with pytest.raises(ToolError, match='flash'):
         asyncio.run(srv.call_tool('bind_pin', {'pin': 'GPIO7', 'input': 'x'}))
+
+
+# ------------------------------------------------------------------ schematic and board from nothing
+from emcosim import eda as _eda
+
+needs_kicad = pytest.mark.skipif(not _eda.find_cli() or not _eda.find_python(), reason='KiCad not installed')
+
+LED_BOARD = {
+    'components': [
+        {'ref': 'J1', 'symbol': 'Connector_Generic:Conn_01x02', 'value': '5V in',
+         'footprint': 'Connector_PinHeader_2.54mm:PinHeader_1x02_P2.54mm_Vertical'},
+        {'ref': 'R1', 'symbol': 'Device:R', 'value': '330', 'footprint': 'Resistor_SMD:R_0603_1608Metric',
+         'lcsc': 'C23138'},
+        {'ref': 'D1', 'symbol': 'Device:LED', 'value': 'red', 'footprint': 'LED_SMD:LED_0603_1608Metric'},
+    ],
+    'nets': {'VIN': ['J1.1', 'R1.1'], 'LED_A': ['R1.2', 'D1.A'], 'GND': ['D1.K', 'J1.2']},
+}
+
+
+def call_parts(srv, name, args):
+    """Tools that return [json, image]: the JSON part and whether an image came along."""
+    res = asyncio.run(srv.call_tool(name, args))
+    content = res[0] if isinstance(res, tuple) else getattr(res, 'content', res)
+    text = next(c.text for c in content if getattr(c, 'type', '') == 'text')
+    return json.loads(text), any(getattr(c, 'type', '') == 'image' for c in content)
+
+
+@needs_kicad
+def test_schematic_to_board_through_mcp(empty):
+    p, srv = empty
+    out, img = call_parts(srv, 'schematic_create', LED_BOARD)
+    assert img and out['erc']['errors'] == 0 and out['netlist_check'].startswith('KiCad netlist matches')
+    assert Project(p.root).data['board']['kicad_sch'].endswith('.kicad_sch')
+    out, img = call_parts(srv, 'board_from_schematic', {'width_mm': 20, 'height_mm': 12})
+    assert img and out['footprints'] == 3 and not out.get('outside_outline')
+    nets = call(srv, 'board_netlist')
+    assert nets['source'] == 'schematic' and nets['components']['R1']['lcsc'] == 'C23138'
+    pads = {(q['ref'], q['pad']): q for q in __import__('emcosim.importers.kicad', fromlist=['x'])
+            .load_kicad_pcb(p.root / Project(p.root).data['board']['kicad_pcb'])['_pads']}
+    a, b = pads[('R1', '2')], pads[('D1', '2')]
+    before = call(srv, 'board_drc')['unconnected']
+    res = call(srv, 'board_edit', {'ops': [{'op': 'add_track', 'net': 'LED_A', 'width_mm': 0.3,
+                                            'points': [[a['x'], a['y']], [b['x'], b['y']]]},
+                                           {'op': 'add_zone', 'net': 'GND', 'layer': 'B.Cu'}]})
+    assert res['drc']['unconnected'] < before
+    with pytest.raises(ToolError, match='no net'):
+        asyncio.run(srv.call_tool('board_edit', {'ops': [{'op': 'add_track', 'net': 'NOPE', 'points': [[0, 0], [1, 1]]}]}))
+    out, img = call_parts(srv, 'board_render', {})
+    assert img and out['mm_per_px'] > 0
+    out, img = call_parts(srv, 'schematic_render', {'focus': 'R1'})
+    assert img
+
+
+@needs_kicad
+def test_schematic_create_reports_bad_pins(empty):
+    bad = {**LED_BOARD, 'nets': {**LED_BOARD['nets'], 'X': ['R1.7', 'Q9.1']}}
+    with pytest.raises(ToolError, match='R1 has no pin'):
+        asyncio.run(empty[1].call_tool('schematic_create', bad))
+
+
+@needs_kicad
+def test_symbol_and_footprint_search(empty):
+    _, srv = empty
+    hits = call(srv, 'symbol_search', {'query': 'ESP32-PICO-V3-02'})['symbols']
+    assert any(h['symbol'] == 'MCU_Espressif:ESP32-PICO-V3-02' for h in hits)
+    info = call(srv, 'symbol_info', {'symbol': 'MCU_Espressif:ESP32-PICO-V3-02'})
+    assert {'number': '5', 'name': 'SENSOR_VP', 'type': 'input', 'unit': 0} in info['pins']
+    assert 'SOT-23-5' in ' '.join(call(srv, 'footprint_search', {'query': 'SOT-23-5'})['footprints'])

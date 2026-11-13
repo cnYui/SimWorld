@@ -120,24 +120,27 @@ def _run(args, cwd=None, timeout=600):
     return r
 
 
-def _summarize(report, limit):
-    counts, items = {}, []
+def _summarize(report, limit, severity=None, types=None):
+    counts, items, by_type = {}, [], {}
     for kind, rows in (('violation', report.get('violations', [])),
                        ('unconnected', report.get('unconnected_items', [])),
                        ('parity', report.get('schematic_parity', []))):
         for v in rows:
             sev = v.get('severity', 'error')
             counts[sev] = counts.get(sev, 0) + 1
-            if len(items) < limit:
-                items.append({'kind': kind, 'severity': sev, 'type': v.get('type'),
-                              'description': v.get('description'),
-                              'where': [{'item': i.get('description'), 'pos_mm': [i['pos']['x'], i['pos']['y']]}
-                                        for i in v.get('items', []) if 'pos' in i][:3]})
+            by_type[v.get('type')] = by_type.get(v.get('type'), 0) + 1
+            if severity and sev != severity or types and v.get('type') not in types:
+                continue
+            items.append({'kind': kind, 'severity': sev, 'type': v.get('type'),
+                          'description': v.get('description'),
+                          'where': [{'item': i.get('description'), 'pos_mm': [i['pos']['x'], i['pos']['y']]}
+                                    for i in v.get('items', []) if 'pos' in i][:3]})
     items.sort(key=lambda i: i['severity'] != 'error')
-    return counts, items
+    counts['_by_type'] = by_type
+    return counts, items[:limit]
 
 
-def drc(pcb_path, limit=40, schematic_parity=False):
+def drc(pcb_path, limit=40, schematic_parity=False, severity=None, types=None):
     """Run KiCad's DRC on a board. Returns counts per severity and the first `limit` findings."""
     pcb_path = Path(pcb_path)
     with tempfile.TemporaryDirectory() as td:
@@ -147,11 +150,11 @@ def drc(pcb_path, limit=40, schematic_parity=False):
             args.append('--schematic-parity')
         _run(args + [pcb_path])
         report = json.loads(out.read_text(encoding='utf-8'))
-    counts, items = _summarize(report, limit)
+    counts, items = _summarize(report, limit, severity, types)
     return {'tool': 'drc', 'file': pcb_path.name, 'kicad_version': report.get('kicad_version'),
             'errors': counts.get('error', 0), 'warnings': counts.get('warning', 0),
-            'unconnected': len(report.get('unconnected_items', [])), 'items': items,
-            'passed': counts.get('error', 0) == 0}
+            'unconnected': len(report.get('unconnected_items', [])), 'by_type': counts['_by_type'],
+            'items': items, 'passed': counts.get('error', 0) == 0}
 
 
 def erc(sch_path, limit=40):
@@ -215,6 +218,9 @@ def _pcbnew(script, *args, timeout=600):
     finally:
         os.unlink(f.name)
     tail = [ln for ln in r.stdout.splitlines() if ln.startswith('{')]
+    err = [ln for ln in (r.stderr or '').splitlines() if ln.startswith('{"error"')]
+    if err:                                  # the script stopped with SystemExit(json.dumps({'error': ...}))
+        return json.loads(err[-1])
     if r.returncode != 0 or not tail:
         raise RuntimeError(f'KiCad python failed ({r.returncode}): {(r.stderr or r.stdout).strip()[-800:]}')
     return json.loads(tail[-1])
@@ -373,6 +379,14 @@ def field(f, name):                      # KiCad 9: GetFieldByName; KiCad 10: Ge
             if r is not None:
                 return r
     return next((x for x in f.GetFields() if x.GetName() == name), None)
+LAYERS = {'F.Cu': pcbnew.F_Cu, 'B.Cu': pcbnew.B_Cu}
+refill = False
+def net(name):
+    n = board.FindNet(name)
+    if n is None:
+        names = sorted(str(x) for x in board.GetNetsByName().keys() if str(x) and not str(x).startswith('unconnected-'))
+        raise SystemExit(json.dumps({'error': f'no net {name!r} on the board; nets: {names[:60]}'}))
+    return n
 def fp(ref):
     f = board.FindFootprintByReference(ref)
     if f is None:
@@ -404,13 +418,83 @@ for op in ops:
         nc.SetTrackWidth(mm(op['width_mm'])); done.append(op)
     elif k == 'clearance':
         board.GetDesignSettings().m_MinClearance = mm(op['mm']); done.append(op)
+    elif k == 'add_track':
+        pts = op.get('points') or []
+        if len(pts) < 2:
+            raise SystemExit(json.dumps({'error': 'add_track needs points: [[x_mm, y_mm], [x_mm, y_mm], ...]'}))
+        layer = LAYERS.get(op.get('layer', 'F.Cu'))
+        if layer is None:
+            raise SystemExit(json.dumps({'error': f"layer {op.get('layer')!r}: use F.Cu or B.Cu"}))
+        n = net(op['net'])
+        for a, b in zip(pts, pts[1:]):
+            t = pcbnew.PCB_TRACK(board)
+            t.SetStart(pcbnew.VECTOR2I(mm(a[0]), mm(a[1]))); t.SetEnd(pcbnew.VECTOR2I(mm(b[0]), mm(b[1])))
+            t.SetWidth(mm(op.get('width_mm', 0.25))); t.SetLayer(layer); t.SetNet(n)
+            board.Add(t)
+        done.append({**op, 'segments': len(pts) - 1})
+    elif k == 'add_via':
+        v = pcbnew.PCB_VIA(board)
+        v.SetPosition(pcbnew.VECTOR2I(mm(op['x_mm']), mm(op['y_mm'])))
+        v.SetWidth(mm(op.get('size_mm', 0.6))); v.SetDrill(mm(op.get('drill_mm', 0.3)))
+        v.SetNet(net(op['net'])); board.Add(v); done.append(op)
+    elif k == 'delete_tracks':
+        sel = [t for t in board.GetTracks()
+               if (op.get('all') or t.GetNetname() == op.get('net'))
+               and (not op.get('layer') or op.get('layer') == 'via' and t.Type() == pcbnew.PCB_VIA_T
+                    or t.GetLayerName() == op.get('layer'))]
+        if not op.get('all') and not op.get('net'):
+            raise SystemExit(json.dumps({'error': 'delete_tracks needs net (or all: true)'}))
+        for t in sel:
+            board.Remove(t)
+        done.append({**op, 'deleted': len(sel)})
+    elif k == 'add_zone':
+        layer = LAYERS.get(op.get('layer', 'B.Cu'))
+        z = pcbnew.ZONE(board)
+        z.SetLayer(layer); z.SetNet(net(op['net']))
+        pts = op.get('outline')
+        if not pts:
+            bb = board.GetBoardEdgesBoundingBox()
+            m = mm(op.get('inset_mm', 0.3))
+            pts = [[pcbnew.ToMM(bb.GetLeft() + m), pcbnew.ToMM(bb.GetTop() + m)],
+                   [pcbnew.ToMM(bb.GetRight() - m), pcbnew.ToMM(bb.GetTop() + m)],
+                   [pcbnew.ToMM(bb.GetRight() - m), pcbnew.ToMM(bb.GetBottom() - m)],
+                   [pcbnew.ToMM(bb.GetLeft() + m), pcbnew.ToMM(bb.GetBottom() - m)]]
+        ol = z.Outline(); ol.NewOutline()
+        for p in pts:
+            ol.Append(mm(p[0]), mm(p[1]))
+        if 'clearance_mm' in op:
+            z.SetLocalClearance(mm(op['clearance_mm']))
+        board.Add(z); done.append({**op, 'outline': pts}); refill = True
+    elif k == 'delete_zones':
+        zs = [z for z in board.Zones() if op.get('all') or z.GetNetname() == op.get('net')]
+        for z in zs:
+            board.Remove(z)
+        done.append({**op, 'deleted': len(zs)})
+    elif k == 'outline':
+        for d in list(board.GetDrawings()):
+            if d.GetLayer() == pcbnew.Edge_Cuts: board.Remove(d)
+        r = pcbnew.PCB_SHAPE(board); r.SetShape(pcbnew.SHAPE_T_RECT)
+        x, y = op['x_mm'], op['y_mm']
+        r.SetStart(pcbnew.VECTOR2I(mm(x), mm(y)))
+        r.SetEnd(pcbnew.VECTOR2I(mm(x + op['width_mm']), mm(y + op['height_mm'])))
+        r.SetLayer(pcbnew.Edge_Cuts); r.SetWidth(mm(0.1)); board.Add(r); done.append(op)
+    elif k == 'flip':
+        f = fp(op['ref'])
+        if hasattr(pcbnew, 'FLIP_DIRECTION_LEFT_RIGHT'):
+            f.Flip(f.GetPosition(), pcbnew.FLIP_DIRECTION_LEFT_RIGHT)
+        else:
+            f.Flip(f.GetPosition(), False)
+        done.append({**op, 'side': 'bottom' if f.IsFlipped() else 'top'})
     else:
         raise SystemExit(json.dumps({'error': f'unknown op {k}'}))
+if refill or any(True for _ in board.Zones()):
+    pcbnew.ZONE_FILLER(board).Fill(board.Zones())
 pcbnew.SaveBoard(path, board)
 print(json.dumps({'applied': done}))
 '''
 
-EDIT_OPS = ('move', 'set_value', 'set_field', 'track_width', 'netclass_width', 'clearance')
+EDIT_OPS = ('move', 'set_value', 'set_field', 'track_width', 'netclass_width', 'clearance', 'add_track',
+            'add_via', 'delete_tracks', 'add_zone', 'delete_zones', 'outline', 'flip')
 
 
 def edit_pcb(pcb_path, ops):
@@ -428,12 +512,14 @@ def edit_pcb(pcb_path, ops):
         res = _pcbnew(_EDIT, pcb_path, f.name)
     except Exception:
         shutil.copy2(backup, pcb_path)
+        backup.unlink(missing_ok=True)
         raise
     finally:
         os.unlink(f.name)
     if 'error' in res:
         shutil.copy2(backup, pcb_path)
-        raise ValueError(res['error'])
+        backup.unlink(missing_ok=True)
+        raise ValueError(res['error'] + ' (nothing was changed)')
     return {**res, 'backup': backup.name}
 
 
