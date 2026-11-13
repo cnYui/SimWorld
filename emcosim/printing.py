@@ -231,7 +231,9 @@ def open_in_bambu_studio(path, download_url=None):
             subprocess.Popen(['open', '-a', exe, path])
         else:
             flags = getattr(subprocess, 'DETACHED_PROCESS', 0) | getattr(subprocess, 'CREATE_NEW_PROCESS_GROUP', 0)
-            subprocess.Popen([exe, path], cwd=str(Path(exe).parent), creationflags=flags,
+            # --single-instance hands the file to a Bambu Studio that is already open instead of
+            # starting a second window (its "只保留一个Bambu Studio实例" preference is off by default)
+            subprocess.Popen([exe, '--single-instance', path], cwd=str(Path(exe).parent), creationflags=flags,
                              stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         return {'method': 'executable', 'exe': exe, 'file': path}
     if download_url and url_handler_registered():
