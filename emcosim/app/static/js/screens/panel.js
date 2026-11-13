@@ -4,7 +4,7 @@ import { get, post, upload, authUrl } from '../api.js';
 import { store } from '../store.js';
 import { h, icon, clear, toast, toastError, fmtNum, cssVar, modal, copyText, pathField, nativePick } from '../ui.js';
 import { TimeChart } from '../chart.js';
-import { powerCards } from './pfields.js';
+import { powerCards, printCards, mechCards } from './pfields.js';
 
 const SIGS = ['source.charger.i', 'branch.f1.i', 'node.v5_servo.v', 'act.servo1.i_supply', 'act.servo1.pulse_us',
   'joint.servo_axis.deg', 'joint.rocker_axis.deg', 'probe.press.force_n', 'act.servo1.torque',
@@ -653,9 +653,11 @@ export function createPanel(ctx) {
           h('tbody', {}, model.joints.map((j) => h('tr', {},
             h('td', { class: 'mono' }, j.name), h('td', {}, JOINT_KIND[j.type] || j.type), h('td', { class: 'mono muted' }, j.body),
             h('td', { class: 'num' }, j.range ? (j.type === 'hinge' ? `${j.range[0]}° ~ ${j.range[1]}°` : `${fmtNum(j.range[0] * 1000, 3)} ~ ${fmtNum(j.range[1] * 1000, 3)} mm`) : '不限')))))
-          : h('div', { class: 'pn-side-empty' }, '还没有活动关节，零件都是固定的。可以让 AI 帮你加转轴或滑轨。'),
-        model.print_parts.length ? printList() : null)),
-      h('div', { class: 'muted small' }, '这里显示的是模型本身，还没有跑仿真。改尺寸、加关节、换材料可以直接跟你的 AI 说，改完这里会自动刷新。'));
+          : h('div', { class: 'pn-side-empty' }, '还没有活动关节，零件都是固定的。可以让 AI 帮你加转轴或滑轨。'))),
+      h('div', { class: 'muted small' }, '这里显示的是模型本身，还没有跑仿真。改尺寸、加关节、换材料可以直接跟你的 AI 说，改完这里会自动刷新。'),
+      D.modelMat = h('div', { class: 'pn-sec' }),
+      D.modelMech = h('div', { class: 'pn-sec' }));
+    renderModelParams();
     renderModelHead();
     if (!model3d) {
       const { Replay3D } = await import('../replay3d.js');
@@ -665,6 +667,32 @@ export function createPanel(ctx) {
     if (model.error || !model3d.ok) return;
     try { await model3d.loadFrom('model'); } catch (e) { toastError(e); }
     model3d.resize();
+  }
+
+  // materials, print settings and mechanism parameters, edited in place
+  function renderModelParams() {
+    if (!D.modelMat || !model) return;
+    const pc = printCards(model.materials);
+    clear(D.modelMat).append(h('div', { class: 'pn-sec-head' }, h('strong', {}, '材料和打印'),
+      h('span', { class: 'muted small' }, '每个打印件用什么料、怎么打；改完按回车保存，强度检测会按这里的设置算'),
+      pc.length ? h('span', { class: 'pn-model-acts', style: { marginLeft: 'auto' } },
+        h('button', { class: 'btn sm', onclick: () => sendPrint(false), title: '导出一个 3MF 文件，可以拖进任何切片软件' }, icon('import'), '导出 3MF'),
+        h('button', { class: 'btn sm primary', onclick: () => sendPrint(true) }, icon('send'), '发到 Bambu Studio')) : null));
+    D.modelMat.hidden = !pc.length;
+    if (pc.length) D.modelMat.append(h('div', { class: 'pf-grid' }, ...pc));
+    const mc = mechCards(store.project?.presets);
+    clear(D.modelMech).append(h('div', { class: 'pn-sec-head' }, h('strong', {}, '机构参数'),
+      h('span', { class: 'muted small' }, '电机型号、开关手感、开始角度')), h('div', { class: 'pf-grid' }, ...mc));
+    D.modelMech.hidden = !mc.length;
+  }
+
+  async function sendPrint(open) {
+    toast(open ? '正在导出并打开 Bambu Studio…' : '正在导出 3MF…', { timeout: 3000 });
+    try {
+      const r = await post('printing/send', { open, with_settings: true });
+      const how = r.opened?.method === 'executable' ? '已用 Bambu Studio 打开' : r.opened?.method === 'url_scheme' ? '已通过 bambustudio:// 链接打开' : '3MF 已导出';
+      toast(`${how}：${r.file}`, { timeout: 9000, action: { label: '复制路径', fn: () => copyText(r.file) } });
+    } catch (e) { toastError(e); }
   }
 
   function printList() {

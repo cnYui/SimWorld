@@ -84,6 +84,7 @@ def test_model_page_summary_and_preview(client):
     servo = next(j for j in m['joints'] if j['name'] == 'servo_axis')
     assert servo['type'] == 'hinge' and servo['range'] == [-40, 40]
     assert any(p['label'] == '按压臂' and p['exists'] for p in m['print_parts'])
+    assert m['materials']['PETG']['layer_strength_mpa'] > 0
     desc = json.loads(_raw(client, 'GET', 'model/scene.json'))
     assert desc['geoms'] and not any(g['name'].startswith('pcb_') for g in desc['geoms'])
     frames = _raw(client, 'GET', 'model/frames.bin')

@@ -107,6 +107,9 @@ def model_summary(project: Project):
                                    'material': pp.get('material'), 'settings': pp.get('settings') or {},
                                    'exists': bool(f) and project.path(f).is_file()})
     out['has_model'] = bool(out['mjcf'] or out['parts'])
+    from .strength.materials import MATERIALS
+    out['materials'] = {k: {'strength_mpa': v['Xt'], 'layer_strength_mpa': v['Zt'], 'modulus_mpa': v['E_xy'],
+                            'soften_c': v['T_soften_c']} for k, v in MATERIALS.items()}
     if not out['has_model']:
         return out
     try:

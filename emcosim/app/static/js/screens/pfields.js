@@ -26,6 +26,16 @@ function row(r, value, pnote) {
   if (r.options) {
     input = h('select', { class: 'input pf-in' }, r.options.map(([v, l]) => h('option', { value: String(v), selected: String(v) === String(value) }, l)));
     input.addEventListener('change', () => save(r, r.options.find(([v]) => String(v) === input.value)[0], input));
+  } else if (r.pct) {
+    // '40%' strings (Bambu Studio style) edited as a number
+    const num = parseFloat(String(value));
+    input = h('input', { class: 'input pf-in mono', value: isFinite(num) ? String(num) : '', inputmode: 'decimal', 'aria-label': r.label });
+    input.addEventListener('keydown', (e) => { if (e.key === 'Enter') input.blur(); });
+    input.addEventListener('change', () => {
+      const n = Number(input.value);
+      if (!isFinite(n) || n < 0 || n > 100) { toast('填 0 到 100 之间的数', { kind: 'bad' }); input.value = String(num); return; }
+      save(r, `${n}%`, input);
+    });
   } else if (typeof value === 'number') {
     input = h('input', { class: 'input pf-in mono', value: fmtNum(value / scale, 4), inputmode: 'decimal', 'aria-label': r.label });
     input.addEventListener('keydown', (e) => { if (e.key === 'Enter') input.blur(); if (e.key === 'Escape') { input.value = fmtNum(value / scale, 4); input.blur(); } });
@@ -82,5 +92,65 @@ export function powerCards() {
     { path: 'mcu.brownout.v_trip', label: '欠压复位电压', unit: 'V' },
     { path: 'mcu.brownout.v_release', label: '恢复电压', unit: 'V' },
   ], { sub: (d.mcu?.type || '').toUpperCase() }));
+  return cards.filter(Boolean);
+}
+
+// ------------------------------------------------------------ 建模 page
+
+const MAT_NAMES = { PLA: 'PLA', PETG: 'PETG', ABS: 'ABS', ASA: 'ASA', 'PA-CF': 'PA-CF（碳纤尼龙）' };
+
+/** One card per print part: material and the main print settings, plus what the material can take. */
+export function printCards(materials) {
+  const d = store.project?.data || {};
+  const parts = d.printing?.parts || {};
+  const names = Object.keys(materials || {});
+  return Object.entries(parts).map(([name, pp]) => {
+    const base = `printing.parts.${name}`;
+    const opts = names.map((m) => [m, MAT_NAMES[m] || m]);
+    if (pp.material && !names.includes(pp.material)) opts.push([pp.material, pp.material]);
+    const card = paramCard(pp.label || name, [
+      { path: `${base}.material`, label: '材料', options: opts },
+      { path: `${base}.settings.layer_height`, label: '层高', unit: 'mm' },
+      { path: `${base}.settings.wall_loops`, label: '墙层数', unit: '层' },
+      { path: `${base}.settings.sparse_infill_density`, label: '填充', unit: '%', pct: true },
+    ], { sub: (pp.file || '').split(/[\\/]/).pop() });
+    const m = materials?.[pp.material];
+    if (card && m) {
+      card.append(h('div', { class: 'muted small' },
+        `${pp.material} 强度约 ${m.strength_mpa} MPa，层与层之间约 ${m.layer_strength_mpa} MPa，${m.soften_c} °C 左右开始变软（文献典型值）`));
+    }
+    return card;
+  }).filter(Boolean);
+}
+
+/** Mechanism settings: servo model, switch feel, start angles. */
+export function mechCards(presets) {
+  const d = store.project?.data || {};
+  const cards = [];
+  for (const [name, a] of Object.entries(d.actuators || {})) {
+    if (!a.preset) continue;
+    const opts = Object.keys(presets || {}).map((k) => [k, { sg90: 'SG90（塑料齿轮）', mg90s: 'MG90S（金属齿轮）', tt_motor: 'TT 减速电机' }[k] || k]);
+    cards.push(paramCard(`电机 ${name}`, [
+      { path: `actuators.${name}.preset`, label: '型号', options: opts },
+      { path: `actuators.${name}.angle_limit_deg`, label: '最大转角', unit: '°' },
+    ], { sub: a.joint ? `带动关节 ${a.joint}` : '' }));
+  }
+  for (const [name, e] of Object.entries(d.mechanics?.elements || {})) {
+    if (e.type !== 'bistable') continue;
+    cards.push(paramCard(`开关手感 ${name}`, [
+      { path: `mechanics.elements.${name}.stable_deg`, label: '翘板停的角度', unit: '°' },
+      { path: `mechanics.elements.${name}.peak_force_n`, label: '按过去要的力', unit: 'N' },
+      { path: `mechanics.elements.${name}.lever_m`, label: '按压点到转轴', unit: 'mm', scale: 1e-3 },
+    ], { sub: e.joint ? `关节 ${e.joint}` : '' }));
+  }
+  const init = d.mechanics?.initial_deg || {};
+  if (Object.keys(init).length) {
+    cards.push(paramCard('开始时的角度', Object.keys(init).map((j) => ({ path: `mechanics.initial_deg.${j}`, label: j, unit: '°' }))));
+  }
+  for (const [name, part] of Object.entries(d.mechanics?.parts || {})) {
+    cards.push(paramCard(`导入零件 ${name}`, [
+      { path: `mechanics.parts.${name}.mass_kg`, label: '质量', unit: 'g', scale: 1e-3 },
+    ], { sub: part.source || part.file }));
+  }
   return cards.filter(Boolean);
 }
