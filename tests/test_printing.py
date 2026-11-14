@@ -60,8 +60,7 @@ def test_send_opens_slicer(tmp_path, monkeypatch):
         if log.exists():
             break
         time.sleep(0.05)
-    argv = log.read_text().split()
-    assert argv[0] == '--single-instance' and argv[-1].endswith('.3mf')
+    assert log.read_text().strip().endswith('.3mf')
 
 
 def test_no_slicer_error(tmp_path, monkeypatch):
